@@ -12,4 +12,5 @@ class QCB():
         self.qcb = np.array((width, height), SCPatch)
 
     def build(self, dag):
+        return
         
