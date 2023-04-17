@@ -1,8 +1,10 @@
 import numpy as np
 import copy
 
+from enum import Enum
+
 class DAGNode():
-    def __init__(self, targs, edges=None, data=None, layer_num=None, slack=0):
+    def __init__(self, targs, edges=None, data=None, layer_num=None, slack=0, magic_state=False):
         if type(targs) is int:
             targs = [targs]
         if edges is None:
@@ -24,6 +26,9 @@ class DAGNode():
 
         self.non_local = len(self.targs) > 1
         self.slack = slack
+
+        self.resolved = False
+        self.magic_state = magic_state
 
         if layer_num is None:
             layer_num = max(self.edges_precede[i].layer_num + 1 for i in self.edges_precede)
@@ -47,16 +52,18 @@ class DAG():
         
         # Initial Nodes
         self.gates = [DAGNode(i, data="INIT", layer_num = 0) for i in range(n_blocks)]
+        self.blocks = {i:self.gates[i] for i in range(n_blocks)}
 
         # Layer Later
         self.layers = []
         self.layers_conjestion = []
         self.layers_msf = []
 
-        # Magic State Factory Node
+        # Magic State Factory Nodes
         self.msfs = {} #
 
         # Tracks which node each gate was last involved in
+        # Ease of construction
         self.last_block = {i:self.gates[i] for i in range(n_blocks)} 
         self.layer()
 
@@ -67,16 +74,21 @@ class DAG():
         if type(targs) is int:
             targs = [targs]
 
-        targs = copy.deepcopy(targs) 
+        targs = copy.deepcopy(targs)
+        if magic_state:
+            targs.append(data)
+            if data not in self.msfs:
+                self.msfs[data] = DAGNode(data, 'INIT', layer_num=0, magic_state=magic_state)
+                self.blocks[data] = self.msfs[data]
+                self.last_block[data] = self.msfs[data]
 
         edges = {}
         for t in targs:
-            edges[t] = self.last_block[t]
+            if t in self.msfs:
+                edges[t] = self.blocks[t]
+            else:
+                edges[t] = self.last_block[t]
         
-        if magic_state is True:
-            if data not in self.msfs:
-                self.msfs[data] = DAGNode(-1, layer_num = 0)
-            targs += [self.msfs[data]]
         gate = DAGNode(targs, edges, data=data)
 
         for t in targs:
@@ -112,61 +124,88 @@ class DAG():
         
 
     def dag_traverse(self, n_channels, *msfs, blocking=True, debug=False):
-        front_layer = []
-        unresolved = []
-
         traversed_layers = []
+
+        # Magic state factory data
+        msfs = list(msfs)
+        msfs.sort(key = lambda x : x.cycles)
+        msfs_state = [0] * len(msfs)
 
         unresolved = copy.copy(self.layers[0])
         unresolved_update = copy.copy(unresolved)
 
+        for symbol in self.msfs:
+            self.msfs[symbol].resolved = 0
+
         while len(unresolved) > 0:
             traversed_layers.append([])
             non_local_gates_in_layer = 0
+            patch_used = [False] * self.n_blocks
 
             unresolved.sort(key=lambda x: x.slack, reverse=True)
 
-            if debug:
-                print("UNRES:", unresolved)
             for gate in unresolved:
-                if debug:
-                    print("GATE:", str(gate), gate.non_local, non_local_gates_in_layer)
-                if ((not gate.non_local) or (gate.non_local and non_local_gates_in_layer < n_channels)) and (gate not in front_layer):
+               
+                # Multiple add, ignore
+                if gate.resolved:
+                    continue
 
+                # Channel resolution
+                if (not gate.non_local) or (gate.non_local and non_local_gates_in_layer < n_channels):
+
+                    # Check predicates
                     predicates_resolved = True
                     for predicate in gate.edges_precede:
-                        if gate.edges_precede[predicate] not in front_layer:
+                        if not gate.edges_precede[predicate].resolved or (gate.edges_precede[predicate].magic_state == False and patch_used[predicate]):
                             predicates_resolved = False
                             break
 
                     if predicates_resolved:
                         traversed_layers[-1].append(gate)
-                        while gate in unresolved_update:
-                            unresolved_update.remove(gate)
-                        # for predicate in gate.edges_precede:
-                        #     if gate.edges_precede[predicate] in front_layer: 
-                        #         front_layer.remove(gate.edges_precede[predicate])
-                        for antecedant in gate.edges_antecede:
-                            if gate.edges_antecede[antecedant] not in front_layer:
-                                unresolved_update.insert(0, gate.edges_antecede[antecedant])
-                        front_layer.append(gate)
+                        gate.resolved = True
+
+                        # Fungible MSF nodes
+                        for targ in gate.targs:
+                            if self.blocks[targ].magic_state is False:
+                                patch_used[targ] = True
+                        # Add antecedent gates
+                        for antecedent in gate.edges_antecede:
+                            if (gate.edges_antecede[antecedent] not in unresolved_update):
+                                unresolved_update.append(gate.edges_antecede[antecedent])
+
+                        # Expend a channel
                         if gate.non_local:
                             non_local_gates_in_layer += 1
 
-            front_layer_update = copy.copy(front_layer)
-            for gate in front_layer:
-                all_antecedants_resolved = True
-                for antecedant in gate.edges_antecede:
-                    if gate.edges_antecede[antecedant] not in front_layer:
-                        all_antecedants_resolved = False
-                        break
-                if all_antecedants_resolved:
-                    front_layer_update.remove(gate)
-            front_layer = front_layer_update
+                        # Remove the gate from the next round
+                        unresolved_update.remove(gate)
+
+                        # Resolve magic state factory resources
+                        for predicate in gate.edges_precede:
+                            if gate.edges_precede[predicate].magic_state:
+                                for i, factory in enumerate(msfs):
+                                    # Consume first predicate for each MS needed for the gate
+                                    if predicate == factory.symbol and msfs_state[i] >= factory.cycles:
+                                        msfs_state[i] = 0
+                                        gate.edges_precede[predicate].resolved -= 1
+                                        break
+            
+            # Update MSF cycle state
+            for i, gate in enumerate(msfs):
+                if msfs_state[i] < msfs[i].cycles:
+                    msfs_state[i] += 1
+                if msfs_state[i] == msfs[i].cycles:
+                    self.msfs[msfs[i].symbol].resolved += 1
 
             unresolved = copy.copy(unresolved_update)
             if debug:
                 print("FL:", front_layer)
+
+        for gate in self.gates:
+            gate.resolved = False
+
+        for symbol in self.msfs:
+            self.msfs[symbol].resolved = 0
 
         return len(traversed_layers), traversed_layers
 
