@@ -1,7 +1,6 @@
 import numpy as np
 import copy
 
-from enum import Enum
 
 class DAGNode():
     def __init__(self, targs, edges=None, data=None, layer_num=None, slack=0, magic_state=False):
@@ -146,7 +145,7 @@ class DAG():
 
             for gate in unresolved:
                
-                # Multiple add, ignore
+                # Gate already resolved, ignore
                 if gate.resolved:
                     continue
 
@@ -208,10 +207,6 @@ class DAG():
             self.msfs[symbol].resolved = 0
 
         return len(traversed_layers), traversed_layers
-
-
-
-
 
 
     def depth_msf(self, *msfs, blocking=True, debug=True):
