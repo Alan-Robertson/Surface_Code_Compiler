@@ -24,3 +24,8 @@ algebra of allowable combinations of nieghbours
 
 register, topmost alloc, always 1 high, double alloc if above is routing, also require route on bottom
 left drop
+
+
+
+free blocks for register invariant:
+all free blocks have top row connected to at least one routing block.

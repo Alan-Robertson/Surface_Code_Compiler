@@ -102,15 +102,15 @@ class Segment():
     #         for y in range(self.y_0, y_1):
     #             qcb[x, y].state = state
 
-    def edges(self, label=None):
-        if label is None:
-            label = self.edge_labels
+    def edges(self, labels=None):
+        if labels is None:
+            labels = self.edge_labels
         edge_dict = {
             'above':self.above,
             'right':self.right,
             'below': self.below,
             'left': self.left}
-        return {label:edge_dict[label] for label in self.edge_labels}
+        return {label:edge_dict[label] for label in labels}
 
     def __repr__(self):
         return f"Segment({[self.x_0, self.y_0, self.x_1, self.y_1]})"
@@ -123,6 +123,9 @@ class Segment():
             return None, None
 
         chunks, confirm = self.split(self.x_0, self.y_0, width, height)
+        if not confirm:
+            return None, None
+        
         chunks[0].allocated = True
 
         return chunks, confirm

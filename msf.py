@@ -5,3 +5,6 @@ class MSF():
         self.height = shape[1]
         self.cycles = cycles
         self.err = err
+    
+    def __repr__(self):
+        return f"MSF({self.symbol})"

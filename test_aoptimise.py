@@ -48,7 +48,10 @@ def print_latex(segments, file="latex.tex"):
             elif s.state.state == 'debug':
                 color = 'yellow'
             print(f"\\draw[fill={color},fill opacity=0.5] ({s.x_0},-{s.y_0}) -- ({s.x_0},-{s.y_1+1}) -- ({s.x_1+1},-{s.y_1+1}) -- ({s.x_1+1},-{s.y_0}) -- cycle;", file=f)
-            print(f"\\node at ({s.x_0+0.5},-{s.y_0+0.5}) {{{s.state.state}{s.debug_name}}};", file=f)
+            if s.state.state == SCPatch.MSF:
+                print(f"\\node at ({s.x_0+0.5},-{s.y_0+0.5}) {{{s.state.state}{s.state.msf.symbol}}};", file=f)
+            else:
+                print(f"\\node at ({s.x_0+0.5},-{s.y_0+0.5}) {{{s.state.state}{s.debug_name}}};", file=f)
 
         print(r"""
 \end{tikzpicture}
@@ -60,67 +63,59 @@ def print_latex(segments, file="latex.tex"):
 
 import allocator
 from msf import MSF
-# msfs = [
-#     [8, 3],
-#     [6, 2],
-#     [5, 5],
-#     [3, 8],
-#     [5, 8],
-#     [2, 3],
-#     [6, 4],
-#     [1, 4],
-# ]
-msfs = [
-    # [13, 4],
-    # [7, 3],
-    [7, 3],
-    [5, 2],
-    # [5, 2],
-    [5, 2],
-]
-msfs.sort(reverse=True)
+import dag
+import msf
 
-msfs2 = []
-for i, s in enumerate(msfs):
-    msfs2.append(MSF(i, s, None))
+t_fact = msf.MSF('T', (5, 3), 19)
+q_fact = msf.MSF('Q', (4, 4), 15)
 
-# qcb = allocator.QCB(20, 17, 8, 13, *msfs2)
-# qcb = allocator.QCB(15, 20, 8, 500, *msfs2)
-qcb = allocator.QCB(20, 30, 8, 30, *msfs2)
+
+g = dag.DAG(12)
+g.add_gate(2, 'T', magic_state=True)
+# g.add_gate(3, 'T', magic_state=True)
+# g.add_gate(0, 'Q', magic_state=True)
+g.add_gate(0, 'Z')
+g.add_gate([0, 1], 'CNOT')
+g.add_gate([0, 1], 'CNOT')
+g.add_gate([0, 1], 'CNOT')
+g.add_gate([0, 1], 'CNOT')
+g.add_gate(1, 'Z')
+g.add_gate([0, 1], 'CNOT')
+g.add_gate(2, 'Z')
+g.add_gate(2, 'Z')
+g.add_gate(2, 'Z')
+#g.add_gate([2, 3], 'CNOT')
+g.add_gate([0, 2], 'CNOT')
+#g.add_gate(1, 'Z')
+g.add_gate([0, 2], 'CNOT')
+g.add_gate([2, 3], 'CNOT')
+g.add_gate(2, 'T', magic_state=True)
+# g.add_gate(3, 'T', magic_state=True)
+# g.add_gate(0, 'Q', magic_state=True)
+#g.add_gate(1, 'Z')
+g.add_gate([0, 1], 'CNOT')
+
+
+qcb = allocator.QCB(7, 8, 4, g.n_blocks, t_fact)
+
+
 try:
     qcb.allocate()
+    print("Allocate success")
+    try:
+        qcb.optimise(g)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+
+    print("Optimise success")
 except Exception as e:
     import traceback
     traceback.print_exc()
 
-# qcb.place_io()
-# msfs = list(qcb.msfs.values())
-# qcb.place_first_msf(msfs[0])
-# for i, msf in enumerate(msfs[1:3]):
-#     print(i)
-#     qcb.place_msf(msf)
-#     print_latex(qcb.segments, f"allocator{i}.tex")
+print_latex(qcb.segments, 'allocatora.tex')
 
-# (seg, ), confirm = qcb.get_free_segments()[3].top_merge()
-# confirm(qcb.segments)
-# (seg, ), confirm = seg.left_merge()
-# confirm(qcb.segments)
-# (seg, *_), confirm = seg.top_merge()
-# confirm(qcb.segments)
 
-from test_segments import name_segments, print_edges
-
-# name_segments(qcb.segments)
-
-# print(qcb.get_free_segments())
-# print(qcb.get_free_segments()[4])
-# print(qcb.get_free_segments()[4].left)
-
-print_latex(qcb.segments, 'allocatorx.tex')
-# print_edges(qcb.segments)
-# print(list(qcb.segments)[-1].right)
-# for s in qcb.segments:
-#     print(s)
 
 def _validate(self):
     all_segs = set.union(*map(lambda s: set.union(*s.edges().values()), self.segments))
