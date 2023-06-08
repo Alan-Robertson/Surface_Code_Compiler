@@ -1,5 +1,5 @@
 
-from allocator import RegNode
+from mapper import RegNode
 from qcb import SCPatch
 
 def print_header(f, scale=1):

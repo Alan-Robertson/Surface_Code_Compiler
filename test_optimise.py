@@ -54,13 +54,6 @@ except Exception as e:
 
 print_qcb(qcb.segments, 'allocatora.tex')
 
-try:
-    qcb.map_to_grid()
-except Exception as e:
-    traceback.print_exc()
-
-print_qcb(qcb.grid_segments, 'allocatorb.tex')
-print_connectivity_graph(qcb.grid_segments, 'graph.tex')
 
 def _validate(self):
     all_segs = set.union(*map(lambda s: set.union(*s.edges().values()), self.segments))

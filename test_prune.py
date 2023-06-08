@@ -1,15 +1,17 @@
 
+from test_tikz_helper import *
+
+
 import allocator
+from msf import MSF
 import dag
 import msf
-
-from test_tikz_helper import *
 
 t_fact = msf.MSF('T', (5, 3), 19)
 q_fact = msf.MSF('Q', (4, 4), 15)
 
 
-g = dag.DAG(15)
+g = dag.DAG(50)
 g.add_gate(2, 'T', magic_state=True)
 g.add_gate(3, 'T', magic_state=True)
 g.add_gate(0, 'Q', magic_state=True)
@@ -51,22 +53,24 @@ try:
 except Exception as e:
     traceback.print_exc()
 
-print_qcb(qcb.segments, 'mapper.tex')
+print_qcb(qcb.segments, 'allocatora.tex')
+
+
+def _validate(self):
+    all_segs = set.union(*map(lambda s: set.union(*s.edges().values()), self.segments))
+    return len(all_segs - self.segments) == 0
 
 
 from graph_prune import QCBPrune
-from mapper import QCBMapper
+prune = QCBPrune(qcb.segments)
+
 try:
-    prune = QCBPrune(qcb.segments)
     prune.map_to_grid()
-    mapper = QCBMapper(prune.grid_segments)
-    root = mapper.generate_mapping_tree()
 except Exception as e:
     traceback.print_exc()
 
-print_connectivity_graph(prune.grid_segments, 'mapperc.tex')
-print_mapping_tree(root, 'graph.tex')
+print_qcb(prune.grid_segments, 'allocatorb.tex')
+print_connectivity_graph(prune.grid_segments, 'graph.tex')
 
 
-print(g.calculate_conjestion())
-print(g.calculate_proximity())
+print("validation", _validate(qcb))
