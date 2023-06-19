@@ -1,34 +1,59 @@
 
 from qcb import Segment, SCPatch
 from typing import *
-
-
-
+from allocator import AllocatorError, QCB
+import numpy as np
+from collections import defaultdict
+from dag import DAG 
+from utils import log
 # debug_count = 0
 class RegNode():
-    def __init__(self, seg: 'Segment|None', children: 'Set[RegNode]|None'=None):
+    def __init__(self, seg: 'Segment|None', children: 'Set[RegNode]|None'=None, sym = None):
         assert seg or children
         # global debug_count
         # self.debug = debug_count
         # debug_count += 1
-        if seg:
+        if seg and not sym:
             self.seg = seg
-            self.slots = seg.width * seg.height
+            self.slots = {0: seg.width * seg.height}
             self.weight = 0
-            self.children = {}
+            self.children = set()            
             self.visited = {seg}
             self.fringe = {seg}
             self.parent = self
+            self.sym = sym
+        elif seg and sym:
+            self.seg = seg
+            self.slots = {sym: 1}
+            self.weight = 0
+            self.children = set()
+            self.visited = {seg}
+            self.fringe = {seg}
+            self.parent = self
+            self.sym = sym
         else:
             self.seg = None
-            self.slots = sum(c.slots for c in children)
+            self.slots = {
+                k: sum(c.slots.get(k, 0) for c in children)
+                for k in set.union(set(), *(c.slots.keys() for c in children))
+            }
             self.weight = max(c.weight for c in children)
-            self.children = {c: c.slots for c in children}
+            self.children = set(children)
             self.visited = set.union(*(c.visited for c in children))
             self.fringe = set.union(*(c.fringe for c in children))
             self.parent = self
             for c in children:
                 c.parent = self
+            self.sym = sym
+        
+        self.qubits: List[int] = []
+        self.child_used: \
+            dict[RegNode, DefaultDict[Union[str, int], int]] \
+                = {c: defaultdict(int) for c in self.children}
+        self.child_max: \
+            dict[RegNode, DefaultDict[Union[str, int], int]] \
+                = {c: c.slots for c in self.children}
+
 
     def root(self):
         curr = self
@@ -50,21 +75,54 @@ class RegNode():
             neighbours.update(s.above | s.below | s.left | s.right)
         neighbours.difference_update(self.visited)
         return neighbours
+
+    def alloc_qubit(self, qubit):
+        k = _t(qubit)
+
+        if self.seg:
+            if len(self.qubits) < self.slots.get(k, 0):
+                self.qubits.append(qubit)
+                return self
+            else:
+                raise AllocatorError("Can't map qubit, slots exhausted!")
+            
+        ordering = sorted(self.children, 
+                        key=lambda c: 
+                            (self.child_used[c].get(k, 0), 
+                            -c.weight, 
+                            -self.child_max[c].get(k, 0)
+                            )
+                        )
+        for c in ordering:
+            if self.child_used[c].get(k, 0) < self.child_max[c].get(k, 0):
+                alloc = c.alloc_qubit(qubit)
+                self.child_used[c][k] += 1
+                self.qubits.append(qubit)
+                return alloc
+        print(self, qubit, {c: self.child_used[c].get(k, 0) for c in self.child_used} , {c: self.child_max[c].get(k, 0) for c in self.child_max})
+        raise AllocatorError("Can't map qubit, slots in children exhausted!")
+
+
+
     # def __repr__(self):
     #     return f'RegNode({self.debug})'
     # def __str__(self):
     #     return repr(self)
-    # def print(self): 
-    #     if self.seg:
-    #         print(f'Block {str(self.seg)} {self.weight=}')
-    #     else:
-    #         print(f'Begin {id(self)}')
-    #         for c in self.children:
-    #             c.print()
-    #         print(f'End {id(self)}')
+    def print(self): 
+        if self.seg:
+            print(f'Block {str(self.seg)} {self.weight=} {self.qubits=}')
+        else:
+            print(f'Begin {id(self)}')
+            for c in self.children:
+                c.print()
+            print(f'End {id(self)}')
 
 
-
+def _t(sym):
+    if isinstance(sym, int):
+        return 0
+    elif isinstance(sym, str):
+        return sym.split('_#')[0]
 
 class QCBMapper:
     def __init__(self, grid_segments):
@@ -74,11 +132,95 @@ class QCBMapper:
         # mapping tree variables
         self.mapping_forest: Set[RegNode] = set()
         self.mapping: 'Dict[Segment, RegNode]' = {}
+        self.root: RegNode|None = None
+        self.qubit_mapping: 'Dict[int, RegNode]' = {}
+    
+    def map_all(self, g: DAG, qcb: QCB):
+        conj, conj_m, conj_minv = g.calculate_conjestion()
+        prox, _, _ = g.calculate_proximity()
+
+        self.map_qubits(conj, prox, conj_m, conj_minv)
+
+        g.remap_msfs(qcb.n_channels, qcb.msfs)
+
+        conj, conj_m, conj_minv = g.calculate_conjestion()
+        prox, _, _ = g.calculate_proximity()
+
+        # Here we map msfs
+        self.map_msfs(conj, prox, conj_m, conj_minv)
+
+        self.labels = conj_m
+
+        return self.generate_mapping_dict()
+    
+    def generate_mapping_dict(self):
+        mapping = {}
+        for qubit, node in self.qubit_mapping.items():
+            if node.sym:
+                mapping[qubit] = (node.seg.x_0, node.seg.y_1)
+            elif len(node.qubits) == 1:
+                mapping[qubit] = (node.seg.x_0, node.seg.y_0)
+            else:
+                offset = node.qubits.index(qubit)
+                mapping[qubit] = (node.seg.x_0 + offset, node.seg.y_0)
+        return mapping
+
+    def map_qubits(self, conj, prox, m, minv):
+        self.allocated: Set[int] = set()
+        total_conj = np.sum(conj, axis=1)
+        qubits = np.argsort(total_conj)[::-1]
+        for q in qubits:
+            if minv[q] in self.allocated or not isinstance(minv[q], int):
+                continue
+            self.qubit_mapping[minv[q]] = self.root.alloc_qubit(minv[q])
+            log("map q", minv[q], self.qubit_mapping[minv[q]].seg)
+            self.allocated.add(minv[q])
+            
+            row = sorted((-c, p, i) for i, (c, p) in enumerate(zip(conj[q,:], prox[q,:])))
+            for negc, p, i in row:
+                if negc >= 0:
+                    break
+                elif minv[i] not in self.allocated and isinstance(minv[i], int):
+                    self.qubit_mapping[minv[i]] = self.root.alloc_qubit(minv[i])
+                    log("map i", minv[i], self.qubit_mapping[minv[i]].seg)
+
+                    self.allocated.add(minv[i])
+
+        # self.root.print()
+        log("finished alloc", self.allocated)
+            
+    def map_msfs(self, conj, prox, m, minv):
+        total_prox = np.sum(conj, axis=1)
+        qubits = np.argsort(total_prox)
+        for q in qubits:
+            if minv[q] in self.allocated:
+                continue
+            print("alloc msf", minv[q])
+            self.qubit_mapping[minv[q]] = self.root.alloc_qubit(minv[q])
+            print("map", minv[q], self.qubit_mapping[minv[q]].seg)
+            self.allocated.add(minv[q])
+            
+            # row = sorted((-c, p, i) for i, (c, p) in enumerate(zip(conj[q,:], prox[q,:])))
+            # for negc, p, i in row:
+            #     if negc >= 0:
+            #         break
+            #     elif minv[i] not in self.allocated:
+            #         self.qubit_mapping[minv[i]] = self.root.alloc_qubit(minv[i])
+            #         print("map", minv[i], self.qubit_mapping[minv[i]].seg)
+
+            #         self.allocated.add(minv[i])
+
+        self.root.print()     
+
 
     def generate_mapping_tree(self):
         for s in self.grid_segments:
             if s.state.state == SCPatch.REG:
                 n = RegNode(seg=s)
+                self.mapping_forest.add(n)
+                self.mapping[s] = n
+            elif s.state.state == SCPatch.MSF:
+                n = RegNode(seg=s, sym=s.state.msf.symbol)
                 self.mapping_forest.add(n)
                 self.mapping[s] = n
 
@@ -97,8 +239,10 @@ class QCBMapper:
             self.grow_mapping_forest()
         # for s in self.mapping_forest:
         #     s.print()
+        
+        self.root = next(iter(self.mapping_forest))
 
-        return next(iter(self.mapping_forest))
+        return self.root
         
 
     

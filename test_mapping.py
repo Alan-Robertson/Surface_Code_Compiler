@@ -9,7 +9,7 @@ t_fact = msf.MSF('T', (5, 3), 19)
 q_fact = msf.MSF('Q', (4, 4), 15)
 
 
-g = dag.DAG(15)
+g = dag.DAG(40)
 g.add_gate(2, 'T', magic_state=True)
 g.add_gate(3, 'T', magic_state=True)
 g.add_gate(0, 'Q', magic_state=True)
@@ -68,5 +68,14 @@ print_connectivity_graph(prune.grid_segments, 'mapperc.tex')
 print_mapping_tree(root, 'graph.tex')
 
 
-print(g.calculate_conjestion())
-print(g.calculate_proximity())
+conj, m_conj, minv_conj = g.calculate_conjestion()
+prox, m_prox, minv_prox = g.calculate_proximity()
+
+assert m_conj == m_prox
+assert minv_conj == minv_prox
+
+mapper.map_qubits(conj, prox, m_conj, minv_conj)
+
+print_mapping_tree(root, 'graph.tex')
+
+# print(mapper.qubit_mapping)

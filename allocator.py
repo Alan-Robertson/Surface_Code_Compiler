@@ -21,7 +21,11 @@ class QCB:
         self.msfs = []
         self.n_channels = 1
 
+        self.test = 0
+
     def try_opt_channel(self) -> bool:
+        self.global_top_merge()
+        self.global_left_merge()
         longest_reg = max((s 
                            for s in self.segments 
                            if s.state.state == SCPatch.REG
@@ -53,6 +57,7 @@ class QCB:
             except AllocatorError as e:
                 import traceback
                 traceback.print_exc()
+                print("Opt channel failed, bailing...")
                 return False
             new_req = self.reg_allocated - self.reg_quota - len(affected_regs)
 
@@ -70,16 +75,29 @@ class QCB:
 
             self.reg_allocated -= 1
 
+        print("regs", self.reg_allocated, "/", self.reg_quota)
         return True
 
 
     
     def try_opt_new_msf(self, new_msf) -> bool:
         try:
-            self.place_msf(new_msf)
-            return True
+            fringe = (float('-inf'), float('-inf'))
+
+            success, position = self.try_place_msf(new_msf, fringe)
+            while not success:
+                self.global_top_merge()
+                self.global_left_merge()
+                fringe = position
+                success, position = self.try_place_msf(new_msf, fringe)
+
+            # self.test += 1
         except AllocatorError:
             return False
+        # if self.test >= 3:
+        #     raise Exception("test")
+        return True
+
 
     def try_optimise(self, dag: DAG) -> bool:
         if not self.get_free_segments():
@@ -120,10 +138,15 @@ class QCB:
 
         print("final score", dag.dag_traverse(self.n_channels, *self.msfs)[0], self.n_channels, self.msfs)
 
+        dag.dag_traverse(self.n_channels, *self.msfs)
+        
+        # TODO add reg before flood
+
         for s in self.get_free_segments():
             s.allocated = True
             s.state = SCPatch(SCPatch.ROUTE)
             s.debug_name = "(flood)"
+        
 
     def place_io(self):
         segs, confirm = self.get_free_segments()[0].split(0, self.height - 1, self.io_width, 1)
@@ -284,6 +307,7 @@ class QCB:
         return True, msf_seg.y_position()
 
 
+
     def place_msf(self, msf: MSF):
         fringe = (float('-inf'), float('-inf'))
 
@@ -375,15 +399,19 @@ class QCB:
                     route[0].state = SCPatch(SCPatch.ROUTE)
                     route[0].allocated = True
                 return
-
-            reg.allocated = False
-            (single, reg), confirm = reg.alloc(1, 1)
-            confirm(self.segments)
-            single.state = SCPatch(SCPatch.ROUTE)
-            single.debug_name = '(280)'
-            reg.state = SCPatch(SCPatch.REG)
-            reg.allocated = True
-            self.reg_allocated -= 1
+            if reg.width > 1:
+                reg.allocated = False
+                (single, reg), confirm = reg.alloc(1, 1)
+                confirm(self.segments)
+                single.state = SCPatch(SCPatch.ROUTE)
+                single.debug_name = '(280)'
+                reg = reg[0]
+                reg.state = SCPatch(SCPatch.REG)
+                reg.allocated = True
+                self.reg_allocated -= 1
+            else:
+                below_seg.allocated = True
+                below_seg.debug_name = "Temp fixs"
             assert self.check_free_reachable(below_seg)
 
     def place_reg_isolated(self, seg):

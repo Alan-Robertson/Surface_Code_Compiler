@@ -8,3 +8,5 @@ class MSF():
     
     def __repr__(self):
         return f"MSF({self.symbol})"
+    def copy(self):
+        return MSF(self.symbol, (self.width, self.height), self.cycles, self.err)

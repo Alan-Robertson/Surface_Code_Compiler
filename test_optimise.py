@@ -10,7 +10,7 @@ t_fact = msf.MSF('T', (5, 3), 19)
 q_fact = msf.MSF('Q', (4, 4), 15)
 
 
-g = dag.DAG(50)
+g = dag.DAG(40)
 g.add_gate(2, 'T', magic_state=True)
 g.add_gate(3, 'T', magic_state=True)
 g.add_gate(0, 'Q', magic_state=True)
