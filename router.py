@@ -6,13 +6,17 @@ from dag import DAG, DAGNode
 from queue import PriorityQueue
 from mapper import RegNode
 from utils import log
+from mapper import QCBMapper
 
 class QCBRouter:
-    def __init__(self, qcb: QCB, dag: DAG, mapping: Dict[int, Tuple[int, int]], m):
+    def __init__(self, qcb: QCB, dag: DAG, mapper:QCBMapper):
+        
         self.graph = Graph(shape=(qcb.width, qcb.height))
         self.dag = dag
-        self.mapping: 'Dict[Union[qubit_id, msf_type], resource_loc]' = mapping
-        self.m = m
+        self.mapping: 'Dict[Union[qubit_id, msf_type], resource_loc]' = mapper.generate_mapping_dict()
+        self.m = mapper.labels
+
+        qcb.reg_to_route(self.mapping.values())
 
         for s in qcb.segments:
             for x in range(s.x_0, s.x_1 + 1):

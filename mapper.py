@@ -6,6 +6,8 @@ import numpy as np
 from collections import defaultdict
 from dag import DAG 
 from utils import log
+
+
 # debug_count = 0
 class RegNode():
     def __init__(self, seg: 'Segment|None', children: 'Set[RegNode]|None'=None, sym = None):
@@ -77,7 +79,7 @@ class RegNode():
         return neighbours
 
     def alloc_qubit(self, qubit):
-        k = _t(qubit)
+        k = qubit_type(qubit)
 
         if self.seg:
             if len(self.qubits) < self.slots.get(k, 0):
@@ -118,7 +120,7 @@ class RegNode():
             print(f'End {id(self)}')
 
 
-def _t(sym):
+def qubit_type(sym):
     if isinstance(sym, int):
         return 0
     elif isinstance(sym, str):
@@ -161,7 +163,11 @@ class QCBMapper:
             elif len(node.qubits) == 1:
                 mapping[qubit] = (node.seg.x_0, node.seg.y_0)
             else:
-                offset = node.qubits.index(qubit)
+                index = node.qubits.index(qubit)
+                if index == len(node.qubits) - 1:
+                    offset = node.slots[0] - 1
+                else:
+                    offset = (index * (node.slots[0] - 1)) // (len(node.qubits) - 1) 
                 mapping[qubit] = (node.seg.x_0 + offset, node.seg.y_0)
         return mapping
 

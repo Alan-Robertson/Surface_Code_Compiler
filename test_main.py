@@ -26,7 +26,8 @@ try:
     print("Optimise success")
 except Exception as e:
     traceback.print_exc()
-    print("Allocation failed, aborting.")
+    print("Optimise failed, aborting.")
+    print_qcb(qcb.segments, 'main_optimised(fail).tex')
     exit()
 
 print_qcb(qcb.segments, 'main_optimised.tex')
@@ -67,7 +68,7 @@ print_mapping_tree(root, 'main_qubit_mapping.tex')
 
 
 from router import QCBRouter
-router = QCBRouter(qcb, g, mapper.generate_mapping_dict(), m=mapper.labels)
+router = QCBRouter(qcb, g, mapper)
 
 try:
     router.route_all()
@@ -80,7 +81,7 @@ except Exception as e:
 # print(router.active.queue)
 # print(router.finished)
 # print(router.waiting)
-# print_inst_locks(qcb.segments, g.layers)
+print_inst_locks(qcb.segments, g.gates, 'main_combined.tex')
 
 from test_tikz_helper2 import print_inst_locks2
 print_inst_locks2(qcb.segments, g.gates, 'main_frames.tex')

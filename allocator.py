@@ -23,6 +23,31 @@ class QCB:
 
         self.test = 0
 
+    def reg_to_route(self, keep: Set[Tuple[int, int]]):
+        
+        long_reg = next((s for s in self.segments 
+                        if s.state.state == SCPatch.REG
+                        and s.width > 1), None)
+        while long_reg:
+            long_reg.allocated = False
+            (reg, right), confirm = long_reg.alloc(1, 1)
+            confirm(self.segments)
+
+            reg.state = SCPatch(SCPatch.REG)
+            right.allocated = True
+            right.state = SCPatch(SCPatch.REG)
+
+            long_reg = next((s for s in self.segments 
+                        if s.state.state == SCPatch.REG
+                        and s.width > 1), None)
+
+
+        for seg in self.segments:
+            if seg.state.state == SCPatch.REG and (seg.x_0, seg.y_0) not in keep:
+                seg.state = SCPatch(SCPatch.ROUTE)
+                seg.debug_name = "r2r"
+
+
     def try_opt_channel(self) -> bool:
         self.global_top_merge()
         self.global_left_merge()
@@ -140,12 +165,74 @@ class QCB:
 
         dag.dag_traverse(self.n_channels, *self.msfs)
         
-        # TODO add reg before flood
 
-        for s in self.get_free_segments():
-            s.allocated = True
-            s.state = SCPatch(SCPatch.ROUTE)
-            s.debug_name = "(flood)"
+        self.global_top_merge()
+        self.global_left_merge()
+
+        free = self.get_free_segments()
+        if free:
+            last = next((s for s in free 
+                         if s.x_1 == self.width - 1 
+                         and s.y_1 == self.height - 1), None)
+            if last and last.height >= 2:
+                (bottom_block, *_), confirm = last.split(last.x_0, last.y_1-1, last.width, 2)
+                confirm(self.segments)
+                
+                (route, reg), confirm = bottom_block.alloc(bottom_block.width, 1)
+                confirm(self.segments)
+                
+                route.state = SCPatch(SCPatch.ROUTE)
+                reg.state = SCPatch(SCPatch.REG) 
+                reg.allocated = True
+
+
+        self.global_top_merge()
+        self.global_left_merge()
+        for seg in self.get_free_segments():
+            if not all(l.state.state == SCPatch.ROUTE for l in seg.left):
+                (left, main), confirm = seg.alloc(1, seg.height)
+                confirm(self.segments)
+                left.state = SCPatch(SCPatch.ROUTE)
+
+        # TODO add reg before flood
+        while self.get_free_segments():
+            self.global_top_merge()
+            self.global_left_merge()
+            regs = self.place_reg()
+            for r in regs:
+                # maybe green red green red?
+
+                while r.width >= 3:
+                    r.allocated = False
+
+                    (l, r), confirm = r.alloc(1, 1)
+                    confirm(self.segments)
+                    l.state = SCPatch(SCPatch.REG)
+
+                    (l, r), confirm = r.alloc(1, 1)
+                    confirm(self.segments)
+                    l.state = SCPatch(SCPatch.ROUTE)
+
+                if r.width == 2:
+                    r.allocated = False
+
+                    (l, r), confirm = r.alloc(1, 1)
+                    confirm(self.segments)
+                    l.state = SCPatch(SCPatch.REG)
+
+                    r.allocated = True
+                    r.state = SCPatch(SCPatch.ROUTE)
+                else:
+                    r.allocated = True
+                    r.state = SCPatch(SCPatch.REG)
+            
+
+                
+
+        # for s in self.get_free_segments():
+        #     s.allocated = True
+        #     s.state = SCPatch(SCPatch.ROUTE)
+        #     s.debug_name = "(flood)"
         
 
     def place_io(self):
@@ -340,6 +427,8 @@ class QCB:
             route_seg.state = SCPatch(SCPatch.ROUTE)
 
     def place_reg_top(self, seg):
+        out = []
+
         left_route = next((s for s in seg.left if s.y_0 == 0), None)
         if not left_route:
             # No MSFS: make dummy segment
@@ -351,6 +440,7 @@ class QCB:
         (reg, seg), confirm = seg.alloc(seg.width, 1)
         confirm(self.segments)
         reg.state = SCPatch(SCPatch.REG)
+        out.append(reg)
         self.reg_allocated += reg.width
 
         (route, *_), confirm = seg.alloc(seg.width, 1)
@@ -365,6 +455,8 @@ class QCB:
             (drop, *_), confirm = seg.alloc(1, left_route.y_0 - route.y_0)
             confirm(self.segments)
             drop.state = SCPatch(SCPatch.ROUTE)
+        
+        return out
 
     def check_reachable(self, seg):
         return any(s 
@@ -380,41 +472,53 @@ class QCB:
         return self.check_reachable(row)
     
     def place_reg_top_routable(self, seg):
+        out = []
+
         (reg, *_), confirm = seg.alloc(seg.width, 1)
         confirm(self.segments)
         reg.state = SCPatch(SCPatch.REG)
+        out.append(reg)
         self.reg_allocated += reg.width
         self.global_left_merge()
         below_seg = next(iter(s for s in reg.below if not s.allocated), None)
         if not below_seg:
-            return
+            return out
 
         if not self.check_free_reachable(below_seg):
             if below_seg.width == 1 and self.check_reachable(below_seg):
                 (reg, *route), confirm = below_seg.alloc(1, 1)
+                out.append(reg)
                 confirm(self.segments)
                 reg.state = SCPatch(SCPatch.REG)
                 self.reg_allocated += reg.width
                 if route:
                     route[0].state = SCPatch(SCPatch.ROUTE)
                     route[0].allocated = True
-                return
+                return out
             if reg.width > 1:
+                # raise Exception("test")
+
                 reg.allocated = False
+                out.remove(reg)
                 (single, reg), confirm = reg.alloc(1, 1)
                 confirm(self.segments)
                 single.state = SCPatch(SCPatch.ROUTE)
                 single.debug_name = '(280)'
-                reg = reg[0]
                 reg.state = SCPatch(SCPatch.REG)
+                out.append(reg)
                 reg.allocated = True
                 self.reg_allocated -= 1
             else:
                 below_seg.allocated = True
                 below_seg.debug_name = "Temp fixs"
+
             assert self.check_free_reachable(below_seg)
 
+        return out
+
     def place_reg_isolated(self, seg):
+        out = []
+
         self.global_left_merge()
         seg = self.get_free_segments()[0]
 
@@ -422,11 +526,12 @@ class QCB:
         if seg.width == 1:
             seg.allocated = True
             seg.state = SCPatch(SCPatch.ROUTE)
-            return
+            return out
         
         (reg, *_), confirm = seg.alloc(1, 1)
         confirm(self.segments)
         reg.state = SCPatch(SCPatch.REG)
+        out.append(reg)
 
         if not self.check_reachable(reg):  
             below_seg = next(iter(reg.below))
@@ -436,8 +541,12 @@ class QCB:
             below_seg.allocated = True
             below_seg.state = SCPatch(SCPatch.ROUTE)
 
+        return out
+
 
     def place_reg_route_below(self, seg):
+        out = []
+
         # First check left edge
         left_edge = next(iter(s 
                                 for s in seg.left 
@@ -452,6 +561,7 @@ class QCB:
             (reg, seg), confirm = seg.alloc(seg.width, 1)
             confirm(self.segments)
             reg.state = SCPatch(SCPatch.REG)
+            out.append(reg)
             self.reg_allocated += reg.width
         else:
             # Need a center drop
@@ -473,7 +583,7 @@ class QCB:
                 elif right_edge:
                     drop_x = seg.x_1
                 else:
-                    return self.place_reg_isolated(seg)
+                    return out + self.place_reg_isolated(seg)
              
             drop_x = max(drop_x, seg.x_0)
 
@@ -491,15 +601,16 @@ class QCB:
             for r in regs:
                 r.allocated = True
                 r.state = SCPatch(SCPatch.REG)
+                out.append(r)
                 self.reg_allocated += r.width
 
         (route, *_), confirm = seg.alloc(seg.width, 1)
         confirm(self.segments)
         route.state = SCPatch(SCPatch.ROUTE)
-        return
+        return out
 
 
-    def place_reg(self):
+    def place_reg(self) -> List[Segment]:
         seg = next(iter(self.get_free_segments()), None)
         if not seg:
             raise AllocatorError('No free space for registers left')
@@ -511,23 +622,26 @@ class QCB:
         
         if all(s.state.state == SCPatch.ROUTE for s in seg.above):
             return self.place_reg_top_routable(seg)
-        
         elif seg.height >= 2:
             return self.place_reg_route_below(seg)
         
         self.global_top_merge()
         seg = self.get_free_segments()[0]
+
         if all(s.state.state == SCPatch.ROUTE for s in seg.above):
             return self.place_reg_top_routable(seg)
-        
         elif seg.height >= 2:
             return self.place_reg_route_below(seg)
+        elif all(s.state.state == SCPatch.ROUTE for s in seg.below):
+            # We use this here because its the same case, but with no below_seg in top_routable
+            return self.place_reg_top_routable(seg)
         else:            
             return self.place_reg_one_high(seg)
 
  
 
     def place_reg_one_high(self, seg):
+        out = []
         fill_top_x = min((s for s in seg.above), key=lambda s: s.x_0, default=None)
         if not fill_top_x:
             # This is topmost block
@@ -535,6 +649,7 @@ class QCB:
             if self.check_reg_valid(block):
                 confirm(self.segments)
                 block.state = SCPatch(SCPatch.REG)
+                out.append(block)
                 self.reg_allocated += block.width
             elif self.check_reachable(block):
                 confirm(self.segments)
@@ -542,7 +657,7 @@ class QCB:
             else:
                 confirm(self.segments)
                 block.debug_name = 'useless'
-            return
+            return out
         
         fill_bottom_x = min((s for s in seg.below), key=lambda s: s.x_0, default=None)
         if fill_bottom_x and fill_bottom_x.state.state == SCPatch.ROUTE:
@@ -556,6 +671,7 @@ class QCB:
         if self.check_reg_valid(block):
             confirm(self.segments)
             block.state = SCPatch(SCPatch.REG)
+            out.append(block)
             self.reg_allocated += block.width
         elif self.check_reachable(block):
             confirm(self.segments)
@@ -564,6 +680,7 @@ class QCB:
         else:
             confirm(self.segments)
             block.debug_name = 'useless'
+        return out
 
     def allocate(self):
         self.place_io()

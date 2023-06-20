@@ -15,6 +15,9 @@ class DAGNode():
         self.targs = targs
         self.data = data
         self.cycles = cycles
+        # TODO remove when we subclass 
+        if self.data == 'CNOT':
+            self.cycles = 3
 
         # We will be filling these in once we've got an allocation
         self.start = -1

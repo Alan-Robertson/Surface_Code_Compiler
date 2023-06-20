@@ -113,7 +113,9 @@ class Graph():
         return
    
     def path(self, start, end, heuristic=None):
-
+        if start.in_use() or end.in_use():
+            return []
+        
         if heuristic is None:
             heuristic = self.heuristic
 

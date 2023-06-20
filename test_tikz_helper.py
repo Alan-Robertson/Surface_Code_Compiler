@@ -87,7 +87,9 @@ def regnode_data(node:RegNode):
     if node.seg:
         out += f"\\\\{node.seg.x_0, node.seg.y_0}"
     if node.qubits:
+        
         out += f"\\\\ {','.join(map(str, node.qubits))}"
+        out = out.replace('_#', '\\#')
 
     return out
 
@@ -149,7 +151,7 @@ def print_qcb(segments, file="latex.tex"):
 
         print_footer(f)
 
-def print_inst_locks(segments, layers, file='router1.tex'):
+def print_inst_locks(segments, gates, file='router1.tex'):
     with open(file, "w") as f:
         print_header(f, scale=1.5, ext='png')
 
@@ -172,10 +174,9 @@ def print_inst_locks(segments, layers, file='router1.tex'):
             else:
                 print(f"\\node at ({s.x_0+0.5},-{s.y_0+0.5}) {{{s.state.state}{s.debug_name}}};", file=f)
 
-        for layer in layers:
-            for inst in layer:
+        for inst in gates:
                 nodes = inst.anc.nodes
-                offset = 0.03 * inst.start
+                offset = 0 * inst.start
                 if len(nodes) > 1:
                     x, y = nodes[0].x+0.5+offset, -nodes[0].y-0.5-offset
                     print(f"\\draw ({x}, {y}) ", end='', file=f)
