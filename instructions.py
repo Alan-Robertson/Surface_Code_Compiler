@@ -43,5 +43,6 @@ class INIT(InPlaceGate):
 class PREP(CompositionalGate):
     pass
 
-
+class Toffoli(CompositionalGate):
+    pass
 
