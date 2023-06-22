@@ -27,7 +27,8 @@ class CNOT(MultiQubitGate):
         super().__init__(self, *args, cycles=3, **kwargs)
 
 class Z(InPlaceGate):
-    pass
+    def __init__(self, *args, **kwargs):
+        super().__init__(self, *args, data='Z', **kwargs)
 
 class X(InPlaceGate):
     pass
