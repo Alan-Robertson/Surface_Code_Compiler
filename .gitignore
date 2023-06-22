@@ -1,0 +1,19 @@
+*.nav
+*.tex
+*.vrb
+*.snm
+*.toc
+*.upa
+*.pdf
+*.aux
+*.fls
+*.out
+*.log
+
+# log.txt in particular
+*.txt
+*.synctex.gz
+*.fdb_latexmk
+*build
+*_minted*
+*__pycache__*
