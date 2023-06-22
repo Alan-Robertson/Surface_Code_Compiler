@@ -4,7 +4,7 @@ from qcb import SCPatch
 
 def print_header(f, scale=1,ext='png'):
     print(r"""
-
+%!TEX options=--shell-escape
 \documentclass[tikz, border=100pt]{standalone}
 \usepackage[utf8]{inputenc}
 \usepackage{xcolor}

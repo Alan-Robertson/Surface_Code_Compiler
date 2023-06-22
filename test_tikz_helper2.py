@@ -4,7 +4,7 @@ from qcb import SCPatch
 
 def print_header2(f):
     print(r"""
-
+%!TEX options=--shell-escape
 \documentclass[tikz, border=100pt]{standalone}
 \usepackage[export]{animate}
 \usepackage[utf8]{inputenc}
