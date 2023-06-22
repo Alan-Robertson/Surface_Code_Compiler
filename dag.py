@@ -3,6 +3,7 @@ import copy
 from utils import log
 
 from dag_node import DAGNode
+from instructions import INIT, PREP
 
 class DAG():
     def __init__(self, n_blocks):
@@ -30,28 +31,25 @@ class DAG():
     def __repr__(self):
         return str(self.layers)
 
-    def add_gate(self, targs, data=None, magic_state=False):
-        if type(targs) is int:
-            targs = [targs]
-
-        targs = copy.deepcopy(targs)
-        if magic_state:
-            targs.append(data)
-            if data and data not in self.msfs:
-                self.msfs[data] = DAGNode(targs=data, data='INIT', layer_num=0, magic_state=magic_state)
-                self.blocks[data] = self.msfs[data]
-                self.last_block[data] = self.msfs[data]
+    def add_gate(self, gate: DAGNode):
+        if gate.magic_state:
+            # TODO create
+            if gate.magic_state and gate.magic_state not in self.msfs:
+                self.msfs[gate.magic_state] = INIT(targs=gate.magic_state, layer_num=0, magic_state=gate.magic_state)
+                self.blocks[gate.magic_state] = self.msfs[gate.magic_state]
+                self.last_block[gate.magic_state] = self.msfs[gate.magic_state]
 
         edges = {}
-        for t in targs:
+        for t in gate.targs:
             if t in self.msfs:
                 edges[t] = self.blocks[t]
             else:
                 edges[t] = self.last_block[t]
         
-        gate = DAGNode(targs, edges, data=data)
+        gate.edges_precede = edges
+        gate.layer_num = max((edge.layer_num + 1 for edge in gate.edges_precede.values()), default=0)
 
-        for t in targs:
+        for t in gate.targs:
             if t not in self.msfs: 
                 self.last_block[t] = gate 
 
@@ -301,23 +299,20 @@ class DAG():
                     del gate.edges_precede[predicate]
 
                     if new_sym not in self.msfs:
-                        self.msfs[new_sym] = DAGNode(targs=[new_sym], data='INIT', layer_num=0, 
-                                                     magic_state=True, cycles=factory.cycles)
-                        self.gates.append(self.msfs[new_sym])
-                        gate.edges_precede[new_sym] = self.msfs[new_sym]
-                        self.msfs[new_sym].edges_antecede[new_sym] = gate
+                        prev = INIT(targs=new_sym, layer_num=0, magic_state=new_sym)
+                        self.gates.append(prev)
                     else:
                         prev = self.msfs[new_sym].edges_antecede[new_sym]
 
-                        prep = DAGNode(targs=[new_sym], data='PREP', layer_num=prev.layer_num + 1, 
-                                       magic_state=True, cycles=factory.cycles)
+                    prep = PREP(targs=new_sym, layer_num=prev.layer_num + 1, 
+                                    magic_state=new_sym, cycles=factory.cycles)
 
-                        prev.edges_antecede[new_sym] = prep
-                        prep.edges_precede[new_sym] = prev
-                        prep.edges_antecede[new_sym] = gate
-                        gate.edges_precede[new_sym] = prep
-                        self.gates.append(prep)
-                        self.msfs[new_sym] = prep
+                    prev.edges_antecede[new_sym] = prep
+                    prep.edges_precede[new_sym] = prev
+                    prep.edges_antecede[new_sym] = gate
+                    gate.edges_precede[new_sym] = prep
+                    self.gates.append(prep)
+                    self.msfs[new_sym] = prep
 
 
 
