@@ -3,7 +3,7 @@ import copy
 from utils import log
 
 class DAGNode():
-    def __init__(self, targs, edges=None, data=None, layer_num=None, slack=0, magic_state=False, cycles=1):
+    def __init__(self, targs, edges=None, data=None, layer_num=None, slack=0, magic_state=None, cycles=1):
         if type(targs) is int:
             targs = [targs]
         if edges is None:
@@ -31,7 +31,7 @@ class DAGNode():
         self.magic_state = magic_state
 
         if layer_num is None:
-            layer_num = max(self.edges_precede[i].layer_num + 1 for i in self.edges_precede)
+            layer_num = max((self.edges_precede[i].layer_num + 1 for i in self.edges_precede), default=0)
         self.layer_num = layer_num
 
     def add_antecedent(self, targ, node):
