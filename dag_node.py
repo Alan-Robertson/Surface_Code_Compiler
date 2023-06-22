@@ -4,7 +4,7 @@ from utils import log
 
 class DAGNode():
     def __init__(self, targs, edges=None, data=None, layer_num=None, slack=0, magic_state=None, cycles=1):
-        if type(targs) is int:
+        if type(targs) is not list:
             targs = [targs]
         if edges is None:
             edges = {}
