@@ -54,15 +54,12 @@ except Exception as e:
 
 print_mapping_tree(root, 'main_mapping_tree.tex')
 
-
-
-# try:
-mapper.map_all(g, qcb)
-# except Exception as e:
-#     traceback.print_exc()
-#     print("Qubit/msf mapping failed, aborting")
-#     raise Exception("test")
-#     exit()
+try:
+    mapper.map_all(g, qcb)
+except Exception as e:
+    traceback.print_exc()
+    print("Qubit/msf mapping failed, aborting")
+    exit()
 
 print_mapping_tree(root, 'main_qubit_mapping.tex')
 

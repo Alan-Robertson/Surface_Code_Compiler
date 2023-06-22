@@ -283,43 +283,40 @@ class DAG():
         # gates_copy = copy.deepcopy(self.gates)
 
         self.dag_traverse(n_channels, *msfs)
-
+        new_gates = []
         for gate in self.gates:
             old_msf = None
             log(f"{gate=} {gate.edges_precede=} {gate.edges_antecede=}")
-            for predicate in gate.edges_precede:
-                if gate.edges_precede[predicate].magic_state:
-                    old_msf = predicate
+            if gate.magic_state:
+                old_msf = gate.magic_state
 
-                    msf_id, factory = gate.msf_extra
-                    new_sym = f"{old_msf}_#{msf_id}"
-                    
-                    if old_msf in self.msfs:
-                        del self.msfs[old_msf]
-                    del gate.edges_precede[predicate]
+                msf_id, factory = gate.msf_extra
+                new_sym = f"{old_msf}_#{msf_id}"
+                
+                if old_msf in self.msfs:
+                    del self.msfs[old_msf]
+                del gate.edges_precede[old_msf]
 
-                    if new_sym not in self.msfs:
-                        prev = INIT(targs=new_sym, layer_num=0, magic_state=new_sym)
-                        self.gates.append(prev)
-                    else:
-                        prev = self.msfs[new_sym].edges_antecede[new_sym]
+                if new_sym not in self.msfs:
+                    prev = INIT(targs=new_sym, layer_num=0, magic_state=new_sym)
+                    new_gates.append(prev)
+                else:
+                    prev = self.msfs[new_sym].edges_antecede[new_sym]
 
-                    prep = PREP(targs=new_sym, layer_num=prev.layer_num + 1, 
-                                    magic_state=new_sym, cycles=factory.cycles)
+                prep = PREP(targs=new_sym, layer_num=prev.layer_num + 1, 
+                                magic_state=new_sym, cycles=factory.cycles)
 
-                    prev.edges_antecede[new_sym] = prep
-                    prep.edges_precede[new_sym] = prev
-                    prep.edges_antecede[new_sym] = gate
-                    gate.edges_precede[new_sym] = prep
-                    self.gates.append(prep)
-                    self.msfs[new_sym] = prep
+                prev.edges_antecede[new_sym] = prep
+                prep.edges_precede[new_sym] = prev
+                prep.edges_antecede[new_sym] = gate
+                gate.edges_precede[new_sym] = prep
+                new_gates.append(prep)
+                self.msfs[new_sym] = prep
 
-
-
-                    break
-                    # gates_copy.append(gate.edges_precede[predicate])
-            if old_msf:
-                gate.targs[gate.targs.index(old_msf)] = new_sym
+                # gates_copy.append(gate.edges_precede[predicate])
+                if old_msf:
+                    gate.targs[gate.targs.index(old_msf)] = new_sym
+        self.gates += new_gates
         log("new_gates", self.gates)
         # return gates_copy
             
