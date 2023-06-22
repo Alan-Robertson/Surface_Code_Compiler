@@ -3,13 +3,12 @@ from dag_node import DAGNode
 '''
     Base Gate Behaviours
 '''
-class MultiQubitGate(DAGNode):
+class UnaryGate(DAGNode):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-class InPlaceGate(DAGNode):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+class BinaryGate(DAGNode):
+    def 
 
 class ANCGate(DAGNode):
     def __init__(self, *args, **kwargs):
@@ -18,6 +17,19 @@ class ANCGate(DAGNode):
 class CompositionalGate(DAGNode):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+class OutOfPlaceOperation(CompositionalGate):
+    def add_node(self):
+        '''
+            Overload this to add initialiser nodes
+        '''
+        init_nodes = []
+        for t in targs:
+            if not isinstance(t, DAGNode):
+                init_nodes.append(CNOT(t, ))
+         
+            
+
 
 '''
     Particular Choices of Gates

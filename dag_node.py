@@ -45,5 +45,5 @@ class DAGNode():
     def __str__(self):
         return self.__repr__()
 
-    def add_node(self):
-        pass
+    def add_node(self, targs):
+        return self
