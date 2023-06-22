@@ -296,11 +296,10 @@ class DAG():
         for layer in self.layers:
             for gate in layer:
                 if len(gate.targs) > 1:
-                    for other_gate in layer:
-                        if other_gate is not gate and len(other_gate.targs) > 1:
-                            for targ in gate.targs:                            
-                                for other_targ in other_gate.targs:
-                                    prox[m[targ], m[other_targ]] += 1
+                    for targ in gate.targs:                            
+                        for other_targ in gate.targs:
+                            if other_targ is not targ:
+                                prox[m[targ], m[other_targ]] += 1
         return prox, m, minv
 
     def calculate_conjestion(self):
