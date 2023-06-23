@@ -3,7 +3,8 @@ import copy
 from utils import log
 
 from dag_node import DAGNode
-from instructions import INIT, PREP, MagicGate
+from instructions import INIT, PREP, MagicGate, CompositionalGate
+
 
 class DAG():
     def __init__(self, n_blocks):
@@ -11,7 +12,7 @@ class DAG():
         self.n_blocks = n_blocks
         
         # Initial Nodes
-        self.gates = [DAGNode(i, data="INIT", layer_num = 0) for i in range(n_blocks)]
+        self.gates = [DAGNode(i, symbol="INIT", layer_num = 0) for i in range(n_blocks)] # List of gates
         self.blocks = {i:self.gates[i] for i in range(n_blocks)}
 
         # Layer Later
@@ -19,14 +20,16 @@ class DAG():
         self.layers_conjestion = []
         self.layers_msf = []
 
-        # Magic State Factory Nodes
-        self.msfs = {} #
-        self.msf_extra = None
+        # Magic State Factory and Compositional nodes
+        self.composition_units = {}
+        self.msf_extra = None # For rewriting, remove
 
         # Tracks which node each gate was last involved in
-        # Ease of construction
         self.last_block = {i:self.gates[i] for i in range(n_blocks)} 
-        self.layer()
+
+        # Runs the layering
+        # TODO Uncomment
+        # self.layer()
 
     def __repr__(self):
         return str(self.layers)
@@ -37,6 +40,7 @@ class DAG():
         deps = gate.deps
         symbol = gate.symbol
 
+        # Register a new compositional object
         if isinstance(gate, CompositionalGate) and symbol:
             self.composition_units.add(symbol)
 
@@ -47,7 +51,7 @@ class DAG():
 
         # Update last block 
         predicates = {}
-        for t in gate.targs:
+        for t in gate.deps + gate.targs:
             # Fungibility of magic state factories, to be resolved during allocation
             if t in self.composition_units:
                 predicates[t] = self.blocks[t]
@@ -64,8 +68,8 @@ class DAG():
     
         # Calculate slack on the gate
         for t in gate.predicates:
-            gate.edges_precede[t].slack = max(gate.edges_precede[t].slack, 1 / (gate.layer_num - gate.edges_precede[t].layer_num))
-            gate.edges_precede[t].edges_antecede[t] = gate
+            gate.predicates[t].slack = max(gate.predicates[t].slack, 1 / (gate.layer_num - gate.predicates[t].layer_num))
+            gate.predicates[t].antecedents[t] = gate
 
         self.gates.append(gate)
         self.layer_gate(gate)
@@ -78,7 +82,7 @@ class DAG():
         
         self.layers_conjestion[gate.layer_num] += gate.non_local
         self.layers[gate.layer_num].append(gate)
-        if gate.data in self.msfs:
+        if gate.symbol in self.composition_units:
             self.layers_msf[gate.layer_num].append(gate)
 
 
@@ -109,8 +113,8 @@ class DAG():
         unresolved = copy.copy(self.layers[0])
         unresolved_update = copy.copy(unresolved)
 
-        for symbol in self.msfs:
-            self.msfs[symbol].resolved = 0
+        for symbol in self.composition_units:
+            self.composition_units[symbol].resolved = 0
 
         while len(unresolved) > 0:
             traversed_layers.append([])
@@ -177,7 +181,7 @@ class DAG():
                 if msfs_state[i] <= msfs[i].cycles:
                     msfs_state[i] += 1
                 if msfs_state[i] == msfs[i].cycles:
-                    self.msfs[msfs[i].symbol].resolved += 1
+                    self.composition_units[msfs[i].symbol].resolved += 1
 
             unresolved = copy.copy(unresolved_update)
             if debug:
@@ -186,8 +190,8 @@ class DAG():
         for gate in self.gates:
             gate.resolved = False
 
-        for symbol in self.msfs:
-            self.msfs[symbol].resolved = 0
+        for symbol in self.composition_units:
+            self.composition_units[symbol].resolved = 0
 
         return len(traversed_layers), traversed_layers
 
@@ -224,9 +228,9 @@ class DAG():
             if (len(ms_gates) > 0):
                 i = 0
                 for ms_gate in ms_gates:
-                    for j, (factory, count) in enumerate(ms_factories[ms_gate.data]):
+                    for j, (factory, count) in enumerate(ms_factories[ms_gate.symbol]):
                         if count >= factory.cycles:
-                            ms_factories[ms_gate.data[1]] -= factory.cycles
+                            ms_factories[ms_gate.symbol[1]] -= factory.cycles
                             ms_gates.pop(i)
                             i -= 1
                             break
@@ -247,7 +251,7 @@ class DAG():
     
     def calculate_proximity(self):
         m, minv = {}, []
-        syms = self.msfs.keys()
+        syms = self.composition_units.keys()
         for i in range(self.n_blocks):
             m[i] = i
             minv.append(i)
@@ -268,7 +272,7 @@ class DAG():
 
     def calculate_conjestion(self):
         m, minv = {}, []
-        syms = self.msfs.keys()
+        syms = self.composition_units.keys()
         for i in range(self.n_blocks):
             m[i] = i
             minv.append(i)
@@ -303,15 +307,15 @@ class DAG():
                 msf_id, factory = gate.msf_extra
                 new_sym = f"{old_msf}_#{msf_id}"
                 
-                if old_msf in self.msfs:
-                    del self.msfs[old_msf]
+                if old_msf in self.composition_units:
+                    del self.composition_units[old_msf]
                 del gate.edges_precede[old_msf]
 
-                if new_sym not in self.msfs:
+                if new_sym not in self.composition_units:
                     prev = INIT(targs=new_sym, layer_num=0, magic_state=new_sym)
                     new_gates.append(prev)
                 else:
-                    prev = self.msfs[new_sym].edges_antecede[new_sym]
+                    prev = self.composition_units[new_sym].edges_antecede[new_sym]
 
                 prep = PREP(targs=new_sym, layer_num=prev.layer_num + 1, 
                                 magic_state=new_sym, cycles=factory.cycles)
@@ -321,7 +325,7 @@ class DAG():
                 prep.edges_antecede[new_sym] = gate
                 gate.edges_precede[new_sym] = prep
                 new_gates.append(prep)
-                self.msfs[new_sym] = prep
+                self.composition_units[new_sym] = prep
 
                 # gates_copy.append(gate.edges_precede[predicate])
                 if old_msf:

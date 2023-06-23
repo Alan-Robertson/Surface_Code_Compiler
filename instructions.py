@@ -8,10 +8,10 @@ class Gate(DAGNode):
     pass
 
 class UnaryGate(Gate):
-    def __init__(self, *args, dep=None, targ=None, **kwargs):
+    def __init__(self, *args, deps=None, targs=None, **kwargs):
         if len(args) > 0:
-            dep = args
-        super().__init__(*args, dep=dep, **kwargs)
+            deps = args
+        super().__init__(deps=deps, **kwargs)
 
 class ANCGate(Gate):
     def __init__(self, *args, **kwargs):
@@ -22,11 +22,16 @@ class CompositionalGate(Gate):
         super().__init__(*args, **kwargs)
 
 class MagicGate(CompositionalGate):
-    def __init__(self, *args, dep=None, targ=None, **kwargs):
+    def __init__(self, *args, deps=None, targs=None, **kwargs):
         if len(args) > 0:
             targ = args
         super().__init__(*args, targ=targ, **kwargs)
 
+class VirtualGate(Gate):
+    def __init__(self, *args, deps=None, targs=None, **kwargs):
+        if len(args) > 0:
+            targ = args
+        super().__init__(*args, targ=targ, **kwargs)
 
 #class OutOfPlaceOperation(CompositionalGate):
 #    def add_node(self):
@@ -38,6 +43,13 @@ class MagicGate(CompositionalGate):
 #            if not isinstance(t, DAGNode):
 #                init_nodes.append(CNOT(t, ))
 #
+class DEPENDENCY(VirtualGate):
+    '''
+    A no action gate that exists only to force dependency management
+    '''
+    def __init__(self, *args, deps=None, targs=None, **kwargs):
+        super().__init__(*args, symbol="DEPENDENCY", cycles=0, **kwargs)
+
 
 '''
     Particular Choices of Gates
@@ -47,7 +59,7 @@ class CNOT(Gate):
         if len(args) > 0:
             deps = [args[0]]
             targs = [args[1]]
-        super().__init__(data="CNOT", cycles=3, deps=deps, targs=targs, **kwargs)
+        super().__init__(symbol="CNOT", cycles=3, deps=deps, targs=targs, **kwargs)
 
 class Z(UnaryGate):
     def __init__(self, *args, **kwargs):
