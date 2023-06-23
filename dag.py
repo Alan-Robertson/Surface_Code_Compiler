@@ -3,7 +3,7 @@ import copy
 from utils import log
 
 from dag_node import DAGNode
-from instructions import INIT, PREP
+from instructions import INIT, PREP, MagicGate
 
 class DAG():
     def __init__(self, n_blocks):
@@ -31,29 +31,39 @@ class DAG():
     def __repr__(self):
         return str(self.layers)
 
-    def add_gate(self, gate: DAGNode):
-        if gate.magic_state:
-            # TODO create
-            if gate.magic_state and gate.magic_state not in self.msfs:
-                self.msfs[gate.magic_state] = INIT(targs=gate.magic_state, layer_num=0, magic_state=gate.magic_state)
-                self.blocks[gate.magic_state] = self.msfs[gate.magic_state]
-                self.last_block[gate.magic_state] = self.msfs[gate.magic_state]
+    def add_gate(self, gate_constructor: type, *args, deps=None, targs=None, **kwargs):
 
-        edges = {}
+        gate = gate_constructor(*args, deps=deps, targs=targs, **kwargs)
+        deps = gate.deps
+        symbol = gate.symbol
+
+        if isinstance(gate, CompositionalGate) and symbol:
+            self.composition_units.add(symbol)
+
+            if symbol not in self.last_block:
+                initialiser = INIT(targs=symbol, **kwargs)
+                self.last_block[symbol] = initialiser 
+                self.blocks[symbol] = initialiser 
+
+        # Update last block 
+        predicates = {}
         for t in gate.targs:
-            if t in self.msfs:
-                edges[t] = self.blocks[t]
+            # Fungibility of magic state factories, to be resolved during allocation
+            if t in self.composition_units:
+                predicates[t] = self.blocks[t]
             else:
-                edges[t] = self.last_block[t]
+                predicates[t] = self.last_block[t]
+                self.last_block[t] = gate
         
-        gate.edges_precede = edges
-        gate.layer_num = max((edge.layer_num + 1 for edge in gate.edges_precede.values()), default=0)
+        # Resolve gate predicates
+        gate.predicates = predicates
+        gate.layer_num = max((predicate.layer_num + 1 
+                              for predicate in gate.predicates.values()), 
+                              default=0)
 
-        for t in gate.targs:
-            if t not in self.msfs: 
-                self.last_block[t] = gate 
-
-        for t in gate.edges_precede:
+    
+        # Calculate slack on the gate
+        for t in gate.predicates:
             gate.edges_precede[t].slack = max(gate.edges_precede[t].slack, 1 / (gate.layer_num - gate.edges_precede[t].layer_num))
             gate.edges_precede[t].edges_antecede[t] = gate
 

@@ -3,52 +3,63 @@ from dag_node import DAGNode
 '''
     Base Gate Behaviours
 '''
-class UnaryGate(DAGNode):
+
+class Gate(DAGNode):
+    pass
+
+class UnaryGate(Gate):
+    def __init__(self, *args, dep=None, targ=None, **kwargs):
+        if len(args) > 0:
+            dep = args
+        super().__init__(*args, dep=dep, **kwargs)
+
+class ANCGate(Gate):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-class BinaryGate(DAGNode):
-    def 
-
-class ANCGate(DAGNode):
+class CompositionalGate(Gate):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-class CompositionalGate(DAGNode):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+class MagicGate(CompositionalGate):
+    def __init__(self, *args, dep=None, targ=None, **kwargs):
+        if len(args) > 0:
+            targ = args
+        super().__init__(*args, targ=targ, **kwargs)
 
-class OutOfPlaceOperation(CompositionalGate):
-    def add_node(self):
-        '''
-            Overload this to add initialiser nodes
-        '''
-        init_nodes = []
-        for t in targs:
-            if not isinstance(t, DAGNode):
-                init_nodes.append(CNOT(t, ))
-         
-            
 
+#class OutOfPlaceOperation(CompositionalGate):
+#    def add_node(self):
+#        '''
+#            Overload this to add initialiser nodes
+#        '''
+#        init_nodes = []
+#        for t in targs:
+#            if not isinstance(t, DAGNode):
+#                init_nodes.append(CNOT(t, ))
+#
 
 '''
     Particular Choices of Gates
 '''
-class CNOT(MultiQubitGate):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, data="CNOT", cycles=3, **kwargs)
+class CNOT(Gate):
+    def __init__(self, *args, deps=None, targs=None, **kwargs):
+        if len(args) > 0:
+            deps = [args[0]]
+            targs = [args[1]]
+        super().__init__(data="CNOT", cycles=3, deps=deps, targs=targs, **kwargs)
 
-class Z(InPlaceGate):
+class Z(UnaryGate):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, data="Z", **kwargs)
+        super().__init__(*args, symbol="Z", **kwargs)
 
-class X(InPlaceGate):
+class X(UnaryGate):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, data="X", **kwargs)
+        super().__init__(*args, symbol="X", **kwargs)
 
-class INIT(InPlaceGate):
+class INIT(UnaryGate):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, data="INIT", **kwargs)
+        super().__init__(*args, symbol="INIT", **kwargs, cycles=1)
 
 '''
     Compositional Gates
@@ -56,7 +67,15 @@ class INIT(InPlaceGate):
 
 class PREP(CompositionalGate):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, data="PREP", **kwargs)
+        super().__init__(*args, symbol="PREP", **kwargs, cycles=1)
+
+class T(MagicGate):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, symbol="T", **kwargs, cycles=17)
+
+class Q(MagicGate):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, symbol="Q", **kwargs, cycles=25)
 
 class Toffoli(CompositionalGate):
     pass
