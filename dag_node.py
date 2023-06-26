@@ -1,6 +1,7 @@
 import numpy as np
 import copy
 from utils import log
+from collections.abc import Sequence
 
 class DAGNode():
     def __init__(self, 
@@ -14,10 +15,10 @@ class DAGNode():
                  cycles=1):
 
         if targs is None:
-            targs = tuple()
+            targs = list()
 
         if deps is None:
-            deps = tuple()
+            deps = list()
 
         if predicates is None:
              predicates = {}
@@ -25,8 +26,8 @@ class DAGNode():
         if symbol is None:
             symbol = ""
 
-        self.targs = targs
-        self.deps = deps
+        self.targs = list(targs)
+        self.deps = list(deps)
         self.symbol = symbol
         self.cycles = cycles
 

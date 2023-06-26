@@ -14,24 +14,40 @@ class UnaryGate(Gate):
         super().__init__(deps=deps, **kwargs)
 
 class ANCGate(Gate):
+    '''
+    Ancillary Gate
+    This gate requires an integer number of routing blocks
+    '''
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
 class CompositionalGate(Gate):
+    '''
+    Compositional Gate
+    This gate depends on a multi-cycle compositional QCB
+    '''
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
 class MagicGate(CompositionalGate):
+    '''
+    Magic Gate
+    A special case of a compositional gate with no input
+    '''
     def __init__(self, *args, deps=None, targs=None, **kwargs):
         if len(args) > 0:
-            targ = args
-        super().__init__(*args, targ=targ, **kwargs)
+            targs = args
+        super().__init__(targs=targs, **kwargs)
 
 class VirtualGate(Gate):
+    '''
+    VirtualGate
+    This gate exists only to create dependencies in the DAG
+    '''
     def __init__(self, *args, deps=None, targs=None, **kwargs):
         if len(args) > 0:
             targ = args
-        super().__init__(*args, targ=targ, **kwargs)
+        super().__init__(*args, targs=targs, **kwargs)
 
 #class OutOfPlaceOperation(CompositionalGate):
 #    def add_node(self):
@@ -71,7 +87,7 @@ class X(UnaryGate):
 
 class INIT(UnaryGate):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, symbol="INIT", **kwargs, cycles=1)
+        super().__init__(*args, symbol="INIT", **kwargs, cycles=1, layer_num=0)
 
 '''
     Compositional Gates

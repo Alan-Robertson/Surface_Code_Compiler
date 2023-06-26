@@ -12,7 +12,7 @@ class DAG():
         self.n_blocks = n_blocks
         
         # Initial Nodes
-        self.gates = [DAGNode(i, symbol="INIT", layer_num = 0) for i in range(n_blocks)] # List of gates
+        self.gates = [INIT(i) for i in range(n_blocks)] # List of gates
         self.blocks = {i:self.gates[i] for i in range(n_blocks)}
 
         # Layer Later
@@ -21,7 +21,7 @@ class DAG():
         self.layers_msf = []
 
         # Magic State Factory and Compositional nodes
-        self.composition_units = {}
+        self.composition_units = set()
         self.msf_extra = None # For rewriting, remove
 
         # Tracks which node each gate was last involved in
