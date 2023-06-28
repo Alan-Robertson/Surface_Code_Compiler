@@ -116,11 +116,8 @@ class QCB:
                 fringe = position
                 success, position = self.try_place_msf(new_msf, fringe)
 
-            # self.test += 1
         except AllocatorError:
             return False
-        # if self.test >= 3:
-        #     raise Exception("test")
         return True
 
 

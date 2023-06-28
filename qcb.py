@@ -2,16 +2,18 @@ import numpy as np
 from typing import *
 from msf import MSF
 
+
 class SCPatch():
-    MSF = 'MSF'
-    REG = 'REG'
-    ROUTE = 'ROUTE'
-    IO = 'IO'
+    # Singletons
+    COMP = object()
+    REG = object()
+    ROUTE = object()
+    IO = object()
     NONE = None
 
     def __init__(self, alloc_type: 'None|str|MSF' = None):
-        if isinstance(alloc_type, MSF):
-            self.state = self.MSF
+        if isinstance(alloc_type, COMP):
+            self.state = self.COMP
             self.msf = alloc_type
         else:
             self.state = alloc_type
