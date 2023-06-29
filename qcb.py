@@ -2,6 +2,19 @@ import numpy as np
 from typing import *
 from msf import MSF
 
+class QCB():
+    '''
+        Closure object
+        Contains both a QCB memory layout and a DAG execution description
+    '''
+    def __init__():
+        self.board = None
+        self.dag = None
+        self.cycles=0
+        self.input = 0
+        self.output = 0
+
+
 
 class SCPatch():
     # Singletons

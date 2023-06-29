@@ -7,7 +7,7 @@ from instructions import INIT, PREP, MagicGate, CompositionalGate
 
 
 class DAG():
-    def __init__(self, n_blocks):
+    def __init__(self, n_blocks, *initial_gates):
 
         self.n_blocks = n_blocks
         
@@ -26,17 +26,43 @@ class DAG():
 
         # Tracks which node each gate was last involved in
         self.last_block = {i:self.gates[i] for i in range(n_blocks)} 
+        
+        for gate in initial_gates:
+            self.add_gate(gate)
 
-        # Runs the layering
-        # TODO Uncomment
-        # self.layer()
 
     def __repr__(self):
         return str(self.layers)
 
-    def add_gate(self, gate_constructor: type, *args, deps=None, targs=None, **kwargs):
 
-        gate = gate_constructor(*args, deps=deps, targs=targs, **kwargs)
+    def add_gate(self, gate_constructor: type, *args, deps=None, targs=None, **kwargs):
+        '''
+            add_gate
+            Wrapper for adding all gate types
+        '''
+        if CompositionalGate in gate_constructor.mro():
+            return self.add_compositional_gate(gate_constructor, *args, deps=deps, targs=targs, **kwargs)
+        else:
+            return self.add_single_gate(gate_constructor, *args, deps=deps, targs=targs, **kwargs)
+
+    def add_compositional_gate(self, gate_constructor: type, *args, deps=None, targs=None, **kwargs):
+        '''
+            add_compositional_gate
+            Adds a set of composed gates to the DAG
+        '''
+        gate_group = gate_constructor(*args, deps=deps, targs=targs, **kwargs).gate_group
+        for gate in gate_group:
+            add_single_gate(self, None, *args, deps=None, targs=None, gate=gate, **kwargs)
+
+
+    def add_single_gate(self, gate_constructor: type, *args, deps=None, targs=None, gate=None, **kwargs):
+        '''
+            add_gate
+            Adds a single gate to the DAG
+        '''
+        if gate is None:
+            gate = gate_constructor(*args, deps=deps, targs=targs, **kwargs)
+
         deps = gate.deps
         symbol = gate.symbol
 
@@ -46,8 +72,8 @@ class DAG():
 
             if symbol not in self.last_block:
                 initialiser = INIT(targs=symbol, **kwargs)
-                self.last_block[symbol] = initialiser 
-                self.blocks[symbol] = initialiser 
+                self.last_block[symbol] = initialiser
+                self.blocks[symbol] = initialiser
 
         # Update last block 
         predicates = {}

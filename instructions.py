@@ -1,4 +1,7 @@
 from dag_node import DAGNode
+from typing import Sequence
+
+#from DAG import dag
 
 '''
     Base Gate Behaviours
@@ -16,7 +19,7 @@ class UnaryGate(Gate):
 class ANCGate(Gate):
     '''
     Ancillary Gate
-    This gate requires an integer number of routing blocks
+    This gate requires an integer number of routing blocks as an ancillary overhead
     '''
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -24,20 +27,36 @@ class ANCGate(Gate):
 class CompositionalGate(Gate):
     '''
     Compositional Gate
-    This gate depends on a multi-cycle compositional QCB
+    This gate wraps other gates
     '''
-    def __init__(self, *args, **kwargs):
+    def __init__(self, gate_group: tuple[type, tuple, dict], *args, **kwargs):
+        self.gate_group = gate_group
         super().__init__(*args, **kwargs)
 
-class MagicGate(CompositionalGate):
+    def __getitem__(self, index):
+        return self.gate_group[index]
+
+
+class Factory(Gate):
     '''
-    Magic Gate
+    Factory
     A special case of a compositional gate with no input
     '''
     def __init__(self, *args, deps=None, targs=None, **kwargs):
         if len(args) > 0:
             targs = args
         super().__init__(targs=targs, **kwargs)
+
+class MagicGate(Factory):
+    '''
+    Magic Gate
+    A special case of a compositional gate with no input
+    Magic gates have an associated error rate
+    '''
+    def __init__(self, *args, deps=None, targs=None, error_rate=0, **kwargs):
+        self.error_rate = error_rate
+        super().__init__(*args, targs=targs, deps=deps **kwargs)
+
 
 class VirtualGate(Gate):
     '''
@@ -49,16 +68,7 @@ class VirtualGate(Gate):
             targ = args
         super().__init__(*args, targs=targs, **kwargs)
 
-#class OutOfPlaceOperation(CompositionalGate):
-#    def add_node(self):
-#        '''
-#            Overload this to add initialiser nodes
-#        '''
-#        init_nodes = []
-#        for t in targs:
-#            if not isinstance(t, DAGNode):
-#                init_nodes.append(CNOT(t, ))
-#
+
 class DEPENDENCY(VirtualGate):
     '''
     A no action gate that exists only to force dependency management
@@ -97,7 +107,16 @@ class PREP(CompositionalGate):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, symbol="PREP", **kwargs, cycles=1)
 
-class T(MagicGate):
+class T(CompositionalGate):
+    def __init__(self, *args, **kwargs):
+        if len(args) > 0:
+            targs = args
+        else:
+            targs = kwargs['targs']
+        gate_group = ((T_Factory), (CNOT, targs[0]))
+        super().__init__(gate_group, symbol="", cycles=0)
+
+class T_Factory(MagicGate):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, symbol="T", **kwargs, cycles=17)
 
