@@ -3,6 +3,8 @@ from typing import Sequence
 from dag import DAG
 
 from symbol import Symbol
+from scope import Scope
+import copy
 
 #from DAG import dag
 
@@ -27,15 +29,36 @@ class ANCGate(Gate):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-class CompositionalGate(DAG, Gate):
+class ScopedGate(Gate):
+    def __init__(self, *args, scope=None, **kwargs):
+        if scope is None:
+            scope = Scope()
+        self.scope = scope
+        self.inject_scope(kwargs)
+        
+    def inject_scope(self, *kwargs):
+        for i in kwargs:
+            scope[i] = kwargs[i]    
+
+class CompositionalGate(DAG, ScopedGate):
     '''
     Compositional Gate
     This gate wraps other gates
     '''
-    def __init__(self, cycles,  symbol='', *args, **kwargs):
+
+
+    def __init__(self, cycles, *args, symbol='', scope=None, **kwargs):
         self.symbol = symbol
         self.cycles = cycles
+
+        ScopedGate.__init__(self, scope=scope)
         DAG.__init__(self, *args, **kwargs)
+
+        self.deps = kwargs.get('deps', tuple())
+        self.targs = kwargs.get('targs', tuple())
+
+
+
 
 class QCBGate(Gate):
     '''
@@ -53,6 +76,10 @@ class FactoryGate(QCBGate):
     A special case of a compositional gate with no input
     '''
     def __init__(self, *args, deps=None, targs=None, **kwargs):
+
+        # Break the symbol factory
+        self.symbol = copy.deepcopy(symbol)
+
         if len(args) > 0:
             targs = args
         super().__init__(targs=targs, **kwargs)
@@ -104,6 +131,10 @@ class X(UnaryGate):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, symbol="X", **kwargs)
 
+class Hadamard(UnaryGate):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, symbol="H", **kwargs)
+
 class INIT(UnaryGate):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, symbol="INIT", **kwargs, cycles=1, layer_num=0)
@@ -116,6 +147,17 @@ class PREP(Gate):
         super().__init__(*args, symbol="PREP", **kwargs, cycles=1)
 
 class T(CompositionalGate):
+    def __init__(self, *args, **kwargs):
+        if len(args) > 0:
+            targs = args
+        else:
+            targs = kwargs['targs']        
+
+        super().__init__(cycles=0, n_blocks=1)
+        factory = self.add_gate(T_Factory)
+        self.add_gate(CNOT, deps=factory[0], targs=targs)
+
+class Tdag(CompositionalGate):
     def __init__(self, *args, **kwargs):
         if len(args) > 0:
             targs = args
@@ -141,4 +183,28 @@ class Q_Factory(Gate):
         super().__init__(*args, symbol=self.symbol, **kwargs, cycles=25)
 
 class Toffoli(CompositionalGate):
-    pass
+    def __init__(self, *args, **kwargs):
+        if len(args) > 0:
+            deps = args[0:2]
+            targs = args[2:3]
+        else:
+            deps = kwargs['deps']
+            targs = kwargs['targs']
+
+        super().__init__(cycles=0, n_blocks=3)
+
+        self.add_gate(Hadamard, targs[0])
+        self.add_gate(CNOT, deps[1], targs[0])
+        self.add_gate(Tdag, targs[0])
+        self.add_gate(CNOT, deps[0], targs[0])
+        self.add_gate(T, targs[0])
+        self.add_gate(CNOT, deps[1], targs[0])
+        self.add_gate(Tdag, targs[0])
+        self.add_gate(CNOT, deps[0], targs[0])
+        self.add_gate(T, deps[1])
+        self.add_gate(T, targs[0])
+        self.add_gate(CNOT, deps[0], deps[1])
+        self.add_gate(Hadamard, targs[0])
+        self.add_gate(T, deps[0])
+        self.add_gate(Tdag, deps[1])
+        self.add_gate(CNOT, deps[0], deps[1])

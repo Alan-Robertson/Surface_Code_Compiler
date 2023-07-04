@@ -3,6 +3,8 @@ class DAG():
 
         self.n_blocks = n_blocks
         
+        self.bindings = Symbol(i)
+
         # Initial Nodes
         self.gates = [INIT(i) for i in range(n_blocks)] # List of gates
         self.blocks = {Symbol(i):self.gates[i] for i in range(n_blocks)}
@@ -42,6 +44,9 @@ class DAG():
         '''
         gate_group = gate_constructor(*args, deps=deps, targs=targs, **kwargs)
         return [self.add_single_gate(gate, *g_args, **g_kwargs) for gate, g_args, g_kwargs in gate_group]
+
+    def __getitem__(self, index):
+        return self.blocks[i]
             
     def add_single_gate(self, gate_constructor: type, *args, deps=None, targs=None, **kwargs):
         '''
