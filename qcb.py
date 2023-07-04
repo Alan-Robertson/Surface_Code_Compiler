@@ -7,14 +7,18 @@ class QCB():
         Closure object
         Contains both a QCB memory layout and a DAG execution description
     '''
-    def __init__():
-        self.board = None
-        self.dag = None
-        self.cycles=0
-        self.input = 0
-        self.output = 0
+    def __init__(self, segments, operations):
+        self.segments = segment
+        self.operations = operations
+        self.cycles = 0
+        self.inputs = 0
+        self.outputs = 0
 
+        self.width = self.segments
+        self.height = self.
 
+    def __call__(self, inputs, outputs):
+        pass
 
 class SCPatch():
     # Singletons
@@ -81,6 +85,7 @@ class Segment():
     #     'left' :lambda a, b: b.right.discard(a)
     #     }
     
+    # TODO Pls no properties
     width = property(lambda self: self.x_1 - self.x_0 + 1)
     height = property(lambda self: self.y_1 - self.y_0 + 1)
 
@@ -100,14 +105,6 @@ class Segment():
         self.allocated = False
         self.state = SCPatch()
         self.debug_name = ""
-
-    # def __hash__(self):
-    #     return hash((self.x_0, self.y_0, self.x_1, self.y_1))
-    
-    # def __eq__(self, other):
-    #     if not isinstance(other, Segment): return NotImplemented
-    #     return (self.x_0, self.y_0, self.x_1, self.y_1, self.allocated) == \
-    #         (other.x_0, other.y_0, other.x_1, other.y_1, other.allocated)
 
     def y_position(self):
         return (self.y_0, self.x_0)

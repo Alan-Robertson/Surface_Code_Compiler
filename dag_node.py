@@ -3,6 +3,8 @@ import copy
 from utils import log
 from collections.abc import Sequence
 
+from symbol import Symbol
+
 class DAGNode():
     def __init__(self, 
                  deps=None, 
@@ -15,19 +17,19 @@ class DAGNode():
                  cycles=1):
 
         if targs is None:
-            targs = list()
+            targs = set()
 
         if deps is None:
-            deps = list()
+            deps = set()
 
         if predicates is None:
              predicates = {}
 
         if symbol is None:
-            symbol = ""
+            symbol = Symbol("")
 
-        self.targs = list(targs)
-        self.deps = list(deps)
+        self.targs = set(map(Symbol, targs))
+        self.deps = set(map(Symbol, deps))
         self.symbol = symbol
         self.cycles = cycles
 
@@ -50,6 +52,9 @@ class DAGNode():
 
     def add_antecedent(self, targ, node):
         self.antecedent[targ] = node 
+
+    def __getitem__(self, index):
+        return self.symbol[index]
 
     def __contains__(self, i):
         return self.targs.__contains__(i) or self.deps.__contains__(i)

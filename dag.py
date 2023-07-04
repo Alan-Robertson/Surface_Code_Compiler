@@ -1,11 +1,3 @@
-import numpy as np
-import copy
-from utils import log
-
-from dag_node import DAGNode
-from instructions import INIT, PREP, MagicGate, CompositionalGate
-
-
 class DAG():
     def __init__(self, n_blocks, *initial_gates):
 
@@ -13,7 +5,7 @@ class DAG():
         
         # Initial Nodes
         self.gates = [INIT(i) for i in range(n_blocks)] # List of gates
-        self.blocks = {i:self.gates[i] for i in range(n_blocks)}
+        self.blocks = {Symbol(i):self.gates[i] for i in range(n_blocks)}
 
         # Layer Later
         self.layers = []
@@ -25,15 +17,13 @@ class DAG():
         self.msf_extra = None # For rewriting, remove
 
         # Tracks which node each gate was last involved in
-        self.last_block = {i:self.gates[i] for i in range(n_blocks)} 
+        self.last_block = {Symbol(i):self.gates[i] for i in range(n_blocks)} 
         
         for gate in initial_gates:
             self.add_gate(gate)
 
-
     def __repr__(self):
         return str(self.layers)
-
 
     def add_gate(self, gate_constructor: type, *args, deps=None, targs=None, **kwargs):
         '''
@@ -50,34 +40,30 @@ class DAG():
             add_compositional_gate
             Adds a set of composed gates to the DAG
         '''
-        gate_group = gate_constructor(*args, deps=deps, targs=targs, **kwargs).gate_group
-        for gate in gate_group:
-            add_single_gate(self, None, *args, deps=None, targs=None, gate=gate, **kwargs)
-
-
-    def add_single_gate(self, gate_constructor: type, *args, deps=None, targs=None, gate=None, **kwargs):
+        gate_group = gate_constructor(*args, deps=deps, targs=targs, **kwargs)
+        return [self.add_single_gate(gate, *g_args, **g_kwargs) for gate, g_args, g_kwargs in gate_group]
+            
+    def add_single_gate(self, gate_constructor: type, *args, deps=None, targs=None, **kwargs):
         '''
             add_gate
             Adds a single gate to the DAG
         '''
-        if gate is None:
-            gate = gate_constructor(*args, deps=deps, targs=targs, **kwargs)
-
+        gate = gate_constructor(*args, deps=deps, targs=targs, **kwargs)
         deps = gate.deps
         symbol = gate.symbol
 
         # Register a new compositional object
-        if isinstance(gate, CompositionalGate) and symbol:
-            self.composition_units.add(symbol)
+        if isinstance(gate, QCBGate) and symbol is not None:
+            self.composition_units.add(symbol.get_parent())
 
-            if symbol not in self.last_block:
-                initialiser = INIT(targs=symbol, **kwargs)
-                self.last_block[symbol] = initialiser
-                self.blocks[symbol] = initialiser
+            if symbol.get_parent() not in self.last_block:
+                initialiser = INIT(targs=symbol.get_parent(), **kwargs)
+                self.last_block[symbol.get_parent()] = initialiser
+                self.blocks[symbol.get_parent()] = initialiser
 
         # Update last block 
         predicates = {}
-        for t in gate.deps + gate.targs:
+        for t in map(lambda t: t.get_parent(), gate.deps | gate.targs):
             # Fungibility of magic state factories, to be resolved during allocation
             if t in self.composition_units:
                 predicates[t] = self.blocks[t]
@@ -99,6 +85,7 @@ class DAG():
 
         self.gates.append(gate)
         self.layer_gate(gate)
+        return gate
 
     def layer_gate(self, gate):
         if gate.layer_num >= len(self.layers):
@@ -164,9 +151,6 @@ class DAG():
                         if not gate.edges_precede[predicate].resolved or (gate.edges_precede[predicate].magic_state == False and patch_used[predicate]):
                             predicates_resolved = False
                             break
-                    # print("resolved", gate, gate.layer_num)
-                    # if gate.layer_num == 12:
-                    #     print(f"{ {m: g.resolved for m,g in self.msfs.items()}=} {msfs=} {msfs_state=}")
 
                     if predicates_resolved:
                         traversed_layers[-1].append(gate)
@@ -176,6 +160,7 @@ class DAG():
                         for targ in gate.targs:
                             if self.blocks[targ].magic_state is False:
                                 patch_used[targ] = True
+
                         # Add antecedent gates
                         for antecedent in gate.edges_antecede:
                             if (gate.edges_antecede[antecedent] not in unresolved_update):
@@ -360,3 +345,10 @@ class DAG():
         log("new_gates", self.gates)
         # return gates_copy
             
+import numpy as np
+import copy
+from utils import log
+
+from dag_node import DAGNode
+from instructions import INIT, PREP, MagicGate, CompositionalGate, QCBGate
+from symbol import Symbol

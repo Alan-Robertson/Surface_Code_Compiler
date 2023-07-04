@@ -6,7 +6,7 @@ import copy
 class AllocatorError(Exception):
     pass
 
-class QCB:
+class Allocator:
     def __init__(self, height, width, io_width, reg, *msfs_templates):
         # A list of segments comprising the qcb sorted by top left point
         self.segments: 'Set[Segment]' = {Segment(0, 0, width-1, height-1)}
@@ -224,14 +224,6 @@ class QCB:
                     r.state = SCPatch(SCPatch.REG)
             
 
-                
-
-        # for s in self.get_free_segments():
-        #     s.allocated = True
-        #     s.state = SCPatch(SCPatch.ROUTE)
-        #     s.debug_name = "(flood)"
-        
-
     def place_io(self):
         segs, confirm = self.get_free_segments()[0].split(0, self.height - 1, self.io_width, 1)
         if not confirm:
@@ -261,7 +253,6 @@ class QCB:
         _, confirm = self.get_free_segments()[0].left_merge()
         confirm(self.segments)
 
-
         # Attempt 1
         segs, confirm = self.get_free_segments()[0].alloc(msf.width, msf.height + 1)
         if not confirm:
@@ -277,8 +268,6 @@ class QCB:
                 raise AllocatorError("First MSF placement failed")
         
         confirm(self.segments)
-
-
 
         msf_block, *others = segs
         msf_block.allocated = False
