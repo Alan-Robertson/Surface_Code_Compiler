@@ -1,13 +1,15 @@
 class DAG():
-    def __init__(self, n_blocks, *initial_gates):
+    def __init__(self, n_blocks, *initial_gates, initial_scope=None):
 
+        if initial_scope is None:
+            self.scope = Scope()
+
+        # Internal Memory 
         self.n_blocks = n_blocks
-        
-        self.bindings = Symbol(i)
+        self.blocks = {Symbol(i) for i in range(n_blocks)}
 
         # Initial Nodes
-        self.gates = [INIT(i) for i in range(n_blocks)] # List of gates
-        self.blocks = {Symbol(i):self.gates[i] for i in range(n_blocks)}
+        self.gates = [INIT(i) for i in self.blocks] # List of gates
 
         # Layer Later
         self.layers = []
@@ -45,8 +47,6 @@ class DAG():
         gate_group = gate_constructor(*args, deps=deps, targs=targs, **kwargs)
         return [self.add_single_gate(gate, *g_args, **g_kwargs) for gate, g_args, g_kwargs in gate_group]
 
-    def __getitem__(self, index):
-        return self.blocks[i]
             
     def add_single_gate(self, gate_constructor: type, *args, deps=None, targs=None, **kwargs):
         '''
@@ -57,6 +57,7 @@ class DAG():
         deps = gate.deps
         symbol = gate.symbol
 
+
         # Register a new compositional object
         if isinstance(gate, QCBGate) and symbol is not None:
             self.composition_units.add(symbol.get_parent())
@@ -64,7 +65,7 @@ class DAG():
             if symbol.get_parent() not in self.last_block:
                 initialiser = INIT(targs=symbol.get_parent(), **kwargs)
                 self.last_block[symbol.get_parent()] = initialiser
-                self.blocks[symbol.get_parent()] = initialiser
+                self.blocks.add(symbol.get_parent()) = initialiser
 
         # Update last block 
         predicates = {}
@@ -357,3 +358,4 @@ from utils import log
 from dag_node import DAGNode
 from instructions import INIT, PREP, MagicGate, CompositionalGate, QCBGate
 from symbol import Symbol
+from scope import Scope

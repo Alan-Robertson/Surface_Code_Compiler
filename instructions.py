@@ -13,7 +13,14 @@ import copy
 '''
 
 class Gate(DAGNode):
-    pass
+    NULL_SCOPE = dict()
+    NULL_SYMBOL = Symbol('')
+    def __init__(self, *args, **kwargs):
+        self.scope = kwargs.get('scope', self.NULL_SCOPE)  
+        self.symbol = kwargs.get('symbol', self.NULL_SYMBOL)
+        super().__init__(*args, **kwargs)
+    def resolve_scope(self, **symbols):
+        self.scope.inject(**symbols) 
 
 class UnaryGate(Gate):
     def __init__(self, *args, deps=None, targs=None, **kwargs):
@@ -34,9 +41,9 @@ class ScopedGate(Gate):
         if scope is None:
             scope = Scope()
         self.scope = scope
-        self.inject_scope(kwargs)
+        self.inject_scope(**kwargs)
         
-    def inject_scope(self, *kwargs):
+    def inject_scope(self, **kwargs):
         for i in kwargs:
             scope[i] = kwargs[i]    
 
@@ -78,8 +85,8 @@ class FactoryGate(QCBGate):
     def __init__(self, *args, deps=None, targs=None, **kwargs):
 
         # Break the symbol factory
-        self.symbol = copy.deepcopy(symbol)
-
+        self.symbol = copy.deepcopy(self.symbol)
+        
         if len(args) > 0:
             targs = args
         super().__init__(targs=targs, **kwargs)
