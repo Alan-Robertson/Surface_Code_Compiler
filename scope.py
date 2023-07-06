@@ -16,12 +16,18 @@ class Scope():
     def __str__(self):
         return self.__repr__()
 
-    def inject_scope(self, **symbols):
-        for symbol in symbols.items():
-            self.__setitem__(self, *symbol)
+    def items(self):
+        return self.mapping.items()
+
+    def inject_scope(self, scope):
+        for symbol in scope.items():
+            self.__setitem__(*symbol)
 
     def __or__(self, other):
         return self.mapping.__or__(other)
 
     def __ior__(self, other):
         return self.mapping.__ior__(other)
+
+    def __contains__(self, other):
+        return other in self.mapping
