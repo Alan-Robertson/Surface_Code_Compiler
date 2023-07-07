@@ -5,7 +5,16 @@ class Symbol(object):
         '''
             Perfectly reasonable Python code
         '''
-        #assert (type(symbol) in (Symbol, int, str))
+        if io_in is None:
+            io_in = set()
+        if io_out is None:
+            io_out = set()
+
+        if isinstance(symbol, Symbol):
+            io_in |= symbol.io_in
+            io_out |= symbol.io_out
+            symbol = symbol.symbol
+            
         self.symbol = symbol
         self.parent = parent
         self.io_in, self.io_out = map(self.format, (io_in, io_out))
@@ -21,7 +30,7 @@ class Symbol(object):
             io = set()
         elif not (type(io) in (list, tuple, set)):
             io = [Symbol(io)]
-        io = [Symbol(i.symbol, parent=self) for i in io]
+        io = [Symbol(i, parent=self) for i in io]
         return {*io}
 
     def __getitem__(self, index):
@@ -36,22 +45,30 @@ class Symbol(object):
     def __iter__(self):
         return iter(self.io)
        
-    def get_in(self, index):
-        return self.io[self.io_in[index]]
-
-    def get_out(self, index):
-        return self.io[self.io_out[index]] 
+    def __contains__(self, other):
+        if isinstance(other, Symbol):
+            return other in self.io
+        else:
+            return other.__in__(Symbol)
 
     def __repr__(self):
         if len(self.io_in) == 0 and len(self.io_out) == 0:
             return f'<{self.symbol}>'
-        return f'<{self.symbol} : {tuple(self.io_in)} -> {tuple(self.io_out)}>'
+        if len(self.io_in) == 0:
+            return f'<{self.symbol}: -> {tuple(self.io_out)}>'
+        if len(self.io_out) == 0:
+            return f'<{self.symbol}: {tuple(self.io_in)}>'
+        return f'<{self.symbol}: {tuple(self.io_in)} -> {tuple(self.io_out)}>'
+        
 
     def __str__(self):
         return self.__repr__()
 
     def __eq__(self, comparator):
-        return self is comparator
+        if isinstance(comparator, Symbol):
+            return self.symbol == comparator.symbol
+        else:
+            return self.symbol == comparator
 
     def satisfies(self, comparator):
         return self.symbol == comparator.symbol
@@ -66,12 +83,14 @@ class Symbol(object):
 
     def bind_scope(self):
         return Scope(self.io.keys())
-        
+
 
 class BindSymbol():
-    def __init__(self, symbol):
-        self.symbol = symbol
-    def __hash__(self):
-        return hash(self.symbol)
+    def __init__(self, symbol, *args, **kwargs):
+        super().__init__(symbol, *args, **kwargs)
+
     def __eq__(self, comparator):
-        return self.symbol.symbol == comparator.symbol
+        if isinstance(comparator, Symbol):
+            return self.symbol is comparator
+        else:
+            return self.symbol == comparator

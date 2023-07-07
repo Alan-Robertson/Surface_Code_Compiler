@@ -30,10 +30,7 @@ class Scope():
 
     def inject_scope(self, scope):
         for symbol_pair in scope.items():
-            self.__setitem__(symbol_pair)
-
-    def __contains__(self, item):
-        
+            self.__setitem__(symbol_pair)        
 
     def __or__(self, other:'Scope'):
         scope = Scope(self.mapping)
@@ -42,7 +39,11 @@ class Scope():
                 scope[i] = other[i]
         return scope
 
+    def items(self):
+        return self.mapping.items()
 
     def __ior__(self, other):
         return self.mapping.__ior__(other)
 
+    def __contains__(self, other):
+        return other in self.mapping

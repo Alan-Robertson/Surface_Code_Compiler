@@ -13,7 +13,7 @@ class DAGNode():
                  symbol=None, 
                  layer_num=None, 
                  slack=0, 
-                 magic_state=None, 
+                 magic_state=None,
                  cycles=1):
 
         if targs is None:
@@ -30,7 +30,7 @@ class DAGNode():
 
         self.targs = set(map(Symbol, targs))
         self.deps = set(map(Symbol, deps))
-        self.symbol = symbol
+        self.symbol = Symbol(symbol, self.deps, self.targs)
         self.cycles = cycles
 
         # We will be filling these in once we've got an allocation
@@ -56,9 +56,12 @@ class DAGNode():
     def __getitem__(self, index):
         return self.symbol[index]
 
+    def __call__(self, index):
+        return self.symbol.__call__(index)
+
     def __contains__(self, i):
         return self.targs.__contains__(i) or self.deps.__contains__(i)
     def __repr__(self):
-        return "{}:{} -> {}".format(self.symbol, self.deps, self.targs)
+        return self.symbol.__repr__()
     def __str__(self):
         return self.__repr__()

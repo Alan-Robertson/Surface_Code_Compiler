@@ -1,23 +1,27 @@
 class DAG():
-    def __init__(self, n_blocks, *initial_gates, initial_scope=None):
+    def __init__(self, n_blocks = 0, initial_gates = None, scope=None):
 
-        if initial_scope is None:
-            self.scope = Scope()
+        if scope is None:
+            scope = Scope()
+        if initial_gates is None:
+            initial_gates = []
+
+        self.scope = scope
 
         # Internal Memory 
-        self.n_blocks = n_blocks
-        self.blocks = {Symbol(i) for i in range(n_blocks)}
-
+        self.n_blocks = 0
+        
         # Initial Nodes
-        self.gates = [INIT(i) for i in self.blocks] # List of gates
+        self.gates = [INIT(i) for i in range(n_blocks)] # List of gates
+
+        # Magic State Factory and Compositional nodes
+        self.external_dependencies = set()
 
         # Layer Later
         self.layers = []
         self.layers_conjestion = []
         self.layers_msf = []
 
-        # Magic State Factory and Compositional nodes
-        self.composition_units = set()
         self.msf_extra = None # For rewriting, remove
 
         # Tracks which node each gate was last involved in
@@ -46,48 +50,46 @@ class DAG():
         '''
         gate_group = gate_constructor(*args, deps=deps, targs=targs, **kwargs)
         return [self.add_single_gate(gate, *g_args, **g_kwargs) for gate, g_args, g_kwargs in gate_group]
-
-            
+  
     def add_single_gate(self, gate_constructor: type, *args, deps=None, targs=None, **kwargs):
         '''
             add_gate
             Adds a single gate to the DAG
         '''
         gate = gate_constructor(*args, deps=deps, targs=targs, **kwargs)
-        deps = gate.deps
-        symbol = gate.symbol
-
+        operands = gate.deps | gate.targs
 
         # Register a new compositional object
-        if isinstance(gate, QCBGate) and symbol is not None:
-            self.composition_units.add(symbol.get_parent())
+        if isinstance(gate, QCBGate) and gate.symbol not in self.external_dependencies:
+            self.external_dependencies.add(gate.symbol)
 
-            if symbol.get_parent() not in self.last_block:
-                initialiser = INIT(targs=symbol.get_parent(), **kwargs)
-                self.last_block[symbol.get_parent()] = initialiser
-                self.blocks.add(symbol.get_parent()) = initialiser
+        for operand in operands:
+            if operand not in self.scope:
+                self.scope[operand] = None
+                initialiser = INIT(operand)
+
+                self.gates.append(initialiser)
+                self.last_block[operand] = initialiser
+
 
         # Update last block 
         predicates = {}
-        for t in map(lambda t: t.get_parent(), gate.deps | gate.targs):
-            # Fungibility of magic state factories, to be resolved during allocation
-            if t in self.composition_units:
-                predicates[t] = self.blocks[t]
+        for t in map(lambda t: t.get_parent(), operands):
+            # Fungibility of QCBs
+            if t in self.external_dependencies:
+                predicates[t] = t
             else:
                 predicates[t] = self.last_block[t]
                 self.last_block[t] = gate
         
         # Resolve gate predicates
         gate.predicates = predicates
-        gate.layer_num = max((predicate.layer_num + 1 
-                              for predicate in gate.predicates.values()), 
-                              default=0)
+        #gate.layer_num = max(((predicate.layer_num + 1, 0)[isinstance(predicate, DAGNode)] for predicate in gate.predicates.values()), default=0)
 
-    
         # Calculate slack on the gate
-        for t in gate.predicates:
-            gate.predicates[t].slack = max(gate.predicates[t].slack, 1 / (gate.layer_num - gate.predicates[t].layer_num))
-            gate.predicates[t].antecedents[t] = gate
+        # for t in gate.predicates:
+        #     gate.predicates[t].slack = max(gate.predicates[t].slack, 1 / max(gate.layer_num - gate.predicates[t].layer_num, 1))
+        #     gate.predicates[t].antecedents[t] = gate
 
         self.gates.append(gate)
         self.layer_gate(gate)
@@ -101,9 +103,8 @@ class DAG():
         
         self.layers_conjestion[gate.layer_num] += gate.non_local
         self.layers[gate.layer_num].append(gate)
-        if gate.symbol in self.composition_units:
+        if gate.symbol in self.external_dependencies:
             self.layers_msf[gate.layer_num].append(gate)
-
 
     def layer(self):
         self.layers = []
@@ -113,7 +114,6 @@ class DAG():
     def depth_parallel(self, n_channels):
         return sum(max(1, 1 + layer_conjestion - n_channels) for layer_conjestion in self.layers_conjestion)
         
-
     def dag_traverse(self, n_channels, *msfs, blocking=True, debug=False):
         traversed_layers = []
 
