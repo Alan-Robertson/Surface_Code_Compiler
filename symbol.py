@@ -1,3 +1,5 @@
+from scope import Scope
+
 class Symbol(object):
     def __init__(self, symbol:object, io_in=None, io_out=None, parent=None):
         '''
@@ -62,6 +64,9 @@ class Symbol(object):
             return self
         return self.parent.get_parent()
 
+    def bind_scope(self):
+        return Scope(self.io.keys())
+        
 
 class BindSymbol():
     def __init__(self, symbol):
