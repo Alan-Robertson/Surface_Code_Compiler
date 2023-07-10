@@ -1,5 +1,3 @@
-from scope import Scope
-
 class Symbol(object):
     def __init__(self, symbol:object, io_in=None, io_out=None, parent=None):
         '''
@@ -37,7 +35,7 @@ class Symbol(object):
         return self.io_rev[index]
 
     def __call__(self, index):
-        return self.io[index]
+        return self[self.io[index]]
 
     def __len__(self):
         return self.__len__(io)
@@ -59,7 +57,22 @@ class Symbol(object):
         if len(self.io_out) == 0:
             return f'<{self.symbol}: {tuple(self.io_in)}>'
         return f'<{self.symbol}: {tuple(self.io_in)} -> {tuple(self.io_out)}>'
+
+
+    def __copy__(self):
+        return Symbol(self.symbol, self.io_in, self.io_out)
         
+
+    def rewrite(self, scope):
+        io_in = {scope[i] for i in self.io_in}
+        io_out = {scope[i] for i in self.io_out}
+        new_symbol = Symbol(self.symbol, io_in, io_out)
+        self.io_in = new_symbol.io_in
+        self.io_out = new_symbol.io_out
+        self.io = new_symbol.io
+        self.io_rev = new_symbol.io_rev
+        return self
+
 
     def __str__(self):
         return self.__repr__()
@@ -84,13 +97,21 @@ class Symbol(object):
     def bind_scope(self):
         return Scope(self.io.keys())
 
+    def inject(self, scope):
+        io_in = set(scope[i] for i in self.io_in)
+        io_out = set(scope[i] for i in self.io_out)
 
-class BindSymbol():
-    def __init__(self, symbol, *args, **kwargs):
-        super().__init__(symbol, *args, **kwargs)
+        io = {j:self.io[i] for i, j in zip(self.io_in, io_in)}
+        io |= {j:self.io[i] for i, j in zip(self.io_out, io_out)}
 
-    def __eq__(self, comparator):
-        if isinstance(comparator, Symbol):
-            return self.symbol is comparator
-        else:
-            return self.symbol == comparator
+        self.io = io
+        self.io_rev = dict(((j, i) for i, j in self.io.items()))
+        self.io_in = io_in
+        self.io_out = io_out
+
+        return self
+
+
+# Singleton descriptor
+EXTERN_SYMBOL = Symbol(object())
+from scope import Scope

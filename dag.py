@@ -71,7 +71,6 @@ class DAG():
                 self.gates.append(initialiser)
                 self.last_block[operand] = initialiser
 
-
         # Update last block 
         predicates = {}
         for t in map(lambda t: t.get_parent(), operands):
