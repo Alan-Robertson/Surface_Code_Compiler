@@ -67,11 +67,12 @@ class DAG(DAGNode):
                 self.scope[sym] = None
 
         self.gates = []
-        self.first_layer = {}
         self.last_layer = {}
+
         self.externs = set()
         self.predicates = set()
         self.antecedants = set()
+
         self.layers = []
         self.layer = 0
 
@@ -80,13 +81,15 @@ class DAG(DAGNode):
                 init_gate = INIT(obj)
                 self.gates.append(init_gate)
                 self.last_layer[obj] = init_gate
+                self.update_layer(init_gate)
+                self.update_dependencies(init_gate)
 
 
     def __getitem__(self, index):
         return self.scope(index)
 
     def n_cycles(self):
-        return 0
+        return len(self.layers)
 
     def add_gate(self, dag, *args, scope=None, **kwargs):
 
@@ -133,9 +136,10 @@ class DAG(DAGNode):
         
     def update_layer(self, gate):
         layer_num = 1 + max((predicate.layer for predicate in gate.predicates), default=-1)
-        if layer_num > len(self.layers):
-            self.layers += [[] for i in range(layer_num - self.layers)]
+        if layer_num > len(self.layers) - 1:
+            self.layers += [[] for i in range(layer_num - len(self.layers) + 1)]
         self.layers[layer_num].append(gate)
+        gate.layer = layer_num
 
     def inject(self, scope):
         for gate in self.gates:
