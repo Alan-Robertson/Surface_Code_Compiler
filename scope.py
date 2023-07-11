@@ -16,6 +16,7 @@ class Scope():
                     self[element] = None
             else:
                 self |= {i:None for i in element}
+        self.mapping = {Symbol(i):Symbol(j) for i, j in self.mapping.items()}
 
     def __getitem__(self, index):
         return self.mapping[index]
@@ -34,6 +35,9 @@ class Scope():
 
     def __call__(self, index):
         return Symbol(index) 
+
+    def __len__(self):
+        return len(self.mapping)
 
     def __or__(self, other:'Scope'):
         scope = Scope(self.mapping)

@@ -29,6 +29,52 @@ def CNOT(ctrl, targ):
 from dag2 import DAG, DAGNode
 
 
+def T(targ):
+    targ = Symbol(targ)
+    sym = Symbol('T', 'targ')
+    scope = Scope({Symbol('T_Factory'):EXTERN_SYMBOL, sym('targ'):targ})
+    dag = DAG(sym, scope=scope)
+    dag.add_node(sym, n_cycles=3)
+    return dag
+
+def Hadamard(targ):
+    targ = Symbol(targ)
+    sym = Symbol('H', 'targ')
+    scope = Scope({sym('targ'):targ})
+    dag = DAG(sym, scope=scope)
+    dag.add_node(sym, n_cycles=1)
+    return dag
+
+
+def Toffoli(ctrl_a, ctrl_b, targ):
+    ctrl_a, ctrl_b, targ = map(Symbol, (ctrl_a, ctrl_b, targ))
+    sym = Symbol('Toffoli', {'ctrl_a', 'ctrl_b'}, 'targ')
+    scope = Scope({sym('ctrl_a'):ctrl_a, sym('ctrl_b'):ctrl_b, sym('targ'):targ})
+    dag = DAG(sym)
+
+    dag.add_gate(Hadamard('targ'))
+    dag.add_gate(CNOT('ctrl_b', 'targ'))
+    dag.add_gate(T('targ'))
+    dag.add_gate(CNOT('ctrl_a', 'targ'))
+
+    dag(scope=scope)
+    return dag
+    # self.add_gate(CNOT, deps[1], targs[0])
+    # self.add_gate(Tdag, targs[0])
+    # self.add_gate(CNOT, deps[0], targs[0])
+    # self.add_gate(T, targs[0])
+    # self.add_gate(CNOT, deps[1], targs[0])
+    # self.add_gate(Tdag, targs[0])
+    # self.add_gate(CNOT, deps[0], targs[0])
+    # self.add_gate(T, deps[1])
+    # self.add_gate(T, targs[0])
+    # self.add_gate(CNOT, deps[0], deps[1])
+    # self.add_gate(Hadamard, targs[0])
+    # self.add_gate(T, deps[0])
+    # self.add_gate(Tdag, deps[1])
+    # self.add_gate(CNOT, deps[0], deps[1])
+
+
 #from DAG import dag
 
 '''
