@@ -124,13 +124,18 @@ class DAG(DAGNode):
                 self.update_dependencies(gate)
 
     def update_dependencies(self, gate):
-        return
         for dep in gate.symbol.io:
             predicate = self.last_layer[dep]
             predicate.antecedants.add(dep)
             gate.predicates.add(predicate)
             self.last_layer[dep] = gate
-
+        self.update_layer(gate)
+        
+    def update_layer(self, gate):
+        layer_num = 1 + max((predicate.layer for predicate in gate.predicates), default=-1)
+        if layer_num > len(self.layers):
+            self.layers += [[] for i in range(layer_num - self.layers)]
+        self.layers[layer_num].append(gate)
 
     def inject(self, scope):
         for gate in self.gates:
@@ -146,7 +151,6 @@ class DAG(DAGNode):
         lookup = (dict(map(lambda x: x[::-1], enumerate(self.scope.keys()))) 
                 | dict(map(lambda x: x[::-1], zip(self.externs, range(len(self.scope), prox_len))))
         )
-
         for layer in self.layers:
             for gate in layer:
                 for targ in gate.scope:                            
