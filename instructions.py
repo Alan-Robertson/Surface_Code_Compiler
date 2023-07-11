@@ -57,7 +57,7 @@ def Toffoli(ctrl_a, ctrl_b, targ):
     dag.add_gate(T('targ'))
     dag.add_gate(CNOT('ctrl_a', 'targ'))
 
-    dag(scope=scope)
+    dag = dag(scope=scope)
     return dag
     # self.add_gate(CNOT, deps[1], targs[0])
     # self.add_gate(Tdag, targs[0])
