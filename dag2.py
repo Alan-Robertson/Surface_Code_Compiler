@@ -29,8 +29,8 @@ class DAGNode():
         obj.antecedants = set()
         if scope is not None:
             obj.inject(scope)
-        else:
-            obj.inject(obj.scope)
+        # else:
+            # obj.inject(obj.scope)
         return obj
 
     def inject(self, scope):
@@ -108,7 +108,7 @@ class DAG(DAGNode):
 
     def add_node(self, symbol, *args, **kwargs):
         gate = DAGNode(symbol, *args, **kwargs)
-        gate(self.scope)
+        gate = gate(scope=self.scope)
         self.gates.append(gate)
                     
     def unroll_gate(self, dag):
@@ -124,7 +124,7 @@ class DAG(DAGNode):
                 self.update_dependencies(gate)
 
     def update_dependencies(self, gate):
-        return
+        # return
         for dep in gate.symbol.io:
             predicate = self.last_layer[dep]
             predicate.antecedants.add(dep)
