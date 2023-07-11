@@ -58,10 +58,8 @@ class Symbol(object):
             return f'<{self.symbol}: {tuple(self.io_in)}>'
         return f'<{self.symbol}: {tuple(self.io_in)} -> {tuple(self.io_out)}>'
 
-
     def __copy__(self):
         return Symbol(self.symbol, self.io_in, self.io_out)
-        
 
     def rewrite(self, scope):
         io_in = {scope[i] for i in self.io_in}
@@ -72,7 +70,6 @@ class Symbol(object):
         self.io = new_symbol.io
         self.io_rev = new_symbol.io_rev
         return self
-
 
     def __str__(self):
         return self.__repr__()

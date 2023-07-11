@@ -64,6 +64,9 @@ class Scope():
     def __contains__(self, other):
         return other in self.mapping
 
+    def unrollable(self):
+        return EXTERN_SYMBOL not in self.values()
+
     def satisfies(self, symbol, subscope, exception=False):
         interface = symbol.bind_scope()
         for element in interface:

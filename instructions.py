@@ -19,7 +19,6 @@ def CNOT(ctrl, targ):
     ctrl, targ = map(Symbol, (ctrl, targ))
     sym = Symbol('CNOT', 'ctrl', 'targ')
     scope = Scope({sym('ctrl'):ctrl, sym('targ'):targ})
-    print(scope)
     
     dag = DAG(sym, scope)
 

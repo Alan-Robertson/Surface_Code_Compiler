@@ -13,21 +13,31 @@ class DAGNode():
         self.scope = self.symbol.bind_scope()
         
         self.predicates = set()
+        self.antecedants = set()
         self.externs = externs
 
         self.n_cycles = n_cycles
         self.gates = [self]
 
-    def __call__(self, scope):
+    def __call__(self, scope=None):
         obj = copy.deepcopy(self)
-        obj.inject(scope)
+        obj.predicates = set()
+        obj.antecedants = set()
+        if scope is not None:
+            obj.inject(scope)
+        else:
+            obj.inject(obj.scope)
         return obj
 
     def inject(self, scope):
+        if not isinstance(scope, Scope):
+            scope = Scope(scope)
         self.scope.inject(scope)
-        #self.symbol.inject(scope)
-        
+        self.symbol.inject(scope)
 
+    def unrollable(self):
+        return self.scope.unrollable()
+        
     def __repr__(self):
         return self.symbol.__repr__()
 
@@ -50,6 +60,7 @@ class DAG(DAGNode):
         self.last_layer = {}
         self.externs = set()
         self.predicates = set()
+        self.antecedants = set()
 
         for obj in self.scope:
             if self.scope[obj] is None:
@@ -60,9 +71,10 @@ class DAG(DAGNode):
     def __getitem__(self, index):
         return self.scope(index)
 
-        
     def add_gate(self, dag, *args, scope=None, **kwargs):
+
         gate = dag(scope)
+        
         operands = gate.symbol.io
         self.externs |= gate.externs
         
@@ -70,18 +82,11 @@ class DAG(DAGNode):
             if gate.scope[operand] is operand:
                 self.scope[operand] = None
 
-        print(gate, self.scope, gate.scope)
-        if self.scope.exactly_satisfies(gate.scope):
+        if gate.unrollable():
             self.unroll_gate(gate)
         else:
-            pass
-            #self.gates.append(gate)
-                        
-            # predicates = {}
-            # for t in operands:
-            #     predicates[t] = self.last_block[t]
-            #     self.last_block[t] = gate
-            # gate.predicates = predicates
+            self.gates.append(gate)
+            self.update_dependencies(gate)
         return gate
 
     def add_node(self, symbol, *args, **kwargs):
@@ -95,14 +100,24 @@ class DAG(DAGNode):
                 self.unroll_gate(gate)
             else:
                 self.gates.append(gate)
+                for element in gate.symbol.io:
+                    if element not in self.scope:
+                        self.scope[element] = gate
+                        self.last_layer[element] = gate
+                self.update_dependencies(gate)
+
+    def update_dependencies(self, gate):
+        for dep in gate.symbol.io:
+            predicate = self.last_layer[dep]
+            predicate.antecedants.add(dep)
+            gate.predicates.add(predicate)
+            self.last_layer[dep] = gate
 
     def inject(self, scope):
         for gate in self.gates:
             gate.inject(scope)
         self.scope.inject(scope)
         self.symbol.inject(scope)
-
-
 
 from symbol import Symbol
 from scope import Scope
