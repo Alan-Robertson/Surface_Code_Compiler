@@ -8,7 +8,7 @@ from scope import Scope, EXTERN_SYMBOL
 def INIT(*symbol_constructors):
     sym = Symbol('INIT', symbol_constructors)
     scope = Scope({i:i for i in sym.io})
-    dag = DAG(sym, scope)
+    dag = DAG(sym, scope=scope)
 
     # Initialise each object independently
     for obj in sym.io:
@@ -20,7 +20,7 @@ def CNOT(ctrl, targ):
     sym = Symbol('CNOT', 'ctrl', 'targ')
     scope = Scope({sym('ctrl'):ctrl, sym('targ'):targ})
     
-    dag = DAG(sym, scope)
+    dag = DAG(sym, scope=scope)
 
     # This object is jointly initialised
     dag.add_node(sym, n_cycles=3)
@@ -57,7 +57,7 @@ def Toffoli(ctrl_a, ctrl_b, targ):
     dag.add_gate(T('targ'))
     dag.add_gate(CNOT('ctrl_a', 'targ'))
 
-    dag(scope=scope)
+    dag = dag(scope=scope)
     return dag
     # self.add_gate(CNOT, deps[1], targs[0])
     # self.add_gate(Tdag, targs[0])
