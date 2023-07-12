@@ -182,13 +182,16 @@ class DAG(DAGNode):
                                     conj[lookup[targ], lookup[other_targ]] += 1
         return conj, lookup
 
-    def dag_traverse(self, n_channels, *msfs, blocking=True, debug=False):
+
+    def dag_traverse(self, n_channels, *msfs, blocking=True, debug=False, extern_sort=lambda x : x.n_cycles()):
         traversed_layers = []
 
         # Magic state factory data
-        msfs = list(msfs)
-        msfs.sort(key = lambda x : x.n_cycles)
-        msfs_state = [0] * len(msfs)
+        externs = list(externs)
+        externs.sort(key=extern_sort)
+        externs_state = [0] * len(externs)
+
+        resolved = set()
 
         # Labelling
         msfs_index = {}
@@ -213,7 +216,7 @@ class DAG(DAGNode):
             for gate in unresolved:
                
                 # Gate already resolved, ignore
-                if gate.resolved:
+                if gate in resolved:
                     continue
 
                 # Channel resolution
@@ -260,6 +263,23 @@ class DAG(DAGNode):
                                         gate.msf_extra = (msfs_index[i], factory)
                                                            #msfs_index[factory]
                                         break
+
+
+class Bind():
+    '''
+        Bind
+        This allows us to override the regular hashing behaviour of another arbitrary object
+        such that we can compare instances of symbols rather than symbol strings 
+    '''
+    def __init__(obj):
+        self.obj = obj
+    def __eq__(self, obj):
+        if isinstance(obj, Bind):
+            return id(self.obj) == id(obj.obj)
+        else:
+            return id(self.obj) == id(obj)
+    def __hash__(self):
+        return id(self)
 
 from symbol import Symbol
 from scope import Scope
