@@ -6,7 +6,9 @@ class DAGNode():
             symbol = Symbol(symbol)
 
         if externs is None:
-            externs = set()
+            externs = list()
+        if isinstance(externs, Symbol):
+            externs = [externs]
 
         self.symbol = symbol
         
@@ -33,13 +35,12 @@ class DAGNode():
             # obj.inject(obj.scope)
         return obj
 
+
     def inject(self, scope):
         if not isinstance(scope, Scope):
             scope = Scope(scope)
-        print(f"OLD: {self.scope}, {self.symbol}")
         self.scope.inject(scope)
         self.symbol.inject(scope)
-        print(f"NEW: {self.scope}, {self.symbol}")
 
     def unrollable(self):
         return self.scope.unrollable()
@@ -60,7 +61,6 @@ class DAG(DAGNode):
         if scope is None:
             scope = Scope()
         self.scope = scope
-        print(f"INITIAL {self.symbol} :: {self.scope}")
 
         for sym in self.symbol.io:
             if sym not in self.scope:
@@ -69,7 +69,7 @@ class DAG(DAGNode):
         self.gates = []
         self.last_layer = {}
 
-        self.externs = set()
+        self.externs = list()
         self.predicates = set()
         self.antecedants = set()
 
@@ -96,7 +96,8 @@ class DAG(DAGNode):
         gate = dag(scope=scope)
         
         operands = gate.symbol.io
-        self.externs |= gate.externs
+        if len(gate.externs) > 0:
+            self.externs += gate.externs
         
         for operand in operands:
             if gate.scope[operand] is operand:
@@ -112,6 +113,8 @@ class DAG(DAGNode):
     def add_node(self, symbol, *args, **kwargs):
         gate = DAGNode(symbol, *args, **kwargs)
         gate = gate(scope=self.scope)
+        if len(gate.externs) > 0:
+            self.externs += gate.externs
         self.gates.append(gate)
                     
     def unroll_gate(self, dag):
@@ -144,10 +147,8 @@ class DAG(DAGNode):
     def inject(self, scope):
         for gate in self.gates:
             gate.inject(scope)
-        print(f"DAG OLD: {self.scope}, {self.symbol}")
         self.scope.inject(scope)
         self.symbol.inject(scope)
-        print(f"DAG NEW: {self.scope}, {self.symbol}")
 
     def calculate_proximity(self):
         prox_len = len(self.externs) + len(self.scope)
@@ -164,27 +165,20 @@ class DAG(DAGNode):
         return prox, lookup
 
     def calculate_conjestion(self):
-        m, minv = {}, []
-        syms = self.composition_units.keys()
-        for i in range(self.n_blocks):
-            m[i] = i
-            minv.append(i)
-        for s in syms:
-            m[s] = len(minv)
-            minv.append(s)
-        
-        conj = np.zeros((len(minv), len(minv)))
-
+        conj_len = len(self.externs) + len(self.scope)
+        conj = np.zeros((conj_len, conj_len))
+        lookup = (dict(map(lambda x: x[::-1], enumerate(self.scope.keys()))) 
+                | dict(map(lambda x: x[::-1], zip(self.externs, range(len(self.scope), conj_len))))
+        )
         for layer in self.layers:
             for gate in layer:
-                if len(gate.targs) > 1:
+                if len(gate.scope) > 1:
                     for other_gate in layer:
-                        if other_gate is not gate and len(other_gate.targs) > 1:
-                            for targ in gate.targs:
-                                for other_targ in other_gate.targs:
-                                    conj[m[targ], m[other_targ]] += 1
-        return conj, m, minv
-
+                        if gate is not other_gate and len(other_gate.scope) > 1:
+                            for targ in gate.scope:                            
+                                for other_targ in other_gate.scope:
+                                    conj[lookup[targ], lookup[other_targ]] += 1
+        return conj, lookup
 
     def dag_traverse(self, n_channels, *msfs, blocking=True, debug=False):
         traversed_layers = []
