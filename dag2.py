@@ -125,6 +125,7 @@ class DAG(DAGNode):
                 self.gates.append(gate)
                 for element in gate.symbol.io:
                     if element not in self.scope:
+                        # Merge lower scope into higher
                         self.scope[element] = gate
                         self.last_layer[element] = gate
                 self.update_dependencies(gate)
@@ -138,7 +139,8 @@ class DAG(DAGNode):
         self.update_layer(gate)
         
     def update_layer(self, gate):
-        layer_num = 1 + max((predicate.layer for predicate in gate.predicates), default=-1)
+        print(gate, list(((predicate, predicate.layer) for predicate in gate.predicates)))
+        layer_num = 1 + max((predicate.layer for predicate in gate.predicates if predicate is not gate), default=-1)
         if layer_num > len(self.layers) - 1:
             self.layers += [[] for i in range(layer_num - len(self.layers) + 1)]
         self.layers[layer_num].append(gate)
