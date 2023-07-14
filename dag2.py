@@ -1,4 +1,5 @@
 import numpy as np
+from heapq import heappush
 
 class DAGNode():
     def __init__(self, symbol, *args, scope=None, externs=None, n_cycles=1):
@@ -20,10 +21,11 @@ class DAGNode():
         self.antecedants = set()
         self.externs = externs
 
-        self.n_cycles = n_cycles
+        self.__n_cycles = n_cycles
         self.gates = [self]
         self.layers = [self]
         self.layer = 0
+        self.slack = float('inf')
 
     def __call__(self, scope=None):
         obj = copy.deepcopy(self)
@@ -46,10 +48,13 @@ class DAGNode():
         return self.scope.unrollable()
 
     def n_cycles(self):
-        return self.n_cycles
+        return self.__n_cycles
         
     def __repr__(self):
         return self.symbol.__repr__()
+
+    def non_local(self):
+        return len(self.symbol.io) > 1
 
 class DAG(DAGNode):
     def __init__(self, symbol, scope=None):
@@ -75,6 +80,7 @@ class DAG(DAGNode):
 
         self.layers = []
         self.layer = 0
+        self.slack = float('inf')
 
         for obj in self.scope:
             if self.scope[obj] is None:
@@ -116,6 +122,8 @@ class DAG(DAGNode):
         if len(gate.externs) > 0:
             self.externs += gate.externs
         self.gates.append(gate)
+        self.merge_scopes(gate)
+        self.update_dependencies(gate)
                     
     def unroll_gate(self, dag):
         for gate in dag.gates:
@@ -123,34 +131,49 @@ class DAG(DAGNode):
                 self.unroll_gate(gate)
             else:
                 self.gates.append(gate)
-                for element in gate.symbol.io:
-                    if element not in self.scope:
-                        # Merge lower scope into higher
-                        self.scope[element] = gate
-                        self.last_layer[element] = gate
+                self.merge_scopes(gate)                
                 self.update_dependencies(gate)
+
+    def merge_scopes(self, gate):
+        for element in gate.symbol.io:
+            if element not in self.scope:
+                # Merge lower scope into higher
+                self.scope[element] = gate
+            if element not in self.last_layer:
+                self.last_layer[element] = gate
+        return
 
     def update_dependencies(self, gate):
         for dep in gate.symbol.io:
             predicate = self.last_layer[dep]
-            predicate.antecedants.add(dep)
-            gate.predicates.add(predicate)
-            self.last_layer[dep] = gate
+            if predicate is not gate:
+                predicate.antecedants.add(gate)
+                gate.predicates.add(predicate)
+                self.last_layer[dep] = gate
         self.update_layer(gate)
+        return
         
     def update_layer(self, gate):
         print(gate, list(((predicate, predicate.layer) for predicate in gate.predicates)))
         layer_num = 1 + max((predicate.layer for predicate in gate.predicates if predicate is not gate), default=-1)
+
+        # Create layers
         if layer_num > len(self.layers) - 1:
             self.layers += [[] for i in range(layer_num - len(self.layers) + 1)]
         self.layers[layer_num].append(gate)
         gate.layer = layer_num
+
+        # Update slack on predicates
+        for predicate in gate.predicates:
+            predicate.slack = min(predicate.slack, gate.layer - predicate.layer)
+        return
 
     def inject(self, scope):
         for gate in self.gates:
             gate.inject(scope)
         self.scope.inject(scope)
         self.symbol.inject(scope)
+        return
 
     def calculate_proximity(self):
         prox_len = len(self.externs) + len(self.scope)
@@ -183,103 +206,169 @@ class DAG(DAGNode):
         return conj, lookup
 
 
-    def dag_traverse(self, n_channels, *msfs, blocking=True, debug=False, extern_sort=lambda x : x.n_cycles()):
+    # TODO Create this as a separate wrapper
+    def compile(self, n_channels, *externs, debug=False, extern_minimise=lambda extern: extern.n_cycles()):
+        assert(n_channels > 0)
+
         traversed_layers = []
 
         # Magic state factory data
         externs = list(externs)
-        externs.sort(key=extern_sort)
-        externs_state = [0] * len(externs)
+        externs.sort(key=extern_minimise)
+        externs = list(map(Bind, map(Bind, externs)))
+        
+        active = set()
+        waiting = list()
+
+        # Initially active gates
+        active = list(map(DAGBind, (gate for gate in self.layers[0])))
+        active.sort()
 
         resolved = set()
+            
+        n_cycles = 0
 
-        # Labelling
-        msfs_index = {}
-        msfs_type_counts = {}
-        for i, m in enumerate(msfs):
-            msfs_index[i] = msfs_type_counts.get(m.symbol, 0)
-            msfs_type_counts[m.symbol] = msfs_index[i] + 1 
-        # print(f"{msfs_index=}")
-        unresolved = copy.copy(self.layers[0])
-        unresolved_update = copy.copy(unresolved)
+        layers = []
 
-        for symbol in self.composition_units:
-            self.composition_units[symbol].resolved = 0
+        # This is a semaphore
+        active_non_local_gates = 0
 
-        while len(unresolved) > 0:
-            traversed_layers.append([])
-            non_local_gates_in_layer = 0
-            patch_used = [False] * self.n_blocks
+        while len(active) > 0:
+            layers.append([])
+            n_cycles += 1
+            # Update each active gate
+            for gate in active:
+                gate.cycle()
 
-            unresolved.sort(key=lambda x: x.slack, reverse=True)
+            # Update each extern
+            for extern in externs:
+                if extern not in active:
+                    extern.pre_warm()
 
-            for gate in unresolved:
-               
-                # Gate already resolved, ignore
-                if gate in resolved:
+            recently_resolved = list(filter(lambda x: x.resolved(), active))
+            active = set(filter(lambda x: not x.resolved(), active))
+
+            # For each gate we resolve check if there are any antecedents that can be added to the waiting list
+            for gate in recently_resolved:
+                if gate.resolved():
+                    resolved.add(gate)
+                    layers[-1].append(gate)
+
+                    if gate.non_local():
+                        active_non_local_gates -= 1
+
+                    for antecedent in gate.antecedants:
+                        all_resolved = True
+                        for predicate in antecedent.predicates:
+                            if Bind(predicate) not in resolved:
+                                all_resolved = False
+                                break
+                        if all_resolved:
+                            waiting.append(DAGBind(antecedent))
+            
+
+            # Sort the waiting list based on the current slack
+            waiting.sort()
+
+            for gate in waiting:
+                # Gate is purely local, add it
+                if not gate.non_local():
+                    active.add(gate)
                     continue
 
-                # Channel resolution
-                if (not gate.non_local) or (gate.non_local and non_local_gates_in_layer < n_channels):
+                # Non-local gates only
+                # Already expended all channels, skip
+                if active_non_local_gates >= n_channels:
+                    continue
 
-                    # Check predicates
-                    predicates_resolved = True
-                    for predicate in gate.edges_precede:
-                        if not gate.edges_precede[predicate].resolved or (gate.edges_precede[predicate].magic_state == False and patch_used[predicate]):
-                            predicates_resolved = False
-                            break
+                # Gate is non-local but we have channel capacity for it
+                active.add(gate)
+                active_non_local_gates += 1
 
-                    if predicates_resolved:
-                        traversed_layers[-1].append(gate)
-                        gate.resolved = True
+            # Update the waiting list
+            waiting = list(filter(lambda x: x not in active, waiting))
 
-                        # Fungible MSF nodes
-                        for targ in gate.targs:
-                            if self.blocks[targ].magic_state is False:
-                                patch_used[targ] = True
-
-                        # Add antecedent gates
-                        for antecedent in gate.edges_antecede:
-                            if (gate.edges_antecede[antecedent] not in unresolved_update):
-                                unresolved_update.append(gate.edges_antecede[antecedent])
-
-                        # Expend a channel
-                        if gate.non_local:
-                            non_local_gates_in_layer += 1
-
-                        # Remove the gate from the next round
-                        unresolved_update.remove(gate)
-
-                        # Resolve magic state factory resources
-                        for predicate in gate.edges_precede:
-                            if gate.edges_precede[predicate].magic_state:
-                                for i, factory in enumerate(msfs):
-                                    # Consume first predicate for each MS needed for the gate
-                                    if predicate == factory.symbol and msfs_state[i] >= factory.cycles:
-                                        msfs_state[i] = 0
-                                        gate.edges_precede[predicate].resolved -= 1
-                                        # TODO fix: ugly hack
-                                        log("set", gate, i)
-                                        gate.msf_extra = (msfs_index[i], factory)
-                                                           #msfs_index[factory]
-                                        break
-
+        return n_cycles, layers
 
 class Bind():
+    def __init__(self, obj):
+        self.obj = obj
+        self.__n_cycles = 0
+
+    def cycle(self):
+        self.__n_cycles += 1
+
+    def resolved(self):
+        return self.__n_cycles >= self.obj.n_cycles()
+
+    
+class ExternBind():
+    def __init__(self, obj):
+        self.obj = Bind(obj)
+        self.__n_cycles = 0
+
+    def cycle(self):
+        self.__n_cycles += 1
+
+    def resolved(self):
+        return self.__n_cycles >= self.obj.n_cycles()
+
+    def pre_warm(self):
+        if self.__n_cycles < self.obj.pre_warm:
+            self.__n_cycles += 1
+
+
+class DAGBind(Bind):
     '''
         Bind
         This allows us to override the regular hashing behaviour of another arbitrary object
         such that we can compare instances of symbols rather than symbol strings 
     '''
-    def __init__(obj):
-        self.obj = obj
+    def __init__(self, obj):
+        self.slack = obj.slack
+        self.antecedants = obj.antecedants
+        self.predicates = obj.predicates
+        self.symbol = obj.symbol
+        super().__init__(obj)
+
+    def wait(self):
+        self.slack -= 1
+
+    def n_cycles(self):
+        return self.__n_cycles
+
+    def non_local(self):
+        return self.obj.non_local()
+
+    def satisfies(self, other):
+        if isinstance(other, Bind):
+            return self.obj.symbol == other.obj.symbol
+        else:
+            self.obj.symbol == other.symbol
+
+    def __repr__(self):
+        return self.obj.__repr__()
+
+    def __gt__(self, other):
+        return self.slack > other.slack
+
+    def __lt__(self, other):
+        return self.slack < other.slack
+
+    def __ge__(self, other):
+        return self.slack >= other.slack
+
+    def __le__(self, other):
+        return self.slack <= other.slack
+
     def __eq__(self, obj):
         if isinstance(obj, Bind):
             return id(self.obj) == id(obj.obj)
         else:
             return id(self.obj) == id(obj)
+
     def __hash__(self):
-        return id(self)
+        return id(self.obj)
 
 from symbol import Symbol
 from scope import Scope

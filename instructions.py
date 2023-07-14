@@ -37,8 +37,8 @@ def T(targ):
 
     scope = Scope({factory:EXTERN_SYMBOL, sym('targ'):targ})
     dag = DAG(sym, scope=scope)
-    dag.add_node(factory, externs=factory)
-    dag.add_node(sym, n_cycles=3)
+    dag.add_node(factory, externs=factory, n_cycles=17)
+    dag.add_gate(CNOT(factory, targ))
     return dag
 
 def Hadamard(targ):
