@@ -69,7 +69,7 @@ class Scope():
         return other in self.mapping
 
     def unrollable(self):
-        return EXTERN_SYMBOL not in self.values()
+        return ExternSymbol(None, None) not in self.values()
 
     def satisfies(self, symbol, subscope, exception=False):
         interface = symbol.bind_scope()
@@ -96,7 +96,4 @@ class Scope():
             new_mapping[scope[i]] = self.mapping[i]
         self.mapping = new_mapping
        
-from symbol import Symbol
-
-# Singleton descriptor
-EXTERN_SYMBOL = Symbol(object())
+from symbol import Symbol, ExternSymbol

@@ -2,8 +2,8 @@
 # from typing import Sequence 
 # from dag import DAG
 from functools import partial
-from symbol import Symbol
-from scope import Scope, EXTERN_SYMBOL
+from symbol import Symbol, ExternSymbol
+from scope import Scope
 
 def INIT(*symbol_constructors):
     sym = Symbol('INIT', symbol_constructors)
@@ -14,6 +14,17 @@ def INIT(*symbol_constructors):
     for obj in sym.io:
         dag.add_node(Symbol("INIT", obj), n_cycles=1)
     return dag
+
+def RESET(*symbol_constructors):
+    sym = Symbol('RESET', symbol_constructors)
+    scope = Scope({i:i for i in sym.io})
+    dag = DAG(sym, scope=scope)
+
+    # Reset each object independently
+    for obj in sym.io:
+        dag.add_node(Symbol("RESET", obj), n_cycles=1)
+    return dag
+
 
 def CNOT(ctrl, targ):
     ctrl, targ = map(Symbol, (ctrl, targ))
@@ -33,12 +44,14 @@ def T(targ):
     targ = Symbol(targ)
     sym = Symbol('T', 'targ')
 
-    factory = Symbol('T_Factory')
+    factory = ExternSymbol('T_Factory')
 
-    scope = Scope({factory:EXTERN_SYMBOL, sym('targ'):targ})
+    scope = Scope({factory:factory, sym('targ'):targ})
+
     dag = DAG(sym, scope=scope)
     dag.add_node(factory, externs=factory, n_cycles=17)
-    dag.add_gate(CNOT(factory, targ))
+    dag.add_gate(CNOT(factory('factory_out'), targ))
+    dag.add_gate(RESET(factory))
     return dag
 
 def Hadamard(targ):

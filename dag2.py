@@ -1,15 +1,19 @@
 import numpy as np
 from heapq import heappush
 
+from itertools import takewhile
+from functools import reduce
+
 class DAGNode():
     def __init__(self, symbol, *args, scope=None, externs=None, n_cycles=1):
         if not isinstance(symbol, Symbol):
             symbol = Symbol(symbol)
 
         if externs is None:
-            externs = list()
+            externs = dict()
         if isinstance(externs, Symbol):
-            externs = [externs]
+            externs = {externs:None}
+        externs = {extern:None for extern in externs}
 
         self.symbol = symbol
         
@@ -28,14 +32,15 @@ class DAGNode():
         self.slack = float('inf')
 
     def __call__(self, scope=None):
-        obj = copy.deepcopy(self)
-        obj.predicates = set()
-        obj.antecedants = set()
+        #obj = copy.deepcopy(self)
+        #obj = self
+        self.predicates = set()
+        self.antecedants = set()
         if scope is not None:
-            obj.inject(scope)
+            self.inject(scope)
         # else:
             # obj.inject(obj.scope)
-        return obj
+        return self
 
 
     def inject(self, scope):
@@ -74,7 +79,7 @@ class DAG(DAGNode):
         self.gates = []
         self.last_layer = {}
 
-        self.externs = list()
+        self.externs = dict()
         self.predicates = set()
         self.antecedants = set()
 
@@ -103,7 +108,7 @@ class DAG(DAGNode):
         
         operands = gate.symbol.io
         if len(gate.externs) > 0:
-            self.externs += gate.externs
+            self.externs |= gate.externs
         
         for operand in operands:
             if gate.scope[operand] is operand:
@@ -118,9 +123,10 @@ class DAG(DAGNode):
 
     def add_node(self, symbol, *args, **kwargs):
         gate = DAGNode(symbol, *args, **kwargs)
+        # Todo, check if this is needed
         gate = gate(scope=self.scope)
         if len(gate.externs) > 0:
-            self.externs += gate.externs
+            self.externs |= gate.externs
         self.gates.append(gate)
         self.merge_scopes(gate)
         self.update_dependencies(gate)
@@ -154,7 +160,6 @@ class DAG(DAGNode):
         return
         
     def update_layer(self, gate):
-        print(gate, list(((predicate, predicate.layer) for predicate in gate.predicates)))
         layer_num = 1 + max((predicate.layer for predicate in gate.predicates if predicate is not gate), default=-1)
 
         # Create layers
@@ -208,7 +213,12 @@ class DAG(DAGNode):
 
     # TODO Create this as a separate wrapper
     def compile(self, n_channels, *externs, debug=False, extern_minimise=lambda extern: extern.n_cycles()):
+        
+        # Check I have enough channels
         assert(n_channels > 0)
+
+        # Check that all externs are mapped
+        assert(reduce(lambda a, b: a and b, (any(map(lambda i: i.satisfies(extern), externs)) for extern in self.externs.keys())))
 
         traversed_layers = []
 
@@ -216,6 +226,8 @@ class DAG(DAGNode):
         externs = list(externs)
         externs.sort(key=extern_minimise)
         externs = list(map(ExternBind, externs))
+
+        extern_scoping = Scope()
         
         active = set()
         waiting = list()
@@ -259,8 +271,8 @@ class DAG(DAGNode):
 
                     for antecedent in gate.antecedants:
                         all_resolved = True
-                        for predicate in antecedent.predicates:
-                            if Bind(predicate) not in resolved:
+                        for predicate in antecedent.predicates:                           
+                            if DAGBind(predicate) not in resolved:
                                 all_resolved = False
                                 break
                         if all_resolved:
@@ -312,8 +324,6 @@ class Bind():
 
     def antecedents(self):
         return self.obj.predicates
-
-
     
 class ExternBind(Bind):
     def __init__(self, obj):

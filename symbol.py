@@ -1,4 +1,5 @@
 class Symbol(object):
+
     def __init__(self, symbol:object, io_in=None, io_out=None, parent=None):
         '''
             Perfectly reasonable Python code
@@ -8,7 +9,7 @@ class Symbol(object):
         if io_out is None:
             io_out = set()
 
-        if isinstance(symbol, Symbol):
+        if isinstance(symbol, Symbol) and not isinstance(symbol, ExternSymbol):
             io_in |= symbol.io_in
             io_out |= symbol.io_out
             symbol = symbol.symbol
@@ -108,7 +109,56 @@ class Symbol(object):
 
         return self
 
+    def is_extern(self):
+        return isinstance(self.symbol, ExternSymbol)
 
-# Singleton descriptor
-EXTERN_SYMBOL = Symbol(object())
+class ExternSymbol(Symbol):
+    singleton = object()
+
+    def __init__(self, predicate, io_element=None):
+        
+        self.symbol = Symbol('Extern Symbol')
+
+        if isinstance(predicate, str):
+            predicate = Symbol(predicate)
+        
+        if isinstance(io_element, str):
+            io_element = Symbol(io_element)
+
+        self.predicate = predicate
+        self.io_element = io_element
+        self.io_in = set()
+        self.io_out = set()
+        self.io = dict()
+        self.externs = [self]
+
+    def __repr__(self):
+        if self.io_element is not None:
+            return f'EXTERN: {self.predicate.__repr__()} : {self.io_element.__repr__()}'
+        else:
+            return f'EXTERN: {self.predicate.__repr__()}'
+
+    def __str__(self):
+        return self.__repr__()
+
+    def __hash__(self):
+        return id(self.singleton)
+
+    def __eq__(self, other):
+        if not isinstance(other, ExternSymbol):
+            return False
+        return id(self.predicate) == id(other.predicate)
+
+    def __len__(self):
+        return 1
+
+    def __call__(self, io_element):
+        return ExternSymbol(self.predicate, io_element)
+
+    def satisfies(self, other):
+        if isinstance(other.predicate, ExternSymbol):
+            return self.predicate.symbol == other.predicate.predicate
+        return self.predicate.symbol == other.predicate.symbol
+
+
 from scope import Scope
