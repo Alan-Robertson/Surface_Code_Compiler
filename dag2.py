@@ -215,7 +215,7 @@ class DAG(DAGNode):
         # Magic state factory data
         externs = list(externs)
         externs.sort(key=extern_minimise)
-        externs = list(map(Bind, map(Bind, externs)))
+        externs = list(map(ExternBind, externs))
         
         active = set()
         waiting = list()
@@ -298,12 +298,26 @@ class Bind():
     def cycle(self):
         self.__n_cycles += 1
 
+    def n_cycles(self):
+        return self.obj.n_cycles()
+
+    def pre_warm_cycles(self):
+        return self.obj.pre_warm_cycles()
+
     def resolved(self):
         return self.__n_cycles >= self.obj.n_cycles()
 
+    def predicates(self):
+        return self.obj.predicates
+
+    def antecedents(self):
+        return self.obj.predicates
+
+
     
-class ExternBind():
+class ExternBind(Bind):
     def __init__(self, obj):
+        # Nesting this ensures non-fungibility
         self.obj = Bind(obj)
         self.__n_cycles = 0
 
