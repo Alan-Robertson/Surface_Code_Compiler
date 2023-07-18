@@ -1,24 +1,25 @@
 from dag2 import DAG
-from symbol import Symbol
+from symbol import Symbol, ExternSymbol, symbol_map
 
 from instructions import INIT, CNOT, T
 from scope import Scope
 
-g = DAG(Symbol('tst'))
-init = INIT('a', 'b', 'c', 'd')
-g.add_gate(init)
-g.add_gate(CNOT('a', 'b'))
-g.add_gate(CNOT('c', 'd'))
-g.add_gate(T('a'))
+# g = DAG(Symbol('tst'))
+# init = INIT('a', 'b', 'c', 'd')
+# g.add_gate(init)
+# g.add_gate(CNOT('a', 'b'))
+# g.add_gate(CNOT('c', 'd'))
+# g.add_gate(T('a'))
 
 
-#g.add_gate(T('x'))
+targ = 'x'
+targ = symbol_map(targ)
+sym = Symbol('T', 'targ')
 
-# gg = DAG(Symbol('gg'))
-# gg.add_gate(g, scope={g['x']:gg['a'], g['y']:gg['b']})
+factory = ExternSymbol('T_Factory')
 
-# assert(Symbol('a') in gg.scope)
-# assert(Symbol('b') in gg.scope)
+scope = Scope({factory:factory, sym('targ'):targ})
 
-# ggg = DAG(Symbol('ggg'))
-# ggg.add_gate(gg, scope={gg['a']:ggg['x'], gg['b']:ggg['y']})
+dag = DAG(sym, scope=scope)
+dag.add_gate(INIT('x'))
+dag.add_gate(T('x'))
