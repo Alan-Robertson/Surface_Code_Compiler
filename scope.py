@@ -16,7 +16,7 @@ class Scope():
                     self[element] = None
             else:
                 self |= {i:None for i in element}
-        self.mapping = {Symbol(i):Symbol(j) for i, j in self.mapping.items()}
+        self.mapping = {symbol_resolve(i):symbol_resolve(j) for i, j in self.mapping.items()}
 
     def __getitem__(self, index):
         return self.mapping[index]
@@ -34,7 +34,7 @@ class Scope():
         return self.__repr__()
 
     def __call__(self, index):
-        return Symbol(index) 
+        return symbol_resolve(index) 
 
     def __len__(self):
         return len(self.mapping)
@@ -69,7 +69,7 @@ class Scope():
         return other in self.mapping
 
     def unrollable(self):
-        return EXTERN_SYMBOL not in self.values()
+        return ExternSymbol(None, None) not in self.values()
 
     def satisfies(self, symbol, subscope, exception=False):
         interface = symbol.bind_scope()
@@ -96,7 +96,4 @@ class Scope():
             new_mapping[scope[i]] = self.mapping[i]
         self.mapping = new_mapping
        
-from symbol import Symbol
-
-# Singleton descriptor
-EXTERN_SYMBOL = Symbol(object())
+from symbol import Symbol, ExternSymbol, symbol_resolve

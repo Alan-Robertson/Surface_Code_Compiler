@@ -1,4 +1,13 @@
+def symbol_map(*args):
+    return map(symbol_resolve, args)
+
+def symbol_resolve(arg):
+    if isinstance(arg, Symbol):
+        return arg
+    return Symbol(arg)
+
 class Symbol(object):
+
     def __init__(self, symbol:object, io_in=None, io_out=None, parent=None):
         '''
             Perfectly reasonable Python code
@@ -8,7 +17,7 @@ class Symbol(object):
         if io_out is None:
             io_out = set()
 
-        if isinstance(symbol, Symbol):
+        if isinstance(symbol, Symbol) and not isinstance(symbol, ExternSymbol):
             io_in |= symbol.io_in
             io_out |= symbol.io_out
             symbol = symbol.symbol
@@ -27,8 +36,8 @@ class Symbol(object):
         if io is None:
             io = set()
         elif not (type(io) in (list, tuple, set)):
-            io = [Symbol(io)]
-        io = [Symbol(i, parent=self) for i in io]
+            io = [symbol_resolve(io)]
+        io = [symbol_resolve(i) for i in io]
         return {*io}
 
     def __getitem__(self, index):
@@ -58,18 +67,18 @@ class Symbol(object):
             return f'<{self.symbol}: {tuple(self.io_in)}>'
         return f'<{self.symbol}: {tuple(self.io_in)} -> {tuple(self.io_out)}>'
 
-    def __copy__(self):
-        return Symbol(self.symbol, self.io_in, self.io_out)
+    # def __copy__(self):
+    #     return Symbol(self.symbol, self.io_in, self.io_out)
 
-    def rewrite(self, scope):
-        io_in = {scope[i] for i in self.io_in}
-        io_out = {scope[i] for i in self.io_out}
-        new_symbol = Symbol(self.symbol, io_in, io_out)
-        self.io_in = new_symbol.io_in
-        self.io_out = new_symbol.io_out
-        self.io = new_symbol.io
-        self.io_rev = new_symbol.io_rev
-        return self
+    # def rewrite(self, scope):
+    #     io_in = {scope[i] for i in self.io_in}
+    #     io_out = {scope[i] for i in self.io_out}
+    #     new_symbol = Symbol(self.symbol, io_in, io_out)
+    #     self.io_in = new_symbol.io_in
+    #     self.io_out = new_symbol.io_out
+    #     self.io = new_symbol.io
+    #     self.io_rev = new_symbol.io_rev
+    #     return self
 
     def __str__(self):
         return self.__repr__()
@@ -108,7 +117,59 @@ class Symbol(object):
 
         return self
 
+    def is_extern(self):
+        return False
 
-# Singleton descriptor
-EXTERN_SYMBOL = Symbol(object())
+class ExternSymbol(Symbol):
+    singleton = object()
+
+    def __init__(self, predicate, io_element=None):
+        
+        self.symbol = Symbol('Extern Symbol')
+
+        if isinstance(predicate, str):
+            predicate = Symbol(predicate)
+        
+        if isinstance(io_element, str):
+            io_element = Symbol(io_element)
+
+        self.predicate = predicate
+        self.io_element = io_element
+        self.io_in = {self}
+        self.io_out = {self}
+        self.io = {self:self}
+        self.externs = [self]
+
+    def __repr__(self):
+        if self.io_element is not None:
+            return f'EXTERN: {self.predicate.__repr__()} : {self.io_element.__repr__()}'
+        else:
+            return f'EXTERN: {self.predicate.__repr__()}'
+
+    def __str__(self):
+        return self.__repr__()
+
+    def __hash__(self):
+        return id(self.singleton)
+
+    def __eq__(self, other):
+        if not isinstance(other, ExternSymbol):
+            return False
+        return id(self.predicate) == id(other.predicate)
+
+    def __len__(self):
+        return 1
+
+    def __call__(self, io_element):
+        return ExternSymbol(self.predicate, io_element)
+
+    def satisfies(self, other):
+        if isinstance(other.predicate, ExternSymbol):
+            return self.predicate.symbol == other.predicate.predicate
+        return self.predicate.symbol == other.predicate.symbol
+
+    def is_extern(self):
+        return True
+
+
 from scope import Scope

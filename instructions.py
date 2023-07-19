@@ -2,22 +2,40 @@
 # from typing import Sequence 
 # from dag import DAG
 from functools import partial
-from symbol import Symbol
-from scope import Scope, EXTERN_SYMBOL
+from symbol import Symbol, ExternSymbol, symbol_map, symbol_resolve
+from scope import Scope
 
 def INIT(*symbol_constructors):
     sym = Symbol('INIT', symbol_constructors)
+    
+    # Breaks recursive expansion
     scope = Scope({i:i for i in sym.io})
+
     dag = DAG(sym, scope=scope)
 
     # Initialise each object independently
+    # This will be unrolled when injected into the DAG
     for obj in sym.io:
         dag.add_node(Symbol("INIT", obj), n_cycles=1)
     return dag
 
+def RESET(*symbol_constructors):
+    sym = Symbol('RESET', symbol_constructors)
+    scope = Scope({i:i for i in sym.io})
+    dag = DAG(sym, scope=scope)
+
+    # Reset each object independently
+    # This will be unrolled when injected into the DAG
+    for obj in sym.io:
+        dag.add_node(Symbol("RESET", obj), n_cycles=1)
+    return dag
+
+
 def CNOT(ctrl, targ):
-    ctrl, targ = map(Symbol, (ctrl, targ))
+    ctrl, targ = symbol_map(ctrl, targ)
     sym = Symbol('CNOT', 'ctrl', 'targ')
+
+    # Scope injection passes variables from a higher scope
     scope = Scope({sym('ctrl'):ctrl, sym('targ'):targ})
     
     dag = DAG(sym, scope=scope)
@@ -30,15 +48,17 @@ from dag2 import DAG, DAGNode
 
 
 def T(targ):
-    targ = Symbol(targ)
+    targ = symbol_resolve(targ)
     sym = Symbol('T', 'targ')
 
-    factory = Symbol('T_Factory')
+    factory = ExternSymbol('T_Factory')
 
-    scope = Scope({factory:EXTERN_SYMBOL, sym('targ'):targ})
+    scope = Scope({factory:factory, sym('targ'):targ})
+
     dag = DAG(sym, scope=scope)
-    dag.add_node(factory, externs=factory, n_cycles=17)
-    dag.add_gate(CNOT(factory, targ))
+    dag.add_node(factory, n_cycles=17)
+    dag.add_gate(CNOT(factory('factory_out'), targ))
+    dag.add_gate(RESET(factory))
     return dag
 
 def Hadamard(targ):
@@ -52,29 +72,18 @@ def Hadamard(targ):
 
 def Toffoli(ctrl_a, ctrl_b, targ):
     ctrl_a, ctrl_b, targ = map(Symbol, (ctrl_a, ctrl_b, targ))
-    sym = Symbol('Toffoli', {'ctrl_a', 'ctrl_b'}, 'targ')
+    sym = Symbol('Toffoli', {'ctrl_a', 'ctrl_b', 'targ'})
     scope = Scope({sym('ctrl_a'):ctrl_a, sym('ctrl_b'):ctrl_b, sym('targ'):targ})
-    dag = DAG(sym)
+    dag = DAG(sym, scope=scope)
 
-    dag.add_gate(Hadamard('targ'))
-    dag.add_gate(CNOT('ctrl_b', 'targ'))
-    dag.add_gate(T('targ'))
-    dag.add_gate(CNOT('ctrl_a', 'targ'))
+    dag.add_gate(Hadamard(targ))
+    dag.add_gate(CNOT(ctrl_b, targ))
+    dag.add_gate(T(targ))
+    dag.add_gate(CNOT(ctrl_a, targ))
 
-    dag = dag(scope=scope)
     return dag
 
-def TST(ctrl_a):
-    ctrl_a = Symbol(ctrl_a)
-    sym = Symbol('TST', 'ctrl_a')
-    scope = Scope({sym('ctrl_a'):ctrl_a, Symbol('b'):Symbol('b')})
-    dag = DAG(sym)
 
-    dag.add_gate(INIT('b'))
-    dag.add_gate(CNOT('ctrl_a', 'b'))
-    
-    dag = dag(scope=scope)
-    return dag
     # self.add_gate(CNOT, deps[1], targs[0])
     # self.add_gate(Tdag, targs[0])
     # self.add_gate(CNOT, deps[0], targs[0])

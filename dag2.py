@@ -1,21 +1,30 @@
 import numpy as np
 from heapq import heappush
 
+from itertools import takewhile
+from functools import reduce
+
 class DAGNode():
     def __init__(self, symbol, *args, scope=None, externs=None, n_cycles=1):
         if not isinstance(symbol, Symbol):
             symbol = Symbol(symbol)
 
         if externs is None:
-            externs = list()
+            externs = dict()
         if isinstance(externs, Symbol):
-            externs = [externs]
+            externs = {externs:None}
+        externs = {extern:None for extern in externs}
 
         self.symbol = symbol
-        
+
         if scope is None:
             scope = self.symbol.bind_scope()
         self.scope = scope
+
+        # Catches any undeclared externs in the scope
+        for sym in self.scope.values():
+            if sym.is_extern():
+                externs[sym] = None
         
         self.predicates = set()
         self.antecedants = set()
@@ -28,14 +37,11 @@ class DAGNode():
         self.slack = float('inf')
 
     def __call__(self, scope=None):
-        obj = copy.deepcopy(self)
-        obj.predicates = set()
-        obj.antecedants = set()
+        self.predicates = set()
+        self.antecedants = set()
         if scope is not None:
-            obj.inject(scope)
-        # else:
-            # obj.inject(obj.scope)
-        return obj
+            self.inject(scope)
+        return self
 
 
     def inject(self, scope):
@@ -56,6 +62,9 @@ class DAGNode():
     def non_local(self):
         return len(self.symbol.io) > 1
 
+    def is_extern(self):
+        return self.symbol.is_extern()
+
 class DAG(DAGNode):
     def __init__(self, symbol, scope=None):
 
@@ -74,9 +83,14 @@ class DAG(DAGNode):
         self.gates = []
         self.last_layer = {}
 
-        self.externs = list()
+        self.externs = dict()
         self.predicates = set()
         self.antecedants = set()
+
+        # Catches any undeclared externs in the scope
+        for sym in self.scope.values():
+            if sym.is_extern():
+                self.externs[sym] = None
 
         self.layers = []
         self.layer = 0
@@ -103,7 +117,7 @@ class DAG(DAGNode):
         
         operands = gate.symbol.io
         if len(gate.externs) > 0:
-            self.externs += gate.externs
+            self.externs |= gate.externs
         
         for operand in operands:
             if gate.scope[operand] is operand:
@@ -118,34 +132,49 @@ class DAG(DAGNode):
 
     def add_node(self, symbol, *args, **kwargs):
         gate = DAGNode(symbol, *args, **kwargs)
+        # Todo, check if this is needed
         gate = gate(scope=self.scope)
         if len(gate.externs) > 0:
-            self.externs += gate.externs
+            self.externs |= gate.externs
         self.gates.append(gate)
         self.merge_scopes(gate)
         self.update_dependencies(gate)
+        return gate
                     
     def unroll_gate(self, dag):
+        print(dag)
         for gate in dag.gates:
+            print(gate)
             if isinstance(gate, DAG):
+                print("DAG")
                 self.unroll_gate(gate)
             else:
+                print("NODE")
                 self.gates.append(gate)
                 self.merge_scopes(gate)                
                 self.update_dependencies(gate)
 
     def merge_scopes(self, gate):
+        print("SCOPE:", gate, self.last_layer)
         for element in gate.symbol.io:
+            print("SCOPE CHECK:", element in self.scope, element in self.last_layer, element, gate)
             if element not in self.scope:
                 # Merge lower scope into higher
                 self.scope[element] = gate
             if element not in self.last_layer:
+                print("LAST_LAYER UPDATE:", self.last_layer)
                 self.last_layer[element] = gate
+                print("LAST_LAYER UPDATE:", self.last_layer)
+
         return
 
     def update_dependencies(self, gate):
+        print("DEPS:", gate)
         for dep in gate.symbol.io:
+            print(dep)
             predicate = self.last_layer[dep]
+            print(f"PRED {gate}: DEP:{dep} {predicate}", dep.is_extern())
+            # Breaks self-referencing gates
             if predicate is not gate:
                 predicate.antecedants.add(gate)
                 gate.predicates.add(predicate)
@@ -154,7 +183,6 @@ class DAG(DAGNode):
         return
         
     def update_layer(self, gate):
-        print(gate, list(((predicate, predicate.layer) for predicate in gate.predicates)))
         layer_num = 1 + max((predicate.layer for predicate in gate.predicates if predicate is not gate), default=-1)
 
         # Create layers
@@ -176,11 +204,10 @@ class DAG(DAGNode):
         return
 
     def calculate_proximity(self):
-        prox_len = len(self.externs) + len(self.scope)
+        prox_len = len(self.scope)
         prox = np.zeros((prox_len, prox_len))
-        lookup = (dict(map(lambda x: x[::-1], enumerate(self.scope.keys()))) 
-                | dict(map(lambda x: x[::-1], zip(self.externs, range(len(self.scope), prox_len))))
-        )
+        lookup = dict(map(lambda x: x[::-1], enumerate(self.scope.keys())))
+
         for layer in self.layers:
             for gate in layer:
                 for targ in gate.scope:                            
@@ -190,11 +217,10 @@ class DAG(DAGNode):
         return prox, lookup
 
     def calculate_conjestion(self):
-        conj_len = len(self.externs) + len(self.scope)
+        conj_len = len(self.scope)
         conj = np.zeros((conj_len, conj_len))
-        lookup = (dict(map(lambda x: x[::-1], enumerate(self.scope.keys()))) 
-                | dict(map(lambda x: x[::-1], zip(self.externs, range(len(self.scope), conj_len))))
-        )
+        lookup = dict(map(lambda x: x[::-1], enumerate(self.scope.keys()))) 
+
         for layer in self.layers:
             for gate in layer:
                 if len(gate.scope) > 1:
@@ -208,14 +234,21 @@ class DAG(DAGNode):
 
     # TODO Create this as a separate wrapper
     def compile(self, n_channels, *externs, debug=False, extern_minimise=lambda extern: extern.n_cycles()):
+        
+        # Check I have enough channels
         assert(n_channels > 0)
+
+        # Check that all externs are mapped
+        #assert(all(any(map(lambda i: i.satisfies(extern), externs)) for extern in self.externs.keys()))
 
         traversed_layers = []
 
         # Magic state factory data
         externs = list(externs)
         externs.sort(key=extern_minimise)
-        externs = list(map(Bind, map(Bind, externs)))
+        externs = list(map(ExternBind, externs))
+
+        extern_scoping = Scope()
         
         active = set()
         waiting = list()
@@ -239,11 +272,13 @@ class DAG(DAGNode):
             # Update each active gate
             for gate in active:
                 gate.cycle()
+                layers[-1].append(gate)
 
             # Update each extern
             for extern in externs:
                 if extern not in active:
-                    extern.pre_warm()
+                    if extern.pre_warm():
+                        layers[-1].append(extern)
 
             recently_resolved = list(filter(lambda x: x.resolved(), active))
             active = set(filter(lambda x: not x.resolved(), active))
@@ -252,15 +287,14 @@ class DAG(DAGNode):
             for gate in recently_resolved:
                 if gate.resolved():
                     resolved.add(gate)
-                    layers[-1].append(gate)
 
                     if gate.non_local():
                         active_non_local_gates -= 1
 
                     for antecedent in gate.antecedants:
                         all_resolved = True
-                        for predicate in antecedent.predicates:
-                            if Bind(predicate) not in resolved:
+                        for predicate in antecedent.predicates:                           
+                            if DAGBind(predicate) not in resolved:
                                 all_resolved = False
                                 break
                         if all_resolved:
@@ -298,12 +332,24 @@ class Bind():
     def cycle(self):
         self.__n_cycles += 1
 
+    def n_cycles(self):
+        return self.obj.n_cycles()
+
+    def pre_warm_cycles(self):
+        return self.obj.pre_warm_cycles()
+
     def resolved(self):
         return self.__n_cycles >= self.obj.n_cycles()
 
+    def predicates(self):
+        return self.obj.predicates
+
+    def antecedents(self):
+        return self.obj.predicates
     
-class ExternBind():
+class ExternBind(Bind):
     def __init__(self, obj):
+        # Nesting this ensures non-fungibility
         self.obj = Bind(obj)
         self.__n_cycles = 0
 
@@ -316,6 +362,8 @@ class ExternBind():
     def pre_warm(self):
         if self.__n_cycles < self.obj.pre_warm:
             self.__n_cycles += 1
+            return True
+        return False
 
 
 class DAGBind(Bind):
