@@ -72,29 +72,18 @@ def Hadamard(targ):
 
 def Toffoli(ctrl_a, ctrl_b, targ):
     ctrl_a, ctrl_b, targ = map(Symbol, (ctrl_a, ctrl_b, targ))
-    sym = Symbol('Toffoli', {'ctrl_a', 'ctrl_b'}, 'targ')
+    sym = Symbol('Toffoli', {'ctrl_a', 'ctrl_b', 'targ'})
     scope = Scope({sym('ctrl_a'):ctrl_a, sym('ctrl_b'):ctrl_b, sym('targ'):targ})
-    dag = DAG(sym)
+    dag = DAG(sym, scope=scope)
 
-    dag.add_gate(Hadamard('targ'))
-    dag.add_gate(CNOT('ctrl_b', 'targ'))
-    dag.add_gate(T('targ'))
-    dag.add_gate(CNOT('ctrl_a', 'targ'))
+    dag.add_gate(Hadamard(targ))
+    dag.add_gate(CNOT(ctrl_b, targ))
+    dag.add_gate(T(targ))
+    dag.add_gate(CNOT(ctrl_a, targ))
 
-    dag = dag(scope=scope)
     return dag
 
-def TST(ctrl_a):
-    ctrl_a = Symbol(ctrl_a)
-    sym = Symbol('TST', 'ctrl_a')
-    scope = Scope({sym('ctrl_a'):ctrl_a, Symbol('b'):Symbol('b')})
-    dag = DAG(sym)
 
-    dag.add_gate(INIT('b'))
-    dag.add_gate(CNOT('ctrl_a', 'b'))
-    
-    dag = dag(scope=scope)
-    return dag
     # self.add_gate(CNOT, deps[1], targs[0])
     # self.add_gate(Tdag, targs[0])
     # self.add_gate(CNOT, deps[0], targs[0])
