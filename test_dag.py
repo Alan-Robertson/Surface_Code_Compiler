@@ -18,3 +18,6 @@ g.add_gate(T('a'))
 out = g.compile(1, factory)
 
 
+
+from pprint import pprint
+pprint(out)

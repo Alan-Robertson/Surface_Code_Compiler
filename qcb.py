@@ -1,24 +1,25 @@
 import numpy as np 
 from typing import *
 from msf import MSF
+from dag2 import DAG
 
 class QCB():
     '''
         Closure object
         Contains both a QCB memory layout and a DAG execution description
     '''
-    def __init__(self, segments, operations):
-        self.segments = segment
-        self.operations = operations
-        self.cycles = 0
-        self.inputs = 0
-        self.outputs = 0
+    def __init__(self, width, height, operations: DAG):
+        self.segments: Set[Segment] = {Segment(0, 0, width-1, height-1)}
+        self.operations: DAG = operations
+        self.cycles = None # Not calculated yet
+        self.symbol = operations.get_symbol()
 
-        self.width = self.segments
-        self.height = self.
+        self.width = width
+        self.height = height
 
-    def __call__(self, inputs, outputs):
-        pass
+    # TODO rewrite
+    # def __call__(self, inputs, outputs):
+    #     pass
 
 class SCPatch():
     # Singletons
@@ -29,7 +30,7 @@ class SCPatch():
     NONE = None
 
     def __init__(self, alloc_type: 'None|str|MSF' = None):
-        if isinstance(alloc_type, COMP):
+        if alloc_type is self.COMP:
             self.state = self.COMP
             self.msf = alloc_type
         else:

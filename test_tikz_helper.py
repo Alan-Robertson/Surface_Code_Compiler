@@ -1,5 +1,5 @@
 
-from mapper import RegNode
+# from mapper import RegNode
 from qcb import SCPatch
 
 def print_header(f, scale=1,ext='png'):
@@ -82,7 +82,7 @@ def print_mapping_tree(root, file="latex.tex"):
         print_footer(f)
 
 
-def regnode_data(node:RegNode):
+def regnode_data(node:'RegNode'):
     out = f"w={round(node.weight, 2)}\\\\s={node.slots}"
     if node.seg:
         out += f"\\\\{node.seg.x_0, node.seg.y_0}"
@@ -131,23 +131,31 @@ def print_qcb(segments, file="latex.tex"):
         print_header(f)
 
         for s in segments:
+            s_type = ''
             if s.state.state == SCPatch.IO:
                 color = 'blue!50!red!50'
+                s_type = 'IO'
             elif s.state.state == SCPatch.ROUTE:
                 color = 'green!20'
-            elif s.state.state == SCPatch.MSF:
+                s_type = 'ROUTE'
+            elif s.state.state == SCPatch.COMP:
                 color = 'blue!20'
+                s_type = 'COMP'
+
             elif s.state.state == SCPatch.REG:
                 color = 'red!20'
+                s_type = 'REG'
+
             elif s.state.state == SCPatch.NONE:
                 color = 'black!10'
+                s_type = 'NONE'
             elif s.state.state == 'debug':
                 color = 'yellow'
             print(f"\\draw[fill={color},fill opacity=0.5] ({s.x_0},-{s.y_0}) -- ({s.x_0},-{s.y_1+1}) -- ({s.x_1+1},-{s.y_1+1}) -- ({s.x_1+1},-{s.y_0}) -- cycle;", file=f)
-            if s.state.state == SCPatch.MSF:
-                print(f"\\node at ({s.x_0+0.5},-{s.y_0+0.5}) {{{s.state.state}{s.state.msf.symbol}}};", file=f)
+            if s.state.state == SCPatch.COMP:
+                print(f"\\node at ({s.x_0+0.5},-{s.y_0+0.5}) {{{s_type}{s.state.msf.symbol}}};", file=f)
             else:
-                print(f"\\node at ({s.x_0+0.5},-{s.y_0+0.5}) {{{s.state.state}{s.debug_name}}};", file=f)
+                print(f"\\node at ({s.x_0+0.5},-{s.y_0+0.5}) {{{s_type}{s.debug_name}}};", file=f)
 
         print_footer(f)
 
