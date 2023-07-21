@@ -5,6 +5,7 @@ class ExternInterface():
         self.symbol = symbol_resolve(symbol)
         self.__n_cycles = n_cycles
         self.__n_prewarm = n_prewarm
+        self.slack = float('inf')
 
     def n_cycles(self):
         return self.__n_cycles 
@@ -23,3 +24,6 @@ class ExternInterface():
 
     def satisfies(self, other):
         return self.symbol.satisfies(other)
+
+    def get_obj(self):
+        return self

@@ -5,6 +5,7 @@ from functools import partial
 from symbol import Symbol, ExternSymbol, symbol_map, symbol_resolve
 from scope import Scope
 
+INIT_SYMBOL = Symbol('INIT')
 def INIT(*symbol_constructors):
     sym = Symbol('INIT', symbol_constructors)
     
@@ -19,6 +20,7 @@ def INIT(*symbol_constructors):
         dag.add_node(Symbol("INIT", obj), n_cycles=1)
     return dag
 
+RESET_SYMBOL = Symbol('RESET')
 def RESET(*symbol_constructors):
     sym = Symbol('RESET', symbol_constructors)
     scope = Scope({i:i for i in sym.io})
@@ -29,6 +31,7 @@ def RESET(*symbol_constructors):
     for obj in sym.io:
         dag.add_node(Symbol("RESET", obj), n_cycles=1)
     return dag
+
 
 
 def CNOT(ctrl, targ):
