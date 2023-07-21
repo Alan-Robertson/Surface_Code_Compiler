@@ -11,15 +11,37 @@ class QCB():
     def __init__(self, width, height, operations: DAG):
         self.segments: Set[Segment] = {Segment(0, 0, width-1, height-1)}
         self.operations: DAG = operations
-        self.cycles = None # Not calculated yet
+        self.cycles = 17
         self.symbol = operations.get_symbol()
+        self.prewarm = 0
+
+        self.slack = float('inf')
+
 
         self.width = width
         self.height = height
 
-    # TODO rewrite
-    # def __call__(self, inputs, outputs):
-    #     pass
+    # ExternInterface impls
+    def n_cycles(self):
+        return self.cycles 
+
+    def n_pre_warm_cycles(self):
+        return self.prewarm
+
+    def get_symbol(self):
+        return self.symbol
+
+    def __repr__(self):
+        return self.symbol.__repr__()
+
+    def __str__(self):
+        return self.__repr__()
+
+    def satisfies(self, other):
+        return self.symbol.satisfies(other)
+
+    def get_obj(self):
+        return self
 
 class SCPatch():
     # Singletons
@@ -30,7 +52,7 @@ class SCPatch():
     NONE = None
 
     def __init__(self, alloc_type: 'None|str|MSF' = None):
-        if alloc_type is self.COMP:
+        if alloc_type not in [self.REG, self.ROUTE, self.IO, self.NONE]:
             self.state = self.COMP
             self.msf = alloc_type
         else:

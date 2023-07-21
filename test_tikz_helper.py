@@ -153,7 +153,9 @@ def print_qcb(segments, file="latex.tex"):
                 color = 'yellow'
             print(f"\\draw[fill={color},fill opacity=0.5] ({s.x_0},-{s.y_0}) -- ({s.x_0},-{s.y_1+1}) -- ({s.x_1+1},-{s.y_1+1}) -- ({s.x_1+1},-{s.y_0}) -- cycle;", file=f)
             if s.state.state == SCPatch.COMP:
-                print(f"\\node at ({s.x_0+0.5},-{s.y_0+0.5}) {{{s_type}{s.state.msf.symbol}}};", file=f)
+                sym = str(s.state.msf.symbol).replace('_', '\\_')
+
+                print(f"\\node at ({s.x_0+0.5},-{s.y_0+0.5}) {{{s_type}{sym}}};", file=f)
             else:
                 print(f"\\node at ({s.x_0+0.5},-{s.y_0+0.5}) {{{s_type}{s.debug_name}}};", file=f)
 
