@@ -13,7 +13,7 @@ class DAGNode():
             externs = dict()
         if isinstance(externs, Symbol):
             externs = {externs:None}
-        externs = {extern:None for extern in externs}
+        externs = Scope({extern:None for extern in externs})
 
         self.symbol = symbol
 
@@ -65,6 +65,9 @@ class DAGNode():
     def is_extern(self):
         return self.symbol.is_extern()
 
+    def get_symbol(self):
+        return self.symbol
+
 class DAG(DAGNode):
     def __init__(self, symbol, scope=None):
 
@@ -83,7 +86,7 @@ class DAG(DAGNode):
         self.gates = []
         self.last_layer = {}
 
-        self.externs = dict()
+        self.externs = Scope()
         self.predicates = set()
         self.antecedants = set()
 
@@ -142,38 +145,26 @@ class DAG(DAGNode):
         return gate
                     
     def unroll_gate(self, dag):
-        print(dag)
         for gate in dag.gates:
-            print(gate)
             if isinstance(gate, DAG):
-                print("DAG")
                 self.unroll_gate(gate)
             else:
-                print("NODE")
                 self.gates.append(gate)
                 self.merge_scopes(gate)                
                 self.update_dependencies(gate)
 
     def merge_scopes(self, gate):
-        print("SCOPE:", gate, self.last_layer)
         for element in gate.symbol.io:
-            print("SCOPE CHECK:", element in self.scope, element in self.last_layer, element, gate)
             if element not in self.scope:
                 # Merge lower scope into higher
                 self.scope[element] = gate
             if element not in self.last_layer:
-                print("LAST_LAYER UPDATE:", self.last_layer)
                 self.last_layer[element] = gate
-                print("LAST_LAYER UPDATE:", self.last_layer)
-
         return
 
     def update_dependencies(self, gate):
-        print("DEPS:", gate)
         for dep in gate.symbol.io:
-            print(dep)
             predicate = self.last_layer[dep]
-            print(f"PRED {gate}: DEP:{dep} {predicate}", dep.is_extern())
             # Breaks self-referencing gates
             if predicate is not gate:
                 predicate.antecedants.add(gate)
@@ -239,23 +230,38 @@ class DAG(DAGNode):
         assert(n_channels > 0)
 
         # Check that all externs are mapped
-        #assert(all(any(map(lambda i: i.satisfies(extern), externs)) for extern in self.externs.keys()))
+        assert(all(any(map(lambda i: i.satisfies(extern), externs)) for extern in self.externs.keys()))
 
         traversed_layers = []
 
         # Magic state factory data
-        externs = list(externs)
-        externs.sort(key=extern_minimise)
-        externs = list(map(ExternBind, externs))
+        idle_externs = list(externs)
+        idle_externs.sort(key=extern_minimise)
+        idle_externs = list(map(ExternBind, externs))
 
-        extern_scoping = Scope()
+        # In use externs are locked
+        locked_externs = dict()
         
         active = set()
         waiting = list()
 
         # Initially active gates
-        active = list(map(DAGBind, (gate for gate in self.layers[0])))
-        active.sort()
+        for gate in self.layers[0]:
+            if gate.is_extern():
+                index, binding = next(
+                    ((index, extern) for index, extern in enumerate(idle_externs) if extern.satisfies(gate)),
+                     (None, None)
+                     )
+
+                if binding is not None:
+                    print(f"Bound: {gate} -> {binding}")
+                    idle_externs.pop(index)
+                    self.externs[gate] = binding
+                else:
+                    # Cannot find a binding, add it to the wait list
+                    waiting.append(ExternBind(gate))
+            else:
+                active.add(DAGBind(gate))
 
         resolved = set()
             
@@ -273,12 +279,12 @@ class DAG(DAGNode):
             for gate in active:
                 gate.cycle()
                 layers[-1].append(gate)
+                print(gate)
 
             # Update each extern
-            for extern in externs:
-                if extern not in active:
-                    if extern.pre_warm():
-                        layers[-1].append(extern)
+            for extern in idle_externs:
+                if extern.pre_warm():
+                    layers[-1].append(extern)
 
             recently_resolved = list(filter(lambda x: x.resolved(), active))
             active = set(filter(lambda x: not x.resolved(), active))
@@ -290,6 +296,9 @@ class DAG(DAGNode):
 
                     if gate.non_local():
                         active_non_local_gates -= 1
+
+                    if gate.is_extern():
+                        print('BOUND', gate, self.externs[gate])
 
                     for antecedent in gate.antecedants:
                         all_resolved = True
@@ -327,43 +336,93 @@ class DAG(DAGNode):
 class Bind():
     def __init__(self, obj):
         self.obj = obj
-        self.__n_cycles = 0
+        self.cycles_completed = 0
 
-    def cycle(self):
-        self.__n_cycles += 1
+    def get_symbol(self):
+        return self.obj.get_symbol()
 
-    def n_cycles(self):
-        return self.obj.n_cycles()
+    # Getters and Setters
+    def get_cycles_completed():
+        return self.cycles_completed
 
-    def pre_warm_cycles(self):
-        return self.obj.pre_warm_cycles()
+    def reset_cycles_completed():
+        self.cycles_completed = 0
 
-    def resolved(self):
-        return self.__n_cycles >= self.obj.n_cycles()
+    def cycle():
+        self.cycles_completed += 1
 
+    def __repr__(self):
+        return f"{repr(self.obj)} : {self.curr_cycle()} {self.n_cycles()}"
+
+    # Wrapper functions
     def predicates(self):
         return self.obj.predicates
 
     def antecedents(self):
         return self.obj.predicates
+
+    def n_pre_warm_cycles(self):
+        return self.obj.pre_warm()
+
+    def n_cycles(self):
+        return self.obj.n_cycles()
+
+    def n_pre_warm_cycles(self):
+        return self.obj.n_pre_warm_cycles()
+
+    def non_local(self):
+        return self.obj.non_local()
+
+    def satisfies(self, other):
+        return self.get_symbol().satisfies(other.get_symbol())
+
+    # Cycle functions
+    def cycle(self):
+        self.cycles_completed += 1
+
+    def curr_cycle(self):
+        return self.cycles_completed
+
+    def resolved(self):
+        return self.cycles_completed >= self.n_cycles()
+
+    def reset(self):
+        self.cycles_completed = 0
+
     
 class ExternBind(Bind):
     def __init__(self, obj):
         # Nesting this ensures non-fungibility
         self.obj = Bind(obj)
-        self.__n_cycles = 0
 
-    def cycle(self):
-        self.__n_cycles += 1
-
-    def resolved(self):
-        return self.__n_cycles >= self.obj.n_cycles()
+    # def __repr__(self):
+    #     return f"{repr(self.obj)} {self.n_cycles()}"
 
     def pre_warm(self):
-        if self.__n_cycles < self.obj.pre_warm:
-            self.__n_cycles += 1
+        if self.n_cycles() < self.n_pre_warm_cycles():
+            self.cycle()
             return True
         return False
+
+    # Wrappers
+    def get_cycles_completed(self):
+        return self.obj.cycles_completed()
+
+    def reset_cycles_completed(self):
+        self.obj.reset_cycles_completed()
+
+    def cycle(self):
+        self.obj.cycle()
+
+    def curr_cycle(self):
+        self.obj.curr_cycle()
+
+    def n_pre_warm_cycles(self):
+        return self.obj.n_pre_warm_cycles()
+
+
+    def is_extern(self):
+        return True
 
 
 class DAGBind(Bind):
@@ -382,20 +441,14 @@ class DAGBind(Bind):
     def wait(self):
         self.slack -= 1
 
-    def n_cycles(self):
-        return self.__n_cycles
-
-    def non_local(self):
-        return self.obj.non_local()
-
     def satisfies(self, other):
         if isinstance(other, Bind):
             return self.obj.symbol == other.obj.symbol
         else:
             self.obj.symbol == other.symbol
 
-    def __repr__(self):
-        return self.obj.__repr__()
+    def pre_warm(self):
+        return False
 
     def __gt__(self, other):
         return self.slack > other.slack
@@ -417,6 +470,9 @@ class DAGBind(Bind):
 
     def __hash__(self):
         return id(self.obj)
+
+    def is_extern(self):
+        return False
 
 from symbol import Symbol
 from scope import Scope
