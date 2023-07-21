@@ -13,7 +13,7 @@ g.add_gate(init)
 g.add_gate(CNOT('a', 'b'))
 #g.add_gate(CNOT('c', 'd'))
 g.add_gate(T('a'))
-#g.add_gate(T('a'))
+g.add_gate(T('a'))
 
 out = g.compile(1, factory)
 

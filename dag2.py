@@ -260,7 +260,6 @@ class DAG(DAGNode):
                      )
 
                 if binding is not None:
-                    print(f"Bound: {gate} -> {binding}")
                     idle_externs.pop(index)
                     self.externs[gate.symbol] = binding.get_obj()
                     bound_gate = ExternBind(gate)
@@ -279,14 +278,14 @@ class DAG(DAGNode):
         # This is a semaphore
         active_non_local_gates = 0
 
-        while len(active) > 0:
+        while len(active) > 0 or len(waiting) > 0:
             layers.append([])
             n_cycles += 1
             # Update each active gate
             for gate in active:
                 gate.cycle()
                 layers[-1].append(gate)
-                print(gate)
+                
 
             # Update each extern
             for extern in idle_externs:
@@ -304,10 +303,6 @@ class DAG(DAGNode):
                     if gate.non_local():
                         active_non_local_gates -= 1
 
-                    if gate.is_extern():
-                        print('BOUND', gate, self.externs[gate.get_symbol()])
-                        print('ANTE: ', gate.antecedents())
-
                     for antecedent in gate.antecedents():
                         all_resolved = True
                         for predicate in antecedent.predicates:   
@@ -318,7 +313,7 @@ class DAG(DAGNode):
                                     all_resolved = False
                                     break
 
-                            elif predicate not in resolved and DAGBind(predicate) not in resolved:
+                            elif DAGBind(predicate) not in resolved:
                                 all_resolved = False
                                 break
                         if all_resolved:
@@ -336,26 +331,41 @@ class DAG(DAGNode):
             # Sort the waiting list based on the current slack
             waiting.sort()
             for gate in waiting:
-                # Gate is purely local, add it
-                if not gate.non_local():
+
+                if gate.is_extern():
+                    index, binding = next(
+                        ((index, extern) for index, extern in enumerate(idle_externs) if extern.satisfies(gate)),
+                         (None, None)
+                         )
+
+                    if binding is not None:
+                        idle_externs.pop(index)
+                        self.externs[gate.symbol] = binding.get_obj()
+                        bound_gate = ExternBind(gate)
+                        active.add(bound_gate)
+                        locked_externs[gate.symbol] = bound_gate
+
+                else:
+                    # Gate is purely local, add it
+                    if not gate.non_local():
+                        active.add(gate)
+                        continue
+
+                    # Non-local gates only
+                    # Already expended all channels, skip
+                    if active_non_local_gates >= n_channels:
+                        continue
+
+                    # Gate is non-local but we have channel capacity for it
                     active.add(gate)
-                    continue
-
-                # Non-local gates only
-                # Already expended all channels, skip
-                if active_non_local_gates >= n_channels:
-                    continue
-
-                # Gate is non-local but we have channel capacity for it
-                active.add(gate)
-                active_non_local_gates += 1
+                    active_non_local_gates += 1
 
             # Update the waiting list
             waiting = list(filter(lambda x: x not in active, waiting))
             
             print("\n####")
             print("CYCLE")
-            print(active, waiting, idle_externs, locked_externs)
+            print(f"\tACTIVE {active}\n\t WAITING {waiting}\n\t IDLE {idle_externs}\n\t LOCKED {locked_externs}\n\tCHANNELS {active_non_local_gates} / {n_channels}")
             print("####\n")
 
         return n_cycles, layers
