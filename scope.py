@@ -95,5 +95,9 @@ class Scope():
         for i in self.mapping:
             new_mapping[scope[i]] = self.mapping[i]
         self.mapping = new_mapping
+
+    def clear_scope(self):
+        for i in self.mapping:
+            self.mapping[i] = None 
        
 from symbol import Symbol, ExternSymbol, symbol_resolve
