@@ -69,7 +69,7 @@ class DAGNode():
         return self.symbol
 
     def get_unary_symbol(self):
-        return self.symbol[0]
+        return next(iter(self.symbol))
 
 class DAG(DAGNode):
     def __init__(self, symbol, scope=None):
@@ -241,12 +241,12 @@ class DAG(DAGNode):
         idle_externs = list(externs)
         idle_externs.sort(key=extern_minimise)
 
+        # Map of extern binds
         extern_map = dict(zip(externs, map(ExternBind, externs)))
+        extern_gate_to_bind = lambda gate: extern_map[self.externs[gate.get_unary_symbol()]]
 
+        # Currently unallocated externs
         idle_externs = list(extern_map.values())
-
-        # In use externs are locked
-        locked_externs = dict()
         
         active = set()
         waiting = list()
@@ -262,9 +262,7 @@ class DAG(DAGNode):
                 if binding is not None:
                     idle_externs.pop(index)
                     self.externs[gate.symbol] = binding.get_obj()
-                    bound_gate = ExternBind(gate)
-                    active.add(bound_gate)
-                    locked_externs[gate.symbol] = bound_gate
+                    active.add(ExternBind(gate))
                 else:
                     # Cannot find a binding, add it to the wait list
                     waiting.append(ExternBind(gate))
@@ -285,8 +283,9 @@ class DAG(DAGNode):
             for gate in active:
                 gate.cycle()
                 layers[-1].append(gate)
+            if gate.is_extern():
+                extern_gate_to_bind(gate).cycle()
                 
-
             # Update each extern
             for extern in idle_externs:
                 if extern.pre_warm():
@@ -308,8 +307,10 @@ class DAG(DAGNode):
                         for predicate in antecedent.predicates:   
                             
                             # Catches nodes that are externs
-                            if predicate.is_extern():
-                                if not locked_externs[predicate.symbol].resolved():
+                            # Ensure that the predicate has been mapped
+                            if predicate.is_extern() and self.externs[predicate.get_unary_symbol()] is not None:
+                                print(gate, predicate, extern_gate_to_bind(predicate).get_cycles_completed(), extern_gate_to_bind(predicate).resolved())
+                                if not extern_map[self.externs[predicate.get_unary_symbol()]].resolved():
                                     all_resolved = False
                                     break
 
@@ -320,17 +321,17 @@ class DAG(DAGNode):
                             waiting.append(DAGBind(antecedent))
 
                     # Unlock Externs
-                    if gate in locked_externs:
-                        locked_externs.remove(gate)
                     if gate.get_symbol() == RESET_SYMBOL:
-                        locked_extern = gate.get_unary_symbol()
-                        locked_externs[locked_extern].reset()
-                        idle_externs.append(locked_externs.pop(locked_extern))
-
+                        reset_extern = gate.get_unary_symbol()
+                        extern_bind = extern_map[self.externs[reset_extern]]
+                        extern_bind.reset()                        
+                        idle_externs.append(extern_bind)
 
             # Sort the waiting list based on the current slack
             waiting.sort()
             for gate in waiting:
+
+
 
                 if gate.is_extern():
                     index, binding = next(
@@ -340,10 +341,8 @@ class DAG(DAGNode):
 
                     if binding is not None:
                         idle_externs.pop(index)
-                        self.externs[gate.symbol] = binding.get_obj()
-                        bound_gate = ExternBind(gate)
-                        active.add(bound_gate)
-                        locked_externs[gate.symbol] = bound_gate
+                        self.externs[gate.get_symbol()] = binding.get_obj()
+                        active.add(gate)
 
                 else:
                     # Gate is purely local, add it
@@ -365,7 +364,7 @@ class DAG(DAGNode):
             
             print("\n####")
             print("CYCLE")
-            print(f"\tACTIVE {active}\n\t WAITING {waiting}\n\t IDLE {idle_externs}\n\t LOCKED {locked_externs}\n\tCHANNELS {active_non_local_gates} / {n_channels}")
+            print(f"\tACTIVE {active}\n\t WAITING {waiting}\n\t IDLE {idle_externs}\n\tCHANNELS {active_non_local_gates} / {n_channels}\n\t{resolved}")
             print("####\n")
 
         return n_cycles, layers
@@ -379,17 +378,17 @@ class Bind():
         return self.obj.get_symbol()
 
     # Getters and Setters
-    def get_cycles_completed():
+    def get_cycles_completed(self):
         return self.cycles_completed
 
-    def reset_cycles_completed():
+    def reset_cycles_completed(self):
         self.cycles_completed = 0
 
-    def cycle():
+    def cycle(self):
         self.cycles_completed += 1
 
     def __repr__(self):
-        return f"{repr(self.obj)} : {self.curr_cycle()} {self.n_cycles()}"
+        return f"{repr(self.obj)} {hex(id(self.obj.symbol))}: {self.curr_cycle()} {self.n_cycles()}"
 
     # Wrapper functions
     def predicates(self):
@@ -438,7 +437,8 @@ class ExternBind(Bind):
     def __init__(self, obj):
         # Nesting this ensures non-fungibility
         self.obj = Bind(obj)
-        self.slack = obj.slack
+        self.slack = float('inf')
+        #self.predicate = obj.symbol.predicate
         #self.cycles_completed = 0
 
     # def __repr__(self):
@@ -450,9 +450,12 @@ class ExternBind(Bind):
             return True
         return False
 
+    def __repr__(self):
+        return f"{repr(self.obj)} {hex(id(self.obj.obj.symbol))}: {self.curr_cycle()} {self.n_cycles()}"
+
     # Wrappers
     def get_cycles_completed(self):
-        return self.obj.cycles_completed()
+        return self.obj.get_cycles_completed()
 
     def reset(self):
         self.obj.reset()
@@ -477,6 +480,7 @@ class ExternBind(Bind):
 
     def resolved(self):
         return self.obj.resolved()
+
 
 
 
