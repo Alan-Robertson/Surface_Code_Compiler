@@ -71,6 +71,9 @@ class DAGNode():
     def get_unary_symbol(self):
         return next(iter(self.symbol))
 
+    def internal_scope(self):
+        return Scope(dict((i, j) for i, j in self.scope.items() if not i.is_extern()))
+
 class DAG(DAGNode):
     def __init__(self, symbol, scope=None):
 

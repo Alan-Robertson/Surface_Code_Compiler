@@ -15,7 +15,7 @@ class Allocator:
         self.width = qcb.width
         self.io_width = len(qcb.symbol.io)
         self.reg_allocated = 0
-        self.reg_quota = len(qcb.operations.scope)
+        self.reg_quota = len(qcb.operations.internal_scope())
 
         # optimise variables
         self.msfs = []
@@ -124,7 +124,6 @@ class Allocator:
     def try_optimise(self) -> bool:
         '''
             Attempt an optimisation
-
         '''
         dag = self.qcb.operations
         if not self.get_free_segments(self.qcb):

@@ -53,7 +53,6 @@ def T(targ):
     sym = Symbol('T', 'targ')
 
     factory = ExternSymbol('T_Factory')
-
     scope = Scope({factory:factory, sym('targ'):targ})
 
     dag = DAG(sym, scope=scope)
@@ -81,5 +80,15 @@ def Toffoli(ctrl_a, ctrl_b, targ):
     dag.add_gate(CNOT(ctrl_b, targ))
     dag.add_gate(T(targ))
     dag.add_gate(CNOT(ctrl_a, targ))
-
+    dag.add_gate(T(targ))
+    dag.add_gate(CNOT(ctrl_b, targ))
+    dag.add_gate(T(targ))
+    dag.add_gate(CNOT(ctrl_a, targ))
+    dag.add_gate(T(targ))
+    dag.add_gate(T(ctrl_b))
+    dag.add_gate(Hadamard(targ))
+    dag.add_gate(CNOT(ctrl_a, ctrl_b))
+    dag.add_gate(T(ctrl_a))
+    dag.add_gate(T(ctrl_b))
+    dag.add_gate(CNOT(ctrl_a, ctrl_b))
     return dag

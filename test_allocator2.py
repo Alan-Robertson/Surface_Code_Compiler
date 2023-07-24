@@ -2,7 +2,7 @@ from dag2 import DAG
 from qcb import QCB
 from symbol import Symbol, ExternSymbol, symbol_map
 
-from instructions import INIT, CNOT, T
+from instructions import INIT, CNOT, T, Toffoli
 from scope import Scope
 from extern_interface import ExternInterface
 
@@ -15,6 +15,7 @@ g.add_gate(CNOT('a', 'b'))
 g.add_gate(CNOT('c', 'd'))
 g.add_gate(T('a'))
 g.add_gate(CNOT('a', 'b'))
+#g.add_gate(Toffoli('a', 'b', 'c'))
 g.add_gate(T('a'))
 g.add_gate(T('a'))
 g.add_gate(T('c'))
@@ -24,21 +25,18 @@ g.add_gate(CNOT('c', 'a'))
 g.add_gate(CNOT('b', 'd'))
 g.add_gate(T('a'))
 g.add_gate(T('c'))
+#g.add_gate(Toffoli('a', 'b', 'c'))
 g.add_gate(CNOT('c', 'd'))
 g.add_gate(CNOT('c', 'a'))
 g.add_gate(CNOT('b', 'd'))
 
-out = g.compile(1, factory)
+#g.compile(1, factory)
 
 sym = ExternSymbol('T_Factory')
 factory_impl = QCB(3, 5, DAG(symbol=sym, scope={sym:sym}))
 
-print()
 
 from pprint import pprint
-pprint(out)
-
-print()
 
 from allocator2 import Allocator
 from qcb import QCB

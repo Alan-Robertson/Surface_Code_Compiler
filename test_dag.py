@@ -1,7 +1,7 @@
 from dag2 import DAG
 from symbol import Symbol, ExternSymbol, symbol_map
 
-from instructions import INIT, CNOT, T
+from instructions import INIT, CNOT, T, Toffoli
 from scope import Scope
 from extern_interface import ExternInterface
 
@@ -11,6 +11,7 @@ n_channels = 2
 g = DAG(Symbol('tst'))
 init = INIT('a', 'b', 'c', 'd')
 g.add_gate(init)
+g.add_gate(Toffoli('a', 'b', 'c'))
 g.add_gate(CNOT('a', 'b'))
 g.add_gate(CNOT('c', 'd'))
 g.add_gate(T('a'))
@@ -20,6 +21,7 @@ g.add_gate(T('a'))
 g.add_gate(T('c'))
 g.add_gate(T('d'))
 g.add_gate(CNOT('c', 'd'))
+g.add_gate(Toffoli('a', 'b', 'c'))
 g.add_gate(CNOT('c', 'a'))
 g.add_gate(CNOT('b', 'd'))
 g.add_gate(T('a'))
