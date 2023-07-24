@@ -5,10 +5,8 @@ from instructions import INIT, CNOT, T
 from scope import Scope
 
 
-
-
 from scope import Scope
-from symbol import Symbol
+from symbol import Symbol, ExternSymbol
 import unittest
 
 class ScopeTest(unittest.TestCase):
@@ -61,7 +59,8 @@ class ScopeTest(unittest.TestCase):
         g.add_gate(init)
         g.add_gate(T('a'))
 
-        assert(Symbol('T_Factory') in g.externs)
+        assert(ExternSymbol('T_Factory') not in g.externs)
+        assert(g.externs.contains(ExternSymbol('T_Factory')))
         
 
     def test_extern_fungibility(self):
@@ -72,32 +71,23 @@ class ScopeTest(unittest.TestCase):
 
         
         g.add_gate(T('a'))
-        t_1 = g.gates[-2]
+        t_1 = g.gates[-3].symbol
 
         g.add_gate(T('a'))
-        t_2 = g.gates[-2]
+        t_2 = g.gates[-3].symbol
 
-        assert(g.externs[0] == t_1.externs[0])
-        assert(g.externs[0] is t_1.externs[0])
-        assert(g.externs[1] == t_2.externs[0])
-        assert(g.externs[1] is t_2.externs[0])
+        extern_symbols = list(g.externs.keys())
 
-        assert(g.externs[1] == t_1.externs[0])
-        assert(g.externs[1] is not t_1.externs[0])
-        assert(g.externs[0] == t_2.externs[0])
-        assert(g.externs[0] is not t_2.externs[0])
+        assert(extern_symbols[0] == t_1)
+        assert(extern_symbols[0] is t_1)
+        assert(extern_symbols[1] == t_2)
+        assert(extern_symbols[1] is t_2)
+
+        assert(extern_symbols[1].satisfies(t_1))
+        assert(extern_symbols[1] != t_1)
+        assert(extern_symbols[0].satisfies(t_2))
+        assert(extern_symbols[0] !=  t_2)
 
         
 if __name__ == '__main__':
     unittest.main()
-
-
-
-# gg = DAG(Symbol('gg'))
-# gg.add_gate(g, scope={g['x']:gg['a'], g['y']:gg['b']})
-
-# assert(Symbol('a') in gg.scope)
-# assert(Symbol('b') in gg.scope)
-
-# ggg = DAG(Symbol('ggg'))
-# ggg.add_gate(gg, scope={gg['a']:ggg['x'], gg['b']:ggg['y']})
