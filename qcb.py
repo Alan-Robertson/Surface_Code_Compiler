@@ -2,6 +2,8 @@ import numpy as np
 from typing import *
 from msf import MSF
 from dag2 import DAG
+import copy
+
 
 class QCB():
     '''
@@ -42,6 +44,9 @@ class QCB():
 
     def get_obj(self):
         return self
+
+    def instantiate(self):
+        return copy.deepcopy(self)
 
 class SCPatch():
     # Singletons

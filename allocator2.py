@@ -10,7 +10,6 @@ class Allocator:
     def __init__(self, qcb: QCB, *extern_templates):
         self.qcb = qcb
 
-
         self.msfs_templates = extern_templates
         self.height = qcb.height
         self.width = qcb.width
@@ -123,6 +122,10 @@ class Allocator:
 
 
     def try_optimise(self) -> bool:
+        '''
+            Attempt an optimisation
+
+        '''
         dag = self.qcb.operations
         if not self.get_free_segments(self.qcb):
             return False
@@ -133,7 +136,7 @@ class Allocator:
             else:
                 return (new_msf, dag.compile(self.n_channels + 1, *self.msfs)[0])
 
-        options = [new_msf for new_msf in self.msfs_templates]
+        options = [new_msf.instantiate() for new_msf in self.msfs_templates]
         options.append(None)
         options = sorted(map(heuristic, options), key=lambda o:o[1])
 

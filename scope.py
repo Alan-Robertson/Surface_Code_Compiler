@@ -84,6 +84,9 @@ class Scope():
                 return False
         return True
 
+    def contains(self, symbol):
+        return any(map(lambda element: element.satisfies(symbol), self.mapping))
+
     def exactly_satisfies(self, subscope):
         for element in subscope:
             if element not in self:
