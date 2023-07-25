@@ -7,6 +7,8 @@ from mapper import RegNode
 from utils import log
 from mapper import QCBMapper
 from instructions import INIT_SYMBOL
+from extern_interface import ExternInterface
+from bind import ExternBind
 
 class QCBRouter:
     def __init__(self, qcb: QCB, dag: DAG, mapper:QCBMapper, allocator):
@@ -29,6 +31,9 @@ class QCBRouter:
         self.active: 'PriorityQueue[Tuple[int, _, DAGNode]]' = PriorityQueue()
         self.finished: 'List[DAGNode]' = []
 
+        # Lifecycle: prewarm -> ready -> active -> (done) -> prewarm
+        self.phys_externs: list[tuple[ExternBind, str]]
+
         self.resolved: set[DAGNode] = set()
 
 
@@ -37,7 +42,29 @@ class QCBRouter:
             for inst in layer:
                 print(inst, inst.anc)
     
+    def preprocess_externs(self, layered_ordering):
+        from itertools import chain
+        # TODO definitely refactor this
+        ordering = [g.obj.obj for g in chain.from_iterable(layered_ordering) if g.is_extern()]
+        extern_schedule = {phys_extern : [] for phys_extern in self.dag.physical_externs}
+        for extern in ordering:
+            phys_extern = self.dag.scope[extern.symbol]
+            extern_schedule[phys_extern].append(extern)
+        return extern_schedule
+
     def route_all(self):
+        # TODO refactor this after discussion
+        extern_schedule = self.preprocess_externs(self.dag.compiled_layers)
+
+        for phys_extern in extern_schedule:
+            self.prewarm_externs.append(ExternBind(phys_extern))
+        # Strategy: loop over extern schedule; then schedule each logical extern on 
+        # the specified physical extern according to schedule
+        # Add dagnode to resolved and recheck resolved so that 
+        # gates that interact with externs get added to active properly
+
+        # end TODO
+
 
         gates = set(self.dag.gates)
         inits: set[DAGNode] = set(g for g in self.dag.layers[0] if g.symbol == INIT_SYMBOL)
@@ -76,6 +103,18 @@ class QCBRouter:
         self.process_waiting()
         completed = self.graph.advance()
         log(f"{completed=}")
+
+        # TODO discuss
+        from itertools import chain
+        for phys_extern in chain(self.prewarm_externs, self.active_externs):
+            phys_extern.cycle()
+        
+        newly_ready = set()
+        for phys_extern in self.prewarm_externs:
+            if phys_extern.
+
+        # end TODO
+
         while not self.active.empty() and self.active.queue[0][2].anc in completed:
             inst = self.active.get()[2]
         for anc in completed:

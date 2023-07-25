@@ -68,7 +68,7 @@ router.route_all()
 
 print_inst_locks2(qcb_base.segments, g.gates, 'main_frames.tex')
 
-for gate in g.gates:
-    print(gate, gate.start, gate.end, gate.anc, 'pred', gate.predicates)
-    if gate.is_extern():
-        print('\t', hex(id(gate)))
+# for gate in g.gates:
+#     print(gate, gate.start, gate.end, gate.anc, 'pred', gate.predicates)
+#     if gate.is_extern():
+#         print('\t', hex(id(gate)))

@@ -40,6 +40,9 @@ class DAGNode():
         self.anc = None
         self.start = -1
         self.end = -1
+        self.compiled_layers = None 
+        # ^ This is needed to extract the order in which logical externs 
+        # are executed on the physical externs; TODO discuss alternatives
 
     def __call__(self, scope=None):
         self.predicates = set()
@@ -450,6 +453,8 @@ class DAG(DAGNode):
                 print("CYCLE {n_cycles}")
                 print(f"\tACTIVE {active}\n\t WAITING {waiting}\n\t IDLE {idle_externs}\n\tCHANNELS {active_non_local_gates} / {n_channels}\n\t{resolved}")
                 print("####\n")
+
+        self.compiled_layers = layers
 
         return n_cycles, layers
 
