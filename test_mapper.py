@@ -52,5 +52,6 @@ print_connectivity_graph(prune.grid_segments, 'main_connectivity.tex')
 
 mapper = QCBMapper(prune.grid_segments)
 root = mapper.generate_mapping_tree()
+mapper.map_all(g)
 
 print_mapping_tree(root, 'main_mapping_tree.tex')

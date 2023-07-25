@@ -234,6 +234,7 @@ class DAG(DAGNode):
     def calculate_physical_conjestion(self):
         conj_len = len(self.internal_scope()) + len(self.physical_externs)
         conj = np.zeros((conj_len, conj_len))
+
         lookup_inv = list(chain(self.internal_scope().keys(), self.physical_externs))
         lookup = dict(map(lambda x: x[::-1], enumerate(lookup_inv)))  
         
@@ -253,8 +254,19 @@ class DAG(DAGNode):
                                         tmp_other_targ = self.scope[tmp_other_targ]
 
                                     conj[lookup[tmp_targ], lookup[tmp_other_targ]] += 1
-        return conj, lookup, lookup_inv
+        return conj, lookup
 
+    def lookup(self):
+        initial_list = list(chain(self.internal_scope().keys(), self.physical_externs))
+        register = Symbol('REG')
+
+        lookup_list = list()
+        for element in initial_list:
+            if element.get_symbol().is_extern():
+                lookup_list.append(element.get_symbol())
+            else:
+                lookup_list.append(register)
+        return lookup_list
 
     def calculate_physical_proximity(self):
         prox_len = len(self.internal_scope()) + len(self.physical_externs)
@@ -278,7 +290,7 @@ class DAG(DAGNode):
 
                             prox[lookup[tmp_targ], lookup[tmp_other_targ]] += 1
 
-        return prox, lookup, lookup_inv
+        return prox, lookup
 
     # TODO Create this as a separate wrapper
     def compile(self, n_channels, *externs, extern_minimise=lambda extern: extern.n_cycles(), debug=False):

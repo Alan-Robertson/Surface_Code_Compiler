@@ -111,6 +111,9 @@ class Symbol(object):
     def is_extern(self):
         return False
 
+    def get_symbol(self):
+        return self
+
 class ExternSymbol(Symbol):
     singleton = object()
 
