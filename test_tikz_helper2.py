@@ -6,6 +6,7 @@ def print_header(f, scale=1):
     print(r"""
 %!TEX options=--shell-escape
 \documentclass[tikz, border=100pt]{standalone}
+\usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
 \usepackage{xcolor}
 \usepackage{amsmath}
@@ -29,8 +30,8 @@ def print_header(f, scale=1):
 
 \begin{document}
 
-\begin{tikzpicture}[]{1}
 """, file=f)
+    print(f"\\begin{{tikzpicture}}[scale={scale}]{{1}}", file=f)
 def print_tikz_start(f, scale=1.5):
     print(r"""\begin{tikzpicture}[scale="""+str(scale)+r""",background rectangle/.style={fill=white},
     show background rectangle]
@@ -142,10 +143,11 @@ def print_mapping_tree(root, file="latex.tex"):
         print_footer(file_obj)
 
 def regnode_data(node:'RegNode'):
-    out = f"w={round(node.weight, 2)}\\\\s={node.slots}"
+    out = f"w={round(node.weight, 2)}"
+    # out += f"\\\\s={node.slots}"
     if node.seg:
         out += f"\\\\{node.seg.x_0, node.seg.y_0}"
-    if node.qubits:
+    if node.qubits and not node.children:
         
         out += f"\\\\ {','.join(map(str, node.qubits))}"
         out += f"\\\\ {','.join(map(lambda x: hex(id(x)), node.qubits))}"
