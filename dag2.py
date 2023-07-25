@@ -36,6 +36,11 @@ class DAGNode():
         self.layer = 0
         self.slack = float('inf')
 
+        # TODO discuss w/ alan
+        self.anc = None
+        self.start = -1
+        self.end = -1
+
     def __call__(self, scope=None):
         self.predicates = set()
         self.antecedents = set()
@@ -89,7 +94,7 @@ class DAG(DAGNode):
             if sym not in self.scope:
                 self.scope[sym] = None
 
-        self.gates = []
+        self.gates: list[DAGNode] = []
         self.last_layer = {}
 
         self.externs = Scope()

@@ -2,7 +2,7 @@
 from mapper import RegNode
 from qcb import SCPatch
 
-def print_header(f, scale=1):
+def print_header(f, scale=1,skip=False):
     print(r"""
 %!TEX options=--shell-escape
 \documentclass[tikz, border=100pt]{standalone}
@@ -22,6 +22,8 @@ def print_header(f, scale=1):
 \usepackage{pgfplots} % for the axis environment
 \usepackage[edges]{forest}
 \usetikzlibrary{patterns, backgrounds, arrows.meta}
+\usepackage[export]{animate}
+
 
 \pagecolor{white}
 
@@ -31,7 +33,10 @@ def print_header(f, scale=1):
 \begin{document}
 
 """, file=f)
-    print(f"\\begin{{tikzpicture}}[scale={scale}]{{1}}", file=f)
+    if not skip:
+        print(f"\\begin{{tikzpicture}}[scale={scale}]{{1}}", file=f)
+    else:
+        print(f"\\begin{{animateinline}}[]{{1}}", file=f)
 def print_tikz_start(f, scale=1.5):
     print(r"""\begin{tikzpicture}[scale="""+str(scale)+r""",background rectangle/.style={fill=white},
     show background rectangle]
@@ -43,12 +48,19 @@ def print_tikz_end(f):
 \newframe    
     """, file=f)
 
-def print_footer(f):
-    print(r"""
-\end{tikzpicture}
+def print_footer(f,skip=False):
+    if not skip:
+        print(r"""
+    \end{tikzpicture}
 
-\end{document}
-        """, file=f)
+    \end{document}
+            """, file=f)
+    else:
+            print(r"""
+    \end{animateinline}
+
+    \end{document}
+            """, file=f)
 
 
 def make_bg(segments, f):
@@ -57,7 +69,7 @@ def make_bg(segments, f):
             color = 'blue!50!red!50'
         elif s.state.state == SCPatch.ROUTE:
             color = 'green!20'
-        elif s.state.state == SCPatch.MSF:
+        elif s.state.state == SCPatch.EXTERN:
             color = 'blue!20'
         elif s.state.state == SCPatch.REG:
             color = 'red!20'
@@ -66,8 +78,10 @@ def make_bg(segments, f):
         elif s.state.state == 'debug':
             color = 'yellow'
         print(f"\\draw[fill={color},fill opacity=0.5] ({s.x_0},-{s.y_0}) -- ({s.x_0},-{s.y_1+1}) -- ({s.x_1+1},-{s.y_1+1}) -- ({s.x_1+1},-{s.y_0}) -- cycle;", file=f)
-        if s.state.state == SCPatch.MSF:
-            print(f"\\node at ({s.x_0+0.5},-{s.y_0+0.5}) {{{s.state.state}{s.state.msf.symbol}}};", file=f)
+        if s.state.state == SCPatch.EXTERN:
+            sym_text = str(s.state.msf.symbol).replace('_', '\\_')
+
+            print(f"\\node at ({s.x_0+0.5},-{s.y_0+0.5}) {{{s.state.state}{sym_text}}};", file=f)
         else:
             print(f"\\node at ({s.x_0+0.5},-{s.y_0+0.5}) {{{s.state.state}{s.debug_name}}};", file=f)
 
@@ -77,7 +91,7 @@ def make_bg(segments, f):
 
 def print_inst_locks2(segments, insts, file='router1.tex'):
     with open(file, "w") as f:
-        print_header(f)
+        print_header(f,skip=True)
         
         max_t = max(i.end for i in insts)
         
@@ -104,7 +118,7 @@ def print_inst_locks2(segments, insts, file='router1.tex'):
 
             print_tikz_end(f)
 
-        print_footer(f)
+        print_footer(f,skip=True)
 
 
 def recurse(node, file_obj, used_pos):

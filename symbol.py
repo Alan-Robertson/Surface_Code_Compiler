@@ -48,7 +48,7 @@ class Symbol(object):
         return self[self.io[index]]
 
     def __len__(self):
-        return self.__len__(io)
+        return len(self.io)
 
     def __iter__(self):
         return iter(self.io)
