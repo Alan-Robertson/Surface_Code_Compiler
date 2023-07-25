@@ -116,7 +116,7 @@ class QCBPrune:
                         discarded.add(block)
                 edge.difference_update(discarded)
         
-        elif seg.state.state is SCPatch.COMP:
+        elif seg.state.state is SCPatch.EXTERN:
             # Remove all left, right, above edges
             for label, edge in seg.edges(['left', 'right', 'above']).items():
                 for block in edge:
@@ -134,7 +134,7 @@ class QCBPrune:
 
 
     def prune_edges(self, seg: Segment):
-        if seg.state.state in {SCPatch.COMP, SCPatch.REG} and len(seg.below) > 1:
+        if seg.state.state in {SCPatch.EXTERN, SCPatch.REG} and len(seg.below) > 1:
 
             route_below = min((s for s in seg.below), key=lambda s: s.x_0)
 

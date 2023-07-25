@@ -2,7 +2,7 @@
 from mapper import RegNode
 from qcb import SCPatch
 
-def print_header2(f):
+def print_header(f, scale=1):
     print(r"""
 %!TEX options=--shell-escape
 \documentclass[tikz, border=100pt]{standalone}
@@ -43,7 +43,7 @@ def print_tikz_end(f):
 \newframe    
     """, file=f)
 
-def print_footer2(f):
+def print_footer(f):
     print(r"""
 \end{animateinline}
 
@@ -74,7 +74,7 @@ def make_bg(segments, f):
 
 def print_inst_locks2(segments, insts, file='router1.tex'):
     with open(file, "w") as f:
-        print_header2(f)
+        print_header(f)
         
         max_t = max(i.end for i in insts)
         
@@ -101,4 +101,33 @@ def print_inst_locks2(segments, insts, file='router1.tex'):
 
             print_tikz_end(f)
 
-        print_footer2(f)
+        print_footer(f)
+
+
+def print_connectivity_graph(segments, file="latex.tex"):
+    with open(file, "w") as f:
+        print_header(f, scale=1)
+
+        seen = set()
+
+        colours = {
+            SCPatch.IO:'blue!50!red!50',
+            SCPatch.ROUTE:'green',
+            SCPatch.EXTERN:'blue',
+            SCPatch.REG:'red',
+            SCPatch.NONE:'black',
+            'debug':'yellow'
+        }
+        for s in segments:
+
+            colour = colours.get(s.state.state, colours['debug'])
+
+            print(f"\\node[shape=circle,draw={colour}] ({id(s)}) at ({s.x_0}, -{s.y_0}) {{{s.x_0},{s.y_0}}};", file=f)
+            seen.add(id(s))
+        for s in segments:
+            for n in s.above | s.below | s.left | s.right:
+                if n and id(n) in seen:
+                    print(f"\\path[->] ({id(s)}) edge ({id(n)});", file=f)
+                else:
+                    print(f"\\path[->] ({id(s)}) edge (-1,1);", file=f)
+        print_footer(f)

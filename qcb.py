@@ -2,6 +2,7 @@ import numpy as np
 from typing import *
 from msf import MSF
 from dag2 import DAG
+from symbol import Symbol
 import copy
 
 
@@ -19,9 +20,9 @@ class QCB():
 
         self.slack = float('inf')
 
-
         self.width = width
         self.height = height
+        self.externs = operations.externs
 
     # ExternInterface impls
     def n_cycles(self):
@@ -50,15 +51,15 @@ class QCB():
 
 class SCPatch():
     # Singletons
-    COMP = object()
-    REG = object()
-    ROUTE = object()
-    IO = object()
+    EXTERN = Symbol('EXTERN')
+    REG = Symbol('REG')
+    ROUTE = Symbol('ROUTE')
+    IO = Symbol('IO')
     NONE = None
 
     def __init__(self, alloc_type: 'None|str|MSF' = None):
         if alloc_type not in [self.REG, self.ROUTE, self.IO, self.NONE]:
-            self.state = self.COMP
+            self.state = self.EXTERN
             self.msf = alloc_type
         else:
             self.state = alloc_type

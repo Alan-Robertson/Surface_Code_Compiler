@@ -47,7 +47,6 @@ class Allocator:
                 seg.state = SCPatch(SCPatch.ROUTE)
                 seg.debug_name = "r2r"
 
-
     def try_opt_channel(self) -> bool:
         self.global_top_merge()
         self.global_left_merge()
@@ -102,7 +101,6 @@ class Allocator:
 
         print("regs", self.reg_allocated, "/", self.reg_quota)
         return True
-
 
     
     def try_opt_new_msf(self, new_msf) -> bool:
@@ -428,7 +426,7 @@ class Allocator:
         if not left_route:
             # No MSFS: make dummy segment
             left_route = Segment(-1, self.height-3, -1, self.height-3)
-        elif left_route.state.state == SCPatch.COMP:
+        elif left_route.state.state == SCPatch.EXTERN:
             left_route = next(iter(left_route.below))
 
 

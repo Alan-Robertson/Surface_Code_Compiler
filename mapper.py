@@ -1,10 +1,10 @@
 
 from qcb import Segment, SCPatch
 from typing import *
-from allocator import AllocatorError, QCB
+from allocator2 import AllocatorError, QCB
 import numpy as np
 from collections import defaultdict
-from dag import DAG 
+from dag2 import DAG 
 from utils import log
 
 
@@ -143,7 +143,7 @@ class QCBMapper:
 
         self.map_qubits(conj, prox, conj_m, conj_minv)
 
-        g.remap_msfs(qcb.n_channels, qcb.msfs)
+        g.remap_externs(qcb.n_channels, qcb.externs)
 
         conj, conj_m, conj_minv = g.calculate_conjestion()
         prox, _, _ = g.calculate_proximity()
