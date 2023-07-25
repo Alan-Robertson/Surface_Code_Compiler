@@ -107,9 +107,9 @@ def print_inst_locks2(segments, insts, file='router1.tex'):
 
 
 def recurse(node, file_obj, used_pos):
-    if node.seg and not node.sym:
+    if node.seg and node.pred_sym is not None:
         color = 'red'
-    elif node.seg and node.sym:
+    elif node.seg and node.pred_sym is None:
         color = 'blue'
     else:
         color = 'black'
