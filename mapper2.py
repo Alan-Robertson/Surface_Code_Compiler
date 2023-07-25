@@ -11,6 +11,9 @@ from symbol import Symbol, ExternSymbol # annotation only
 
 # debug_count = 0
 class RegNode():
+
+    REGISTER = Symbol('REG')
+
     def __init__(self, seg: 'Segment|None', children: 'Set[RegNode]|None'=None, pred_sym:'Symbol|None' = None):
         assert seg or children
         # global debug_count
@@ -18,7 +21,7 @@ class RegNode():
         # debug_count += 1
         if seg and pred_sym is None:
             self.seg = seg
-            self.slots = {0: seg.width * seg.height}
+            self.slots = {self.REGISTER: seg.width * seg.height}
             self.weight = 0
             self.children = set()            
             self.visited = {seg}
@@ -156,7 +159,7 @@ class QCBMapper:
     def generate_mapping_dict(self):
         mapping = {}
         for qubit, node in self.qubit_mapping.items():
-            if node.pred_sym:
+            if node.pred_sym is not None:
                 mapping[qubit] = (node.seg.x_0, node.seg.y_1)
             elif len(node.qubits) == 1:
                 mapping[qubit] = (node.seg.x_0, node.seg.y_0)

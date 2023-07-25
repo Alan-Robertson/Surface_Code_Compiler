@@ -55,3 +55,5 @@ root = mapper.generate_mapping_tree()
 print_mapping_tree(root, file="mapper2_beforemap.tex")
 
 mapper.map_all(g)
+
+print_mapping_tree(root, file="mapper2_aftermap.tex")

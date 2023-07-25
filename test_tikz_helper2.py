@@ -107,9 +107,9 @@ def print_inst_locks2(segments, insts, file='router1.tex'):
 
 
 def recurse(node, file_obj, used_pos):
-    if node.seg and node.pred_sym is not None:
+    if node.seg and node.pred_sym is None:
         color = 'red'
-    elif node.seg and node.pred_sym is None:
+    elif node.seg and node.pred_sym is not None:
         color = 'blue'
     else:
         color = 'black'
@@ -128,7 +128,7 @@ def recurse(node, file_obj, used_pos):
         x = int(x)
         y = int(y)
         while (x, y) in used_pos:
-            x += 1
+            x += 2.5
 
     print(f"\\node[shape=circle,draw={color},align=center] ({id(node)}) at ({x}, -{y}) {{{regnode_data(node)}}};", file=file_obj)
     for c in node.children:
@@ -137,7 +137,7 @@ def recurse(node, file_obj, used_pos):
 
 def print_mapping_tree(root, file="latex.tex"):
     with open(file, "w") as file_obj:
-        print_header(file_obj, scale=2)
+        print_header(file_obj, scale=2.5)
         recurse(root, file_obj, set())
         print_footer(file_obj)
 
@@ -148,7 +148,9 @@ def regnode_data(node:'RegNode'):
     if node.qubits:
         
         out += f"\\\\ {','.join(map(str, node.qubits))}"
-        out = out.replace('_#', '\\#')
+        out += f"\\\\ {','.join(map(lambda x: hex(id(x)), node.qubits))}"
+        out += f"\\\\ {str(len(node.qubits))}"
+    out = out.replace('_', '\\_')
     return out
 
 
@@ -183,7 +185,7 @@ def print_qcb(segments, file="latex.tex"):
 
 def print_connectivity_graph(segments, file="latex.tex"):
     with open(file, "w") as f:
-        print_header(f, scale=1)
+        print_header(f, scale=2.5)
 
         seen = set()
 

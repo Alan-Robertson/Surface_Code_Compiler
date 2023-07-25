@@ -258,14 +258,13 @@ class DAG(DAGNode):
 
     def lookup(self):
         initial_list = list(chain(self.internal_scope().keys(), self.physical_externs))
-        register = Symbol('REG')
-
+        
         lookup_list = list()
         for element in initial_list:
             if element.get_symbol().is_extern():
                 lookup_list.append(element.get_symbol())
             else:
-                lookup_list.append(register)
+                lookup_list.append(element)
         return lookup_list
 
     def calculate_physical_proximity(self):
