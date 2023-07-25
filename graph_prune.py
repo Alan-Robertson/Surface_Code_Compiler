@@ -25,7 +25,7 @@ class QCBPrune:
         
         seg = next((s for s in sorted(self.grid_segments, key=Segment.y_position)
                       if s.y_position() > fringe
-                      and s.state.state is SCPatch.ROUTE), None)
+                      and s.state.state == SCPatch.ROUTE), None)
         if not seg:
             return True, (-1, -1)
     
@@ -84,7 +84,7 @@ class QCBPrune:
 
 
     def prune_invalid_edges(self, seg: Segment):
-        if seg.state.state is SCPatch.REG:
+        if seg.state.state == SCPatch.REG:
             # Remove all left and right edges
             for label, edge in seg.edges(['left', 'right']).items():
                 for block in edge:
@@ -95,12 +95,12 @@ class QCBPrune:
             for label, edge in seg.edges(['above', 'below']).items():
                 discarded = set()
                 for block in edge:
-                    if block.state.state is not SCPatch.ROUTE:
+                    if block.state.state != SCPatch.ROUTE:
                         block._inverse(label).remove(seg)
                         discarded.add(block)
                 edge.difference_update(discarded)
         
-        elif seg.state.state is SCPatch.IO:
+        elif seg.state.state == SCPatch.IO:
             # Remove all left and right edges, no below edges should exist
             for label, edge in seg.edges(['left', 'right']).items():
                 for block in edge:
@@ -111,12 +111,12 @@ class QCBPrune:
             for label, edge in seg.edges(['above']).items():
                 discarded = set()
                 for block in edge:
-                    if block.state.state is not SCPatch.ROUTE:
+                    if block.state.state != SCPatch.ROUTE:
                         block._inverse(label).remove(seg)
                         discarded.add(block)
                 edge.difference_update(discarded)
         
-        elif seg.state.state is SCPatch.EXTERN:
+        elif seg.state.state == SCPatch.EXTERN:
             # Remove all left, right, above edges
             for label, edge in seg.edges(['left', 'right', 'above']).items():
                 for block in edge:
@@ -127,7 +127,7 @@ class QCBPrune:
             for label, edge in seg.edges(['below']).items():
                 discarded = set()
                 for block in edge:
-                    if block.state.state is not SCPatch.ROUTE:
+                    if block.state.state != SCPatch.ROUTE:
                         block._inverse(label).remove(seg)
                         discarded.add(block)
                 edge.difference_update(discarded)

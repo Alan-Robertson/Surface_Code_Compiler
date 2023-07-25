@@ -6,7 +6,6 @@ def print_header(f, scale=1):
     print(r"""
 %!TEX options=--shell-escape
 \documentclass[tikz, border=100pt]{standalone}
-\usepackage[export]{animate}
 \usepackage[utf8]{inputenc}
 \usepackage{xcolor}
 \usepackage{amsmath}
@@ -30,7 +29,7 @@ def print_header(f, scale=1):
 
 \begin{document}
 
-\begin{animateinline}[]{1}
+\begin{tikzpicture}[]{1}
 """, file=f)
 def print_tikz_start(f, scale=1.5):
     print(r"""\begin{tikzpicture}[scale="""+str(scale)+r""",background rectangle/.style={fill=white},
@@ -45,7 +44,7 @@ def print_tikz_end(f):
 
 def print_footer(f):
     print(r"""
-\end{animateinline}
+\end{tikzpicture}
 
 \end{document}
         """, file=f)
@@ -70,6 +69,9 @@ def make_bg(segments, f):
             print(f"\\node at ({s.x_0+0.5},-{s.y_0+0.5}) {{{s.state.state}{s.state.msf.symbol}}};", file=f)
         else:
             print(f"\\node at ({s.x_0+0.5},-{s.y_0+0.5}) {{{s.state.state}{s.debug_name}}};", file=f)
+
+
+
 
 
 def print_inst_locks2(segments, insts, file='router1.tex'):
@@ -100,6 +102,81 @@ def print_inst_locks2(segments, insts, file='router1.tex'):
                 print(f"\\node[shape=circle,draw=black] at ({x}, {y}) {{}};", file=f)
 
             print_tikz_end(f)
+
+        print_footer(f)
+
+
+def recurse(node, file_obj, used_pos):
+    if node.seg and not node.sym:
+        color = 'red'
+    elif node.seg and node.sym:
+        color = 'blue'
+    else:
+        color = 'black'
+    
+    pos_list = []
+    for s in node.children:
+        pos_list.append(recurse(s, file_obj, used_pos))
+    
+    if not pos_list:
+        x = node.seg.x_0
+        y = node.seg.y_0
+        used_pos.add((x,y))
+    else:
+        x = sum(map(lambda x: x[0], pos_list)) / len(pos_list)
+        y = sum(map(lambda x: x[1], pos_list)) / len(pos_list)
+        x = int(x)
+        y = int(y)
+        while (x, y) in used_pos:
+            x += 1
+
+    print(f"\\node[shape=circle,draw={color},align=center] ({id(node)}) at ({x}, -{y}) {{{regnode_data(node)}}};", file=file_obj)
+    for c in node.children:
+        print(f"\\path[->] ({id(node)}) edge ({id(c)});", file=file_obj)
+    return (x, y)
+
+def print_mapping_tree(root, file="latex.tex"):
+    with open(file, "w") as file_obj:
+        print_header(file_obj, scale=2)
+        recurse(root, file_obj, set())
+        print_footer(file_obj)
+
+def regnode_data(node:'RegNode'):
+    out = f"w={round(node.weight, 2)}\\\\s={node.slots}"
+    if node.seg:
+        out += f"\\\\{node.seg.x_0, node.seg.y_0}"
+    if node.qubits:
+        
+        out += f"\\\\ {','.join(map(str, node.qubits))}"
+        out = out.replace('_#', '\\#')
+    return out
+
+
+def print_qcb(segments, file="latex.tex"):
+    with open(file, "w") as f:
+        print_header(f)
+
+        colours = {
+            SCPatch.IO:'blue!50!red!50',
+            SCPatch.ROUTE:'green',
+            SCPatch.EXTERN:'blue',
+            SCPatch.REG:'red',
+            SCPatch.NONE:'black',
+            'debug':'yellow'
+        }
+
+        for s in segments:
+
+            s_type = s
+            colour = colours[s.state.state]
+            
+            print(f"\\draw[fill={colour},fill opacity=0.5] ({s.x_0},-{s.y_0}) -- ({s.x_0},-{s.y_1+1}) -- ({s.x_1+1},-{s.y_1+1}) -- ({s.x_1+1},-{s.y_0}) -- cycle;", file=f)
+            if s.state.state == SCPatch.EXTERN:
+                sym = str(s.state.msf.symbol).replace('_', '\\_')
+
+                print(f"\\node at ({s.x_0+0.5},-{s.y_0+0.5}) {{{s_type}{sym}}};", file=f)
+            else:
+                print(f"\\node at ({s.x_0+0.5},-{s.y_0+0.5}) {{{s_type}{s.debug_name}}};", file=f)
 
         print_footer(f)
 

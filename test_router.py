@@ -12,8 +12,6 @@ from qcb import QCB
 from graph_prune import QCBPrune
 from test_tikz_helper2 import *
 
-from mapper import QCBMapper
-
 g = DAG(Symbol('tst'))
 g.add_gate(INIT('a', 'b', 'c', 'd'))
 g.add_gate(CNOT('a', 'b'))
@@ -47,10 +45,4 @@ allocator.optimise()
 prune = QCBPrune(qcb_base.segments)
 prune.map_to_grid()
 
-print_connectivity_graph(prune.grid_segments, 'main_connectivity.tex')
-
-
-mapper = QCBMapper(prune.grid_segments)
-root = mapper.generate_mapping_tree()
-
-print_mapping_tree(root, 'main_mapping_tree.tex')
+print_connectivity_graph(prune.grid_segments, 'pruned_graph.tex')

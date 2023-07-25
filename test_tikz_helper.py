@@ -68,8 +68,6 @@ def recurse(node, f, used_pos):
         while (x,y) in used_pos:
             x += 1
     
-
-
     print(f"\\node[shape=circle,draw={color},align=center] ({id(node)}) at ({x}, -{y}) {{{regnode_data(node)}}};", file=f)
     for c in node.children:
         print(f"\\path[->] ({id(node)}) edge ({id(c)});", file=f)

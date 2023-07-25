@@ -225,7 +225,7 @@ class QCBMapper:
                 n = RegNode(seg=s)
                 self.mapping_forest.add(n)
                 self.mapping[s] = n
-            elif s.state.state == SCPatch.MSF:
+            elif s.state.state == SCPatch.EXTERN:
                 n = RegNode(seg=s, sym=s.state.msf.symbol)
                 self.mapping_forest.add(n)
                 self.mapping[s] = n

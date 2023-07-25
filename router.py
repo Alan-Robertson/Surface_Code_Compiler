@@ -2,7 +2,7 @@ from qcb import Segment, SCPatch
 from allocator import QCB
 from typing import *
 from circuit_model import Graph, GraphNode, ANC
-from dag import DAG, DAGNode
+from dag2 import DAG
 from queue import PriorityQueue
 from mapper import RegNode
 from utils import log
@@ -10,7 +10,9 @@ from mapper import QCBMapper
 
 class QCBRouter:
     def __init__(self, qcb: QCB, dag: DAG, mapper:QCBMapper):
-        
+        '''
+            Initialise the router
+        '''
         self.graph = Graph(shape=(qcb.width, qcb.height))
         self.dag = dag
         self.mapping: 'Dict[Union[qubit_id, msf_type], resource_loc]' = mapper.generate_mapping_dict()
@@ -18,19 +20,11 @@ class QCBRouter:
 
         qcb.reg_to_route(self.mapping.values())
 
-        for s in qcb.segments:
-            for x in range(s.x_0, s.x_1 + 1):
-                for y in range(s.y_0, s.y_1 + 1):
-                    self.graph[(x, y)].set_underlying(s.state.state)
+        for segement in qcb.segments:
+            for x in range(segement.x_0, segement.x_1 + 1):
+                for y in range(segement.y_0, segement.y_1 + 1):
+                    self.graph[(x, y)].set_underlying(segement.state.state)
             
-            # if s.state.state == SCPatch.MSF:
-            #     symbol = s.state.msf.symbol
-            #     if symbol not in self.mapping:
-            #         self.mapping[symbol] = {}
-            #     self.mapping[symbol][(s.x_0, s.y_1)] = s
-
-
-        # self.routes: 'Dict[DAGNode, List[GraphNode]]' = {}
         self.waiting: 'List[DAGNode]' = []
         self.active: 'PriorityQueue[Tuple[int, _, DAGNode]]' = PriorityQueue()
         self.finished: 'List[DAGNode]' = []
@@ -42,10 +36,6 @@ class QCBRouter:
                 print(inst, inst.anc)
     
     def route_all(self):
-        # for g in self.dag.gates:
-        #     g.resolved = False
-
-        # inits = self.dag.layers[0]
 
         gates = set(self.dag.gates)
         inits = set(g for g in gates if g.data == 'INIT' and g.layer_num == 0)
@@ -127,11 +117,11 @@ class QCBRouter:
             inst.end = inst.start + inst.cycles
             return True
 
-    def route_msf(self, q1, msf, inst):
-        # debug below
-        return self.route_double(q1, msf, inst)
+    def route_extern(self, q1, extern, inst):
+        
+        return self.route_double(q1, extern, inst)
     
-    
+        
 
         q1_node = self.graph[self.mapping[q1]]
         msf_nodes = [(self.graph[pos], seg) for pos, seg in self.mapping[msf].items() if not self.graph[pos].in_use()]

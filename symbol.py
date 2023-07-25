@@ -24,6 +24,7 @@ class Symbol(object):
             
         self.symbol = symbol
         self.parent = parent
+        self.predicate = self
         self.io_in, self.io_out = map(self.format, (io_in, io_out))
         self.io = {j:i for i, j in enumerate(self.io_in)}
         self.io |= {j:len(self.io_in) + i for i, j in enumerate(self.io_out - self.io_in)}
@@ -87,6 +88,9 @@ class Symbol(object):
             return self
         return self.parent.get_parent()
 
+    def discriminator(self):
+        return self
+
     def bind_scope(self):
         return Scope(self.io.keys())
 
@@ -120,6 +124,13 @@ class ExternSymbol(Symbol):
         if isinstance(io_element, str):
             io_element = Symbol(io_element)
 
+        if predicate is not None and predicate.is_extern():
+            parent = predicate
+            predicate = predicate.discriminator()
+        else:
+            parent = None
+
+        self.parent = parent
         self.predicate = predicate
         self.io_element = io_element
         self.io_in = {self}
@@ -148,7 +159,10 @@ class ExternSymbol(Symbol):
         return 1
 
     def __call__(self, io_element):
-        return ExternSymbol(self.predicate, io_element)
+        return ExternSymbol(self, io_element)
+
+    def discriminator(self):
+        return self.predicate.discriminator()
 
     def satisfies(self, other):
         if isinstance(other.predicate, ExternSymbol):

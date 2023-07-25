@@ -1,7 +1,7 @@
 import numpy as np
 from heapq import heappush
 
-from itertools import takewhile
+from itertools import chain
 from functools import reduce
 
 class DAGNode():
@@ -95,6 +95,8 @@ class DAG(DAGNode):
         self.externs = Scope()
         self.predicates = set()
         self.antecedents = set()
+
+        self.physical_externs = set()
 
         # Catches any undeclared externs in the scope
         for sym in self.scope.values():
@@ -200,7 +202,7 @@ class DAG(DAGNode):
         self.symbol.inject(scope)
         return
 
-    def calculate_proximity(self):
+    def calculate_logical_proximity(self):
         prox_len = len(self.scope)
         prox = np.zeros((prox_len, prox_len))
         lookup = dict(map(lambda x: x[::-1], enumerate(self.scope.keys())))
@@ -213,7 +215,7 @@ class DAG(DAGNode):
                             prox[lookup[targ], lookup[other_targ]] += 1
         return prox, lookup
 
-    def calculate_conjestion(self):
+    def calculate_logical_conjestion(self):
         conj_len = len(self.scope)
         conj = np.zeros((conj_len, conj_len))
         lookup = dict(map(lambda x: x[::-1], enumerate(self.scope.keys()))) 
@@ -229,11 +231,61 @@ class DAG(DAGNode):
         return conj, lookup
 
 
+    def calculate_physical_conjestion(self):
+        conj_len = len(self.internal_scope()) + len(self.physical_externs)
+        conj = np.zeros((conj_len, conj_len))
+        lookup_inv = list(chain(self.internal_scope().keys(), self.physical_externs))
+        lookup = dict(map(lambda x: x[::-1], enumerate(lookup_inv)))  
+        
+        for layer in self.layers:
+            for gate in layer:
+                if len(gate.scope) > 1:
+                    for other_gate in layer:
+                        if gate is not other_gate and len(other_gate.scope) > 1:
+                            for targ in gate.scope:                            
+                                for other_targ in other_gate.scope:
+                                    tmp_targ = targ.get_parent()
+                                    tmp_other_targ = other_targ.get_parent()
+                                    
+                                    if tmp_targ.is_extern():
+                                        tmp_targ = self.scope[tmp_targ]
+                                    if tmp_other_targ.is_extern():
+                                        tmp_other_targ = self.scope[tmp_other_targ]
+
+                                    conj[lookup[tmp_targ], lookup[tmp_other_targ]] += 1
+        return conj, lookup, lookup_inv
+
+
+    def calculate_physical_proximity(self):
+        prox_len = len(self.internal_scope()) + len(self.physical_externs)
+        prox = np.zeros((prox_len, prox_len))
+        lookup_inv = list(chain(self.internal_scope().keys(), self.physical_externs))
+        lookup = dict(map(lambda x: x[::-1], enumerate(lookup_inv))) 
+        
+        for layer in self.layers:
+            for gate in layer:
+                for targ in gate.scope:                            
+                    for other_targ in gate.scope:
+                        if other_targ is not targ:
+
+                            tmp_targ = targ.get_parent()
+                            tmp_other_targ = other_targ.get_parent()
+                            
+                            if tmp_targ.is_extern():
+                                tmp_targ = self.scope[tmp_targ]
+                            if tmp_other_targ.is_extern():
+                                tmp_other_targ = self.scope[tmp_other_targ]
+
+                            prox[lookup[tmp_targ], lookup[tmp_other_targ]] += 1
+
+        return prox, lookup, lookup_inv
+
     # TODO Create this as a separate wrapper
     def compile(self, n_channels, *externs, extern_minimise=lambda extern: extern.n_cycles(), debug=False):
         
         # Clear any previous extern allocation
         self.externs.clear_scope()
+        self.physical_externs = externs
 
         # Check I have enough channels
         assert(n_channels > 0)
@@ -267,6 +319,7 @@ class DAG(DAGNode):
                 if binding is not None:
                     idle_externs.pop(index)
                     self.externs[gate.symbol] = binding.get_obj()
+                    self.scope[gate.symbol] = binding.get_obj()
                     active.add(ExternBind(gate))
                 else:
                     # Cannot find a binding, add it to the wait list
@@ -353,6 +406,7 @@ class DAG(DAGNode):
                     if binding is not None:
                         idle_externs.pop(index)
                         self.externs[gate.get_symbol()] = binding.get_obj()
+                        self.scope[gate.get_symbol()] = binding.get_obj()
                         active.add(gate)
 
                 else:
