@@ -1,6 +1,7 @@
 from mapper import RegNode
 from qcb import SCPatch
 
+<<<<<<< HEAD
 colour_map = {
     SCPatch.IO:'blue!50!red!50',
     SCPatch.ROUTE:'green!20',
@@ -14,6 +15,13 @@ def tex_header(*tiksargs):
     return r"""
 %!TEX options=--shell-escape
 \documentclass[tikz]{standalone}
+=======
+def print_header(f, scale=1,skip=False):
+    print(r"""
+%!TEX options=--shell-escape
+\documentclass[tikz, border=100pt]{standalone}
+\usepackage[T1]{fontenc}
+>>>>>>> eddd9f7dff6a0e7a2bd12cba66043100fa78d5ae
 \usepackage[utf8]{inputenc}
 \usepackage{xcolor}
 \usepackage{amsmath}
@@ -29,6 +37,8 @@ def tex_header(*tiksargs):
 \usepackage{pgfplots} 
 \usepackage[edges]{forest}
 \usetikzlibrary{patterns, backgrounds, arrows.meta}
+\usepackage[export]{animate}
+
 
 \pagecolor{white}
 
@@ -38,15 +48,13 @@ def tex_header(*tiksargs):
 \begin{document}
 """
 
+<<<<<<< HEAD
 def tikz_arg_parse(*args, **kwargs):
     arg_str = ','.join(map(str, args))
     kwarg_str = ','.join(map(lambda item: f"{item[0]}={item[1]}", kwargs.items()))
     if len(kwarg_str) == 0:
         return arg_str
     return f"{arg_str},{kwarg_str}"
-
-def tikz_header(*args, **kwargs):
-    return f"""\\begin{{tikzpicture}}[{tikz_arg_parse(*args, **kwargs)}]\n"""
 
 def tikz_footer():
     return "\n\\end{tikzpicture}\n"""
@@ -72,7 +80,7 @@ def make_bg(segments, f):
 
 def print_inst_locks2(segments, insts, file='router1.tex'):
     with open(file, "w") as f:
-        print_header(f)
+        print_header(f,skip=True)
         
         max_t = max(i.end for i in insts)
         
@@ -99,7 +107,7 @@ def print_inst_locks2(segments, insts, file='router1.tex'):
 
             print_tikz_end(f)
 
-        print_footer(f)
+        print_footer(f,skip=True)
 
 
 def recurse(node, file_obj, used_pos):
@@ -138,10 +146,11 @@ def print_mapping_tree(root, file="latex.tex"):
         print_footer(file_obj)
 
 def regnode_data(node:'RegNode'):
-    out = f"w={round(node.weight, 2)}\\\\s={node.slots}"
+    out = f"w={round(node.weight, 2)}"
+    # out += f"\\\\s={node.slots}"
     if node.seg:
         out += f"\\\\{node.seg.x_0, node.seg.y_0}"
-    if node.qubits:
+    if node.qubits and not node.children:
         
         out += f"\\\\ {','.join(map(str, node.qubits))}"
         out += f"\\\\ {','.join(map(lambda x: hex(id(x)), node.qubits))}"

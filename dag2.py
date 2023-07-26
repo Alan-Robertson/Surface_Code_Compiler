@@ -36,6 +36,14 @@ class DAGNode():
         self.layer = 0
         self.slack = float('inf')
 
+        # TODO discuss w/ alan
+        self.anc = None
+        self.start = -1
+        self.end = -1
+        self.compiled_layers = None 
+        # ^ This is needed to extract the order in which logical externs 
+        # are executed on the physical externs; TODO discuss alternatives
+
     def __call__(self, scope=None):
         self.predicates = set()
         self.antecedents = set()
@@ -89,7 +97,7 @@ class DAG(DAGNode):
             if sym not in self.scope:
                 self.scope[sym] = None
 
-        self.gates = []
+        self.gates: list[DAGNode] = []
         self.last_layer = {}
 
         self.externs = Scope()
@@ -258,13 +266,15 @@ class DAG(DAGNode):
 
     def lookup(self):
         initial_list = list(chain(self.internal_scope().keys(), self.physical_externs))
-        
+        register = Symbol('REG')
         lookup_list = list()
         for element in initial_list:
             if element.get_symbol().is_extern():
                 lookup_list.append(element.get_symbol())
             else:
-                lookup_list.append(element)
+                sym = Symbol(element)
+                sym.predicate = register
+                lookup_list.append(sym)
         return lookup_list
 
     def calculate_physical_proximity(self):
@@ -443,6 +453,8 @@ class DAG(DAGNode):
                 print("CYCLE {n_cycles}")
                 print(f"\tACTIVE {active}\n\t WAITING {waiting}\n\t IDLE {idle_externs}\n\tCHANNELS {active_non_local_gates} / {n_channels}\n\t{resolved}")
                 print("####\n")
+
+        self.compiled_layers = layers
 
         return n_cycles, layers
 

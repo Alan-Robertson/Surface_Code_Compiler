@@ -48,7 +48,7 @@ class Symbol(object):
         return self[self.io[index]]
 
     def __len__(self):
-        return self.__len__(io)
+        return len(self.io)
 
     def __iter__(self):
         return iter(self.io)
@@ -59,7 +59,7 @@ class Symbol(object):
         else:
             return other.__in__(Symbol)
 
-    def __repr__(self, f_delim='|', b_delim='|'):
+    def __repr__(self, f_delim='<', b_delim='>'):
         if len(self.io_in) == 0 and len(self.io_out) == 0:
             return f'{f_delim}{self.symbol}{b_delim}'
         if len(self.io_in) == 0:
