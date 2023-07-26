@@ -159,7 +159,10 @@ class QCBRouter:
         elif symbol in self.dag.scope:
             return self.get_coord(self.dag.scope[symbol])
         elif symbol.parent is not symbol:
-            return self.get_coord(symbol.parent)
+            offset = symbol.parent(symbol)
+            x, y = self.get_coord(symbol.parent)
+            # return (x + offset, y)
+            return (x, y) # TODO rejig for extern offsets
 
 
 
@@ -232,3 +235,30 @@ class QCBRouter:
             else:
                 return False
 
+    def __tikz__(self):
+        from test_tikz_helper2 import tikz_header, tikz_footer, new_frame, make_bg, animate_header, animate_footer
+        output = animate_header()
+
+        for layer in self.physical_layers:
+            output += tikz_header(scale=1.5)
+            output += make_bg(self.qcb.segments)
+            for _, _, inst in layer:
+                nodes = self.anc[inst].nodes
+                # offset = 0.03 * inst.start
+                offset = 0
+                if len(nodes) > 1:
+                    x, y = nodes[0].x+0.5+offset, -nodes[0].y-0.5-offset
+                    output += f"\\draw ({x}, {y}) "
+                    for node in nodes[1:]:
+                        x, y = node.x+0.5+offset, -node.y-0.5-offset
+                        output += f"-- ({x}, {y}) "
+                    output += ";\n"
+                x, y = nodes[0].x+0.5+offset, -nodes[0].y-0.5-offset
+                output += f"\\node[shape=circle,draw=black] at ({x}, {y}) {{}};\n"
+                x, y = nodes[-1].x+0.5+offset, -nodes[-1].y-0.5-offset
+                output += f"\\node[shape=circle,draw=black] at ({x}, {y}) {{}};\n"
+
+            output += tikz_footer()
+            output += new_frame()
+        output += animate_footer()
+        return output

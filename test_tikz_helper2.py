@@ -76,48 +76,55 @@ def tex_file(fn, *args, **kwargs):
 def tikz_header(*args, **kwargs):
     return f"\\begin{{tikzpicture}}[{tikz_argparse(*args, **kwargs)}]\n"
 
-def make_bg(segments, f):
+def animate_header():
+    return "\\begin{animateinline}[]{1}\n"
+def animate_footer():
+    return "\\end{animateinline}\n"
+
+def make_bg(segments):
+    out = ''
     for s in segments:
         colour = colour_map.get(s.state.state, 'yellow')
         
-        print(f"\\draw[fill={colour},fill opacity=0.5] ({s.x_0},-{s.y_0}) -- ({s.x_0},-{s.y_1+1}) -- ({s.x_1+1},-{s.y_1+1}) -- ({s.x_1+1},-{s.y_0}) -- cycle;", file=f)
+        out += f"\\draw[fill={colour},fill opacity=0.5] ({s.x_0},-{s.y_0}) -- ({s.x_0},-{s.y_1+1}) -- ({s.x_1+1},-{s.y_1+1}) -- ({s.x_1+1},-{s.y_0}) -- cycle;\n"
         if s.state.state == SCPatch.EXTERN:
-            print(f"\\node at ({s.x_0+0.5},-{s.y_0+0.5}) {{{s.state.state}{s.state.extern.symbol}}};", file=f)
+            out += f"\\node at ({s.x_0+0.5},-{s.y_0+0.5}) {{{s.state.state}{s.state.msf.symbol}}};\n"
         else:
-            print(f"\\node at ({s.x_0+0.5},-{s.y_0+0.5}) {{{s.state.state}{s.debug_name}}};", file=f)
+            out += f"\\node at ({s.x_0+0.5},-{s.y_0+0.5}) {{{s.state.state}{s.debug_name}}};\n"
+    return out
 
 
 
-def print_inst_locks2(segments, insts, file='router1.tex'):
-    with open(file, "w") as f:
-        print_header(f,skip=True)
+# def print_inst_locks2(segments, insts, file='router1.tex'):
+#     with open(file, "w") as f:
+#         print_header(f,skip=True)
         
-        max_t = max(i.end for i in insts)
+#         max_t = max(i.end for i in insts)
         
-        for t in range(max_t):
-            print_tikz_start(f, scale=1.5)
-            make_bg(segments, f)
-            for inst in insts:
-                if not (inst.start <= t < inst.end):
-                    continue
-                nodes = inst.anc.nodes
-                # offset = 0.03 * inst.start
-                offset = 0
-                if len(nodes) > 1:
-                    x, y = nodes[0].x+0.5+offset, -nodes[0].y-0.5-offset
-                    print(f"\\draw ({x}, {y}) ", end='', file=f)
-                    for node in nodes[1:]:
-                        x, y = node.x+0.5+offset, -node.y-0.5-offset
-                        print(f"-- ({x}, {y}) ", end='', file=f)
-                    print(";", file=f)
-                x, y = nodes[0].x+0.5+offset, -nodes[0].y-0.5-offset
-                print(f"\\node[shape=circle,draw=black] at ({x}, {y}) {{}};", file=f)
-                x, y = nodes[-1].x+0.5+offset, -nodes[-1].y-0.5-offset
-                print(f"\\node[shape=circle,draw=black] at ({x}, {y}) {{}};", file=f)
+#         for t in range(max_t):
+#             print_tikz_start(f, scale=1.5)
+#             make_bg(segments, f)
+#             for inst in insts:
+#                 if not (inst.start <= t < inst.end):
+#                     continue
+#                 nodes = inst.anc.nodes
+#                 # offset = 0.03 * inst.start
+#                 offset = 0
+#                 if len(nodes) > 1:
+#                     x, y = nodes[0].x+0.5+offset, -nodes[0].y-0.5-offset
+#                     print(f"\\draw ({x}, {y}) ", end='', file=f)
+#                     for node in nodes[1:]:
+#                         x, y = node.x+0.5+offset, -node.y-0.5-offset
+#                         print(f"-- ({x}, {y}) ", end='', file=f)
+#                     print(";", file=f)
+#                 x, y = nodes[0].x+0.5+offset, -nodes[0].y-0.5-offset
+#                 print(f"\\node[shape=circle,draw=black] at ({x}, {y}) {{}};", file=f)
+#                 x, y = nodes[-1].x+0.5+offset, -nodes[-1].y-0.5-offset
+#                 print(f"\\node[shape=circle,draw=black] at ({x}, {y}) {{}};", file=f)
 
-            print_tikz_end(f)
+#             print_tikz_end(f)
 
-        print_footer(f,skip=True)
+#         print_footer(f,skip=True)
 
 
 def recurse(node, file_obj, used_pos):
