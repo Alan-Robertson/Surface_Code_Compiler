@@ -63,10 +63,10 @@ class Symbol(object):
         if len(self.io_in) == 0 and len(self.io_out) == 0:
             return f'{f_delim}{self.symbol}{b_delim}'
         if len(self.io_in) == 0:
-            return f'{f_delim}{self.symbol}: \\rightarrow {tuple(self.io_out)}{b_delim}'
+            return f'{f_delim}{self.symbol}: {tuple(self.io_out)}{b_delim}'
         if len(self.io_out) == 0:
             return f'{f_delim}{self.symbol}: {tuple(self.io_in)}{b_delim}'
-        return f'{f_delim}{self.symbol}: {tuple(self.io_in)} \\rightarrow {tuple(self.io_out)}{b_delim}'
+        return f'{f_delim}{self.symbol}: {tuple(self.io_in)} {tuple(self.io_out)}{b_delim}'
 
     def __str__(self):
         return self.__repr__()

@@ -3,6 +3,7 @@ from msf import MSF
 from dag import DAG
 from typing import *
 import copy
+
 class AllocatorError(Exception):
     pass
 

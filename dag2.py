@@ -454,13 +454,16 @@ class DAG(DAGNode):
                 print(f"\tACTIVE {active}\n\t WAITING {waiting}\n\t IDLE {idle_externs}\n\tCHANNELS {active_non_local_gates} / {n_channels}\n\t{resolved}")
                 print("####\n")
 
-        self.compiled_layers = layers
-
         return n_cycles, layers
 
+
+    def __tikz__(self):
+        return tikz_dag(self)
+           
 
 from symbol import Symbol
 from scope import Scope
 from instructions import INIT, RESET_SYMBOL
 from bind import DAGBind, ExternBind
+from test_tikz_helper2 import tikz_dag
 import copy

@@ -56,5 +56,5 @@ allocator.optimise()
 print()
 
 from test_tikz_helper2 import *
-print_qcb(allocator.qcb.segments, "allocator2.tex")
-print(allocator.msfs)
+#print_qcb(allocator.qcb.segments, "allocator2.tex")
+#print(allocator.msfs)

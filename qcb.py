@@ -49,6 +49,10 @@ class QCB():
     def instantiate(self):
         return copy.deepcopy(self)
 
+    def __tikz__(self):
+        return test_tikz_helper2.tikz_qcb(self)
+
+
 class SCPatch():
     # Singletons
     EXTERN = Symbol('EXTERN')
@@ -63,6 +67,9 @@ class SCPatch():
             self.msf = alloc_type
         else:
             self.state = alloc_type
+
+    def get_symbol(self):
+        return self.state
 
 class Segment():
     edge_labels = ['above', 'right', 'below', 'left']
@@ -134,6 +141,12 @@ class Segment():
         self.allocated = False
         self.state = SCPatch()
         self.debug_name = ""
+
+    def get_symbol(self):
+        return self.state.get_symbol()
+
+    def __tikz__(self):
+        return test_tikz_helper2.tikz_qcb_segment(self)
 
     def y_position(self):
         return (self.y_0, self.x_0)
@@ -633,3 +646,6 @@ class Segment():
 #             segments.pop(0)
 #             segments.append(split_segments[1:])
 #             return split_segments[0]    
+
+import test_tikz_helper2
+#from test_tikz_helper2 import tikz_qcb, tikz_qcb_segment

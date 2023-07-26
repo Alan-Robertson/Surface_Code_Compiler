@@ -10,6 +10,15 @@ colour_map = {
     'debug':'yellow!30'
 }
 
+def tikz(obj):
+    return obj.__tikz__()
+
+def tex(obj, *args, **kwargs):
+    return tex_file(obj.__tikz__, *args, **kwargs)
+
+dag_colour_map = lambda dag_node: ['red!20', 'blue!20'][dag_node.is_extern()]
+tikz_sanitise = lambda string : str(string).replace('_', '\\_')
+
 def tex_header(*tiksargs):
     return r"""
 %!TEX options=--shell-escape
@@ -41,22 +50,31 @@ def tex_header(*tiksargs):
 \begin{document}
 """
 
-def tikz_arg_parse(*args, **kwargs):
-    arg_str = ','.join(map(str, args))
-    kwarg_str = ','.join(map(lambda item: f"{item[0]}={item[1]}", kwargs.items()))
+def tikz_argparse(*args, **kwargs):
+    arg_str = ','.join(map(tikz_sanitise, map(str, args)))
+    kwarg_str = ','.join(map(lambda item: f"{tikz_sanitise(item[0])}={tikz_sanitise(item[1])}", kwargs.items()))
     if len(kwarg_str) == 0:
         return arg_str
     return f"{arg_str},{kwarg_str}"
 
 def tikz_footer():
-    return "\n\\end{tikzpicture}\n"""
+    return "\n \\end{tikzpicture} \n"""
 
 def new_frame():
     return "\n \\newframe \n"
 
 def tex_footer():
-    return r"\end{document}"
+    return "\n\end{document}\n"
 
+def tex_file(fn, *args, **kwargs):
+    tex_file = tex_header()
+    tex_file += fn(*args, **kwargs)
+    tex_file += tex_footer()
+    return tex_file
+
+
+def tikz_header(*args, **kwargs):
+    return f"\\begin{{tikzpicture}}[{tikz_argparse(*args, **kwargs)}]\n"
 
 def make_bg(segments, f):
     for s in segments:
@@ -151,11 +169,11 @@ def regnode_data(node:'RegNode'):
     return out
 
 def tikz_rectangle(x_0, y_0, x_1, y_1, *args, **kwargs):
-    return f"\\draw[{tikz_arg_parse(*args, **kwargs)}] \
+    return f"\\draw[{tikz_argparse(*args, **kwargs)}] \
 ({x_0},-{y_0}) -- ({x_0},-{y_1}) -- ({x_1},-{y_1}) -- ({x_1},-{y_0}) -- cycle;\n"
 
 def tikz_node(x, y, label):
-    return f"\\node at ({x},-{y}) {{{label}}};\n"
+    return f"\\node at ({x},-{y}) {{{tikz_sanitise(label)}}};\n"
 
 def tikz_segment_rectangle(segment, colour, *args):
     return tikz_rectangle(
@@ -168,28 +186,23 @@ def tikz_segment_rectangle(segment, colour, *args):
 
 def tikz_qcb_segement(segment):
     colour = colour_map[segment.state.state]
-    segment_str = segment_rectangle(segment, colour)
-    if segment.state.state == SCPatch.EXTERN:
-        sym = str(s.state.msf.symbol).replace('_', '\\_')
-        segment_str += tikz_node(segment.x_0 + 0.5, segment.y_0 + 0.5, f"{segment}{sym}")
-    else:
-        segment_str += tikz_node(segment.x_0 + 0.5, segment.y_0 + 0.5, f"{segment_type}{segment.debug_name}")
+    segment_str = tikz_segment_rectangle(segment, colour)
+    sym = segment.get_symbol()
+    segment_str += tikz_node(segment.x_0 + 0.5, segment.y_0 + 0.5, f"{segment}{sym}")
     return segment_str
 
-def tikz_qcb(segments):    
-    qcb_tikz_str = tex_header()
-    for segment in segments:
-        qcb_tikz_str += qcb_segement_str(segment)    
-    qcb_tikz_str += tikz_footer(f)
-    return qcb_tikz_str
-
-
+def tikz_qcb(qcb):    
+    tikz_str = tikz_header()
+    for segment in qcb.segments:
+        tikz_str += tikz_qcb_segement(segment)    
+    tikz_str += tikz_footer()
+    return tikz_str
 
 
 def tikz_circle(x, y, key, label, *args, **kwargs):
-    return f"\\node[shape=circle, \
-            {tikz_arg_parse(*args, **kwargs)}] \
-            ({key}) at ({x}, -{y}) {{{label}}};"
+    return f"\\node[shape=circle \
+{tikz_argparse(*args, **kwargs)}] \
+({key}) at ({x}, -{y}) {{{tikz_sanitise(label)}}};\n"
 
 def tikz_path(start, end):
     return f"\\path[->] ({start}) edge ({end});\n"
@@ -201,19 +214,18 @@ def tikz_graph_node(segment, *args, **kwargs):
     colour = colour_map.get(segment.state.state, colour_map['debug'])
     return tikz_circle(segment.x, segment.y, hex(id(segment)), f"{segment.x_0}, {segment.y_0}", fill=colour, draw=colour)
 
-def print_connectivity_graph(segments):
+def tikz_dag_node(node, x, y, *args, **kwargs):
+    colour = dag_colour_map(node)
+    return tikz_circle(x, y, key=hex(id(node)), label=node, draw=colour)
+
+def tikz_dag_edge(node_start, node_end):
+    return tikz_graph_edge(node_start, node_end)
+
+def tikz_connectivity_graph(segments):
         graph_tikz_str = tikz_header(scale=2.5)
 
         seen = set()
 
-        colours = {
-            SCPatch.IO:'blue!50!red!50',
-            SCPatch.ROUTE:'green',
-            SCPatch.EXTERN:'blue',
-            SCPatch.REG:'red',
-            SCPatch.NONE:'black',
-            'debug':'yellow'
-        }
         for segment in segments:
             graph_tikz_str += tikz_graph_node(segment) 
             seen.add(hex(id(s)))
@@ -227,3 +239,23 @@ def print_connectivity_graph(segments):
 #                    print(f"\\path[->] ({id(s)}) edge (-1,1);", file=f)
         graph_tikz_str += tikz_footer()
         return graph_tikz_str
+
+def tikz_dag(dag):
+    tikz_str = tikz_header(scale=5)
+    for layer_num, gates in enumerate(dag.layers):
+        for gate_num, gate in enumerate(gates):
+            tikz_str += tikz_dag_node(gate, 2 * gate_num, 2 * layer_num) 
+            for prev_gate in gate.predicates:
+                tikz_str += tikz_dag_edge(prev_gate, gate)
+    tikz_str += tikz_footer()
+    return tikz_str
+
+
+def tikz_compiled_dag(dag, *args, **kwargs):
+    tikz_str = tikz_header(scale=5)
+    _, layers = dag.compile(*args, **kwargs)
+    for layer_num, gates in enumerate(layers):
+        for gate_num, gate in enumerate(gates):
+            tikz_str += tikz_dag_node(gate.get_symbol(), 0.2 * gate_num, 0.2 * layer_num) 
+    tikz_str += tikz_footer()
+    return tikz_str
