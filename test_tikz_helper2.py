@@ -1,11 +1,19 @@
-
 from mapper import RegNode
 from qcb import SCPatch
 
-def print_header(f, scale=1):
-    print(r"""
+colour_map = {
+    SCPatch.IO:'blue!50!red!50',
+    SCPatch.ROUTE:'green!20',
+    SCPatch.EXTERN:'blue!20',
+    SCPatch.REG:'red!20',
+    SCPatch.NONE:'black!20',
+    'debug':'yellow!30'
+}
+
+def tex_header(*tiksargs):
+    return r"""
 %!TEX options=--shell-escape
-\documentclass[tikz, border=100pt]{standalone}
+\documentclass[tikz]{standalone}
 \usepackage[utf8]{inputenc}
 \usepackage{xcolor}
 \usepackage{amsmath}
@@ -18,7 +26,7 @@ def print_header(f, scale=1):
 \usepackage{amsmath} % for \dfrac
 \usepackage{tikz}
 \tikzset{>=latex} % for LaTeX arrow head
-\usepackage{pgfplots} % for the axis environment
+\usepackage{pgfplots} 
 \usepackage[edges]{forest}
 \usetikzlibrary{patterns, backgrounds, arrows.meta}
 
@@ -28,49 +36,37 @@ def print_header(f, scale=1):
 \setlength{\parskip}{1em}
 
 \begin{document}
+"""
 
-\begin{tikzpicture}[]{1}
-""", file=f)
-def print_tikz_start(f, scale=1.5):
-    print(r"""\begin{tikzpicture}[scale="""+str(scale)+r""",background rectangle/.style={fill=white},
-    show background rectangle]
-        """, file=f)
+def tikz_arg_parse(*args, **kwargs):
+    arg_str = ','.join(map(str, args))
+    kwarg_str = ','.join(map(lambda item: f"{item[0]}={item[1]}", kwargs.items()))
+    if len(kwarg_str) == 0:
+        return arg_str
+    return f"{arg_str},{kwarg_str}"
 
-def print_tikz_end(f):
-    print(r"""
-\end{tikzpicture}
-\newframe    
-    """, file=f)
+def tikz_header(*args, **kwargs):
+    return f"""\\begin{{tikzpicture}}[{tikz_arg_parse(*args, **kwargs)}]\n"""
 
-def print_footer(f):
-    print(r"""
-\end{tikzpicture}
+def tikz_footer():
+    return "\n\\end{tikzpicture}\n"""
 
-\end{document}
-        """, file=f)
+def new_frame():
+    return "\n \\newframe \n"
+
+def tex_footer():
+    return r"\end{document}"
 
 
 def make_bg(segments, f):
     for s in segments:
-        if s.state.state == SCPatch.IO:
-            color = 'blue!50!red!50'
-        elif s.state.state == SCPatch.ROUTE:
-            color = 'green!20'
-        elif s.state.state == SCPatch.MSF:
-            color = 'blue!20'
-        elif s.state.state == SCPatch.REG:
-            color = 'red!20'
-        elif s.state.state == SCPatch.NONE:
-            color = 'black!10'
-        elif s.state.state == 'debug':
-            color = 'yellow'
-        print(f"\\draw[fill={color},fill opacity=0.5] ({s.x_0},-{s.y_0}) -- ({s.x_0},-{s.y_1+1}) -- ({s.x_1+1},-{s.y_1+1}) -- ({s.x_1+1},-{s.y_0}) -- cycle;", file=f)
-        if s.state.state == SCPatch.MSF:
-            print(f"\\node at ({s.x_0+0.5},-{s.y_0+0.5}) {{{s.state.state}{s.state.msf.symbol}}};", file=f)
+        colour = colour_map.get(s.state.state, 'yellow')
+        
+        print(f"\\draw[fill={colour},fill opacity=0.5] ({s.x_0},-{s.y_0}) -- ({s.x_0},-{s.y_1+1}) -- ({s.x_1+1},-{s.y_1+1}) -- ({s.x_1+1},-{s.y_0}) -- cycle;", file=f)
+        if s.state.state == SCPatch.EXTERN:
+            print(f"\\node at ({s.x_0+0.5},-{s.y_0+0.5}) {{{s.state.state}{s.state.extern.symbol}}};", file=f)
         else:
             print(f"\\node at ({s.x_0+0.5},-{s.y_0+0.5}) {{{s.state.state}{s.debug_name}}};", file=f)
-
-
 
 
 
@@ -153,39 +149,59 @@ def regnode_data(node:'RegNode'):
     out = out.replace('_', '\\_')
     return out
 
+def tikz_rectangle(x_0, y_0, x_1, y_1, *args, **kwargs):
+    return f"\\draw[{tikz_arg_parse(*args, **kwargs)}] \
+({x_0},-{y_0}) -- ({x_0},-{y_1}) -- ({x_1},-{y_1}) -- ({x_1},-{y_0}) -- cycle;\n"
 
-def print_qcb(segments, file="latex.tex"):
-    with open(file, "w") as f:
-        print_header(f)
+def tikz_node(x, y, label):
+    return f"\\node at ({x},-{y}) {{{label}}};\n"
 
-        colours = {
-            SCPatch.IO:'blue!50!red!50',
-            SCPatch.ROUTE:'green',
-            SCPatch.EXTERN:'blue',
-            SCPatch.REG:'red',
-            SCPatch.NONE:'black',
-            'debug':'yellow'
-        }
+def tikz_segment_rectangle(segment, colour, *args):
+    return tikz_rectangle(
+            segment.x_0, 
+            segment.y_0, 
+            segment.x_1 + 1, 
+            segment.y_1 + 1, 
+            f"fill={colour}",
+            "opacity=0.5")
 
-        for s in segments:
+def tikz_qcb_segement(segment):
+    colour = colour_map[segment.state.state]
+    segment_str = segment_rectangle(segment, colour)
+    if segment.state.state == SCPatch.EXTERN:
+        sym = str(s.state.msf.symbol).replace('_', '\\_')
+        segment_str += tikz_node(segment.x_0 + 0.5, segment.y_0 + 0.5, f"{segment}{sym}")
+    else:
+        segment_str += tikz_node(segment.x_0 + 0.5, segment.y_0 + 0.5, f"{segment_type}{segment.debug_name}")
+    return segment_str
 
-            s_type = s
-            colour = colours[s.state.state]
-            
-            print(f"\\draw[fill={colour},fill opacity=0.5] ({s.x_0},-{s.y_0}) -- ({s.x_0},-{s.y_1+1}) -- ({s.x_1+1},-{s.y_1+1}) -- ({s.x_1+1},-{s.y_0}) -- cycle;", file=f)
-            if s.state.state == SCPatch.EXTERN:
-                sym = str(s.state.msf.symbol).replace('_', '\\_')
-
-                print(f"\\node at ({s.x_0+0.5},-{s.y_0+0.5}) {{{s_type}{sym}}};", file=f)
-            else:
-                print(f"\\node at ({s.x_0+0.5},-{s.y_0+0.5}) {{{s_type}{s.debug_name}}};", file=f)
-
-        print_footer(f)
+def tikz_qcb(segments):    
+    qcb_tikz_str = tex_header()
+    for segment in segments:
+        qcb_tikz_str += qcb_segement_str(segment)    
+    qcb_tikz_str += tikz_footer(f)
+    return qcb_tikz_str
 
 
-def print_connectivity_graph(segments, file="latex.tex"):
-    with open(file, "w") as f:
-        print_header(f, scale=2.5)
+
+
+def tikz_circle(x, y, key, label, *args, **kwargs)
+    return f"\\node[shape=circle, \
+            {tikz_arg_parse(*args, **kwargs)}] \
+            ({key}) at ({x}, -{y}) {{{label}}};"
+
+def tikz_path(start, end):
+    return f"\\path[->] ({start}) edge ({end});\n"
+
+def tikz_graph_edge(node_start, node_end):
+    return tikz_path(hex(id(node_start)), hex(id(node_end)))
+
+def tikz_graph_node(segment, *args, **kwargs):
+    colour = colour_map.get(segment.state.state, colour_map['debug'])
+    return tikz_circle(segment.x, segment.y, hex(id(segment)), f"{segment.x_0}, {segment.y_0}", fill=colour, draw=colour)
+
+def print_connectivity_graph(segments):
+        graph_tikz_str = tikz_header(scale=2.5)
 
         seen = set()
 
@@ -197,16 +213,16 @@ def print_connectivity_graph(segments, file="latex.tex"):
             SCPatch.NONE:'black',
             'debug':'yellow'
         }
-        for s in segments:
+        for segment in segments:
+            graph_tikz_str += tikz_graph_node(segment) 
+            seen.add(hex(id(s)))
 
-            colour = colours.get(s.state.state, colours['debug'])
-
-            print(f"\\node[shape=circle,draw={colour}] ({id(s)}) at ({s.x_0}, -{s.y_0}) {{{s.x_0},{s.y_0}}};", file=f)
-            seen.add(id(s))
-        for s in segments:
-            for n in s.above | s.below | s.left | s.right:
-                if n and id(n) in seen:
-                    print(f"\\path[->] ({id(s)}) edge ({id(n)});", file=f)
-                else:
-                    print(f"\\path[->] ({id(s)}) edge (-1,1);", file=f)
-        print_footer(f)
+        for segment in segments:
+            for node in segment.above | segment.below | segment.left | segment.right:
+                if node is not None and hex(id(node)) in seen:
+                    graph_tikz_str += tikz_graph_edge(segment, node)
+#                    print(f"\\path[->] ({id(s)}) edge ({id(n)});", file=f)
+#                else:
+#                    print(f"\\path[->] ({id(s)}) edge (-1,1);", file=f)
+        graph_tikz_str += tikz_footer()
+        return graph_tikz_str

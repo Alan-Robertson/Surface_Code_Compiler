@@ -215,7 +215,6 @@ class QCBMapper:
         
         self.root.print()     
 
-
     def generate_mapping_tree(self):
         for s in self.grid_segments:
             if s.state.state == SCPatch.REG:
