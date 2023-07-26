@@ -14,13 +14,7 @@ def tex_header(*tiksargs):
     return r"""
 %!TEX options=--shell-escape
 \documentclass[tikz]{standalone}
-=======
-def print_header(f, scale=1,skip=False):
-    print(r"""
-%!TEX options=--shell-escape
-\documentclass[tikz, border=100pt]{standalone}
 \usepackage[T1]{fontenc}
->>>>>>> eddd9f7dff6a0e7a2bd12cba66043100fa78d5ae
 \usepackage[utf8]{inputenc}
 \usepackage{xcolor}
 \usepackage{amsmath}
@@ -47,7 +41,6 @@ def print_header(f, scale=1,skip=False):
 \begin{document}
 """
 
-<<<<<<< HEAD
 def tikz_arg_parse(*args, **kwargs):
     arg_str = ','.join(map(str, args))
     kwarg_str = ','.join(map(lambda item: f"{item[0]}={item[1]}", kwargs.items()))
@@ -193,7 +186,7 @@ def tikz_qcb(segments):
 
 
 
-def tikz_circle(x, y, key, label, *args, **kwargs)
+def tikz_circle(x, y, key, label, *args, **kwargs):
     return f"\\node[shape=circle, \
             {tikz_arg_parse(*args, **kwargs)}] \
             ({key}) at ({x}, -{y}) {{{label}}};"
