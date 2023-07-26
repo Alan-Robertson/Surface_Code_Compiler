@@ -37,10 +37,10 @@ class DAGNode():
         self.slack = float('inf')
 
         # TODO discuss w/ alan
-        self.anc = None
-        self.start = -1
-        self.end = -1
-        self.compiled_layers = None 
+        # self.anc = None
+        # self.start = -1
+        # self.end = -1
+        # self.compiled_layers = None 
         # ^ This is needed to extract the order in which logical externs 
         # are executed on the physical externs; TODO discuss alternatives
 
@@ -265,16 +265,20 @@ class DAG(DAGNode):
         return conj, lookup
 
     def lookup(self):
-        initial_list = list(chain(self.internal_scope().keys(), self.physical_externs))
+        initial_list = list(self.internal_scope().keys()) + self.physical_externs
         register = Symbol('REG')
         lookup_list = list()
         for element in initial_list:
             if element.get_symbol().is_extern():
                 lookup_list.append(element.get_symbol())
+                # print(element, element.get_symbol(), hex(id(element)), hex(id(element.get_symbol())), type(element))
+                
             else:
                 sym = Symbol(element)
                 sym.predicate = register
                 lookup_list.append(sym)
+        # print([(sym, hex(id(sym))) for sym in lookup_list])
+        # print([(sym, hex(id(sym))) for sym in self.physical_externs])
         return lookup_list
 
     def calculate_physical_proximity(self):
@@ -306,7 +310,7 @@ class DAG(DAGNode):
         
         # Clear any previous extern allocation
         self.externs.clear_scope()
-        self.physical_externs = externs
+        self.physical_externs = list(externs)
 
         # Check I have enough channels
         assert(n_channels > 0)

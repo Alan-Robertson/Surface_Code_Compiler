@@ -4,7 +4,7 @@ from msf import MSF
 from dag2 import DAG
 from symbol import Symbol
 import copy
-
+from bind import Bind, ExternBind
 
 class QCB():
     '''
@@ -24,6 +24,8 @@ class QCB():
         self.height = height
         self.externs = operations.externs
 
+        self.compiled_layers: list[Bind|ExternBind] = []
+
     # ExternInterface impls
     def n_cycles(self):
         return self.cycles 
@@ -35,7 +37,7 @@ class QCB():
         return self.symbol
 
     def __repr__(self):
-        return self.symbol.__repr__()
+        return f'<impl for {self.symbol.__repr__()}>'
 
     def __str__(self):
         return self.__repr__()

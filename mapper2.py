@@ -152,24 +152,24 @@ class QCBMapper:
         # Here we map msfs
         self.map_extern_syms(conj, prox, _, lookup)
 
-        self.labels = None
+        # self.labels = None
 
         return self.generate_mapping_dict()
     
-    def generate_mapping_dict(self):
+    def generate_mapping_dict(self) -> dict[Symbol|ExternSymbol, tuple[int, int]]:
         mapping = {}
-        for qubit, node in self.qubit_mapping.items():
-            if node.pred_sym is not None:
-                mapping[qubit] = (node.seg.x_0, node.seg.y_1)
-            elif len(node.qubits) == 1:
-                mapping[qubit] = (node.seg.x_0, node.seg.y_0)
+        for sym, node in self.qubit_mapping.items():
+            if sym.is_extern():
+                # Extern Symbol
+                mapping[sym] = (node.seg.x_0, node.seg.y_1)
             else:
-                index = node.qubits.index(qubit)
+                # Register Symbol
+                index = node.qubits.index(sym)
                 if index == len(node.qubits) - 1:
-                    offset = node.slots[0] - 1
+                    offset = node.slots[RegNode.REGISTER] - 1
                 else:
-                    offset = (index * (node.slots[0] - 1)) // (len(node.qubits) - 1) 
-                mapping[qubit] = (node.seg.x_0 + offset, node.seg.y_0)
+                    offset = (index * (node.slots[RegNode.REGISTER] - 1)) // (len(node.qubits) - 1) 
+                mapping[sym] = (node.seg.x_0 + offset, node.seg.y_0)
         return mapping
 
     def map_symbols(self, conj, prox, sym2idx, idx2sym: dict[int, Symbol|ExternSymbol]):

@@ -163,8 +163,8 @@ class Allocator:
 
         print("final score", dag.compile(self.n_channels, *self.msfs)[0], self.n_channels, self.msfs)
 
-        dag.compile(self.n_channels, *self.msfs)
-        
+        n_layers, compiled_layers = dag.compile(self.n_channels, *self.msfs)
+        self.qcb.compiled_layers = compiled_layers
 
         self.global_top_merge()
         self.global_left_merge()
