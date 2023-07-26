@@ -1,7 +1,6 @@
 from mapper import RegNode
 from qcb import SCPatch
 
-<<<<<<< HEAD
 colour_map = {
     SCPatch.IO:'blue!50!red!50',
     SCPatch.ROUTE:'green!20',
