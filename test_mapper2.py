@@ -4,12 +4,11 @@ from symbol import Symbol, ExternSymbol, symbol_map
 
 from instructions import INIT, CNOT, T, Toffoli
 from scope import Scope
-from extern_interface import ExternInterface
 
 from pprint import pprint
 from allocator2 import Allocator
 from qcb import QCB
-from graph_prune import QCBPrune
+from graph_prune import QCBGraph
 from test_tikz_helper2 import *
 
 g = DAG(Symbol('tst'))
@@ -41,19 +40,15 @@ allocator = Allocator(qcb_base, factory_impl)
 allocator.allocate()
 allocator.optimise()
 
+graph = QCBGraph(qcb_base)
 
-prune = QCBPrune(qcb_base.segments)
-prune.map_to_grid()
+# from mapper2 import QCBMapper
 
-print_connectivity_graph(prune.grid_segments, 'main_connectivity.tex')
+# mapper = QCBMapper(prune.segments)
+# root = mapper.generate_mapping_tree()
 
-from mapper2 import QCBMapper
+# print_mapping_tree(root, file="mapper2_beforemap.tex")
 
-mapper = QCBMapper(prune.grid_segments)
-root = mapper.generate_mapping_tree()
+# mapper.map_all(g)
 
-print_mapping_tree(root, file="mapper2_beforemap.tex")
-
-mapper.map_all(g)
-
-print_mapping_tree(root, file="mapper2_aftermap.tex")
+# print_mapping_tree(root, file="mapper2_aftermap.tex")

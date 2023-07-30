@@ -43,7 +43,6 @@ allocator.optimise()
 
 
 prune = QCBPrune(qcb_base.segments)
-prune.map_to_grid()
 
 # print_connectivity_graph(prune.grid_segments, 'main_connectivity.tex')
 

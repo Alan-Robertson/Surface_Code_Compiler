@@ -2,28 +2,84 @@ from qcb import Segment, SCPatch
 from typing import *
 import copy
 
+from test_tikz_helper2 import tikz_pruned_qcb
+
+
+class GraphNode:
+    def __init__(self, segment, *neighbours):
+        self.segment = segment
+        self.neighbours = set(neighbours)
+
+    def get_adjacent(self):
+        return self.neighbours
+
+    def get_symbol(self):
+        return self.segment.get_adjacent()
+
+    def get_slot(self):
+        return self.segment.get_slot()
+
+    def is_extern(self):
+        return self.segment.is_extern()
+
+    def get_segment(self):
+        return self.segment    
+
+    def __repr__(self):
+        return repr(self.segment.get_symbol())
+
+class QCBGraph:
+    def __init__(self, qcb) -> None:
+        self.graph = set()
+        self.graph_to_segments = dict()
+        self.segments_to_graph = dict()
+
+        self.pruned_graph = QCBPrune(qcb.segments)
+        self.construct_graph(self.pruned_graph.segments)
+
+    def __tikz__(self):
+        return tikz_graph_qcb(self)
+
+    def construct_graph(self, segments):
+        for segment in segments:
+            graph_node = GraphNode(segment)
+            self.graph.add(graph_node)
+            self.segments_to_graph[segment] = graph_node
+            self.graph_to_segments[graph_node] = segment
+
+        for vertex in self.graph:
+            vertex.neighbours = set(map(self.segments_to_graph.__getitem__, vertex.segment.get_adjacent()))
+
+    def __iter__(self):
+        return iter(self.graph)
+
+
 class QCBPrune:
-    def __init__(self, grid_segments) -> None:
+    def __init__(self, segments) -> None:
         # reducing variables
-        self.grid_segments: 'Set[Segment]' = copy.deepcopy(grid_segments)
+        self.segments: 'Set[Segment]' = copy.deepcopy(segments)
+        self.map_to_grid()
+
+    def __tikz__(self):
+        return tikz_pruned_qcb(self)
 
     def map_to_grid(self):
-        for s in self.grid_segments:
-            self.prune_invalid_edges(s)
+        for segment in self.segments:
+            self.prune_invalid_edges(segment)
 
         fringe = (-1, -1)
         done, fringe = self.try_split_route(fringe)
         while not done:
             done, fringe = self.try_split_route(fringe)
 
-        for s in self.grid_segments:
-            self.prune_edges(s)
+        for segment in self.segments:
+            self.prune_edges(segment)
 
 
     def try_split_route(self, fringe: Tuple[int, int]) \
             -> Tuple[bool, bool, Tuple[int, int]]:
         
-        seg = next((s for s in sorted(self.grid_segments, key=Segment.y_position)
+        seg = next((s for s in sorted(self.segments, key=Segment.y_position)
                       if s.y_position() > fringe
                       and s.state.state == SCPatch.ROUTE), None)
         if not seg:
@@ -34,7 +90,7 @@ class QCBPrune:
             top_left = min((s for s in seg.left), key=lambda s: s.y_0)
             seg.allocated = False
             (top, bottom), confirm = seg.split(seg.x_0, seg.y_0, seg.width, top_left.y_1 - seg.y_0 + 1)
-            confirm(self.grid_segments)
+            confirm(self.segments)
             top.allocated = True
             top.state = SCPatch(SCPatch.ROUTE)
             bottom.allocated = True
@@ -46,7 +102,7 @@ class QCBPrune:
             top_right = min((s for s in seg.right), key=lambda s: s.y_0)
             seg.allocated = False
             (top, bottom), confirm = seg.split(seg.x_0, seg.y_0, seg.width, top_right.y_1 - seg.y_0 + 1)
-            confirm(self.grid_segments)
+            confirm(self.segments)
             top.allocated = True
             top.state = SCPatch(SCPatch.ROUTE)
             bottom.allocated = True
@@ -61,7 +117,7 @@ class QCBPrune:
             left_top = min((s for s in seg.above), key=lambda s: s.x_0)
             seg.allocated = False
             (left, right), confirm = seg.split(seg.x_0, seg.y_0, left_top.x_1 - seg.x_0 + 1, seg.height)
-            confirm(self.grid_segments)
+            confirm(self.segments)
             left.allocated = True
             left.state = SCPatch(SCPatch.ROUTE)
             right.allocated = True
@@ -73,7 +129,7 @@ class QCBPrune:
             left_bottom = min((s for s in seg.below), key=lambda s: s.x_0)
             seg.allocated = False
             (left, right), confirm = seg.split(seg.x_0, seg.y_0, left_bottom.x_1 - seg.x_0 + 1, seg.height)
-            confirm(self.grid_segments)
+            confirm(self.segments)
             left.allocated = True
             left.state = SCPatch(SCPatch.ROUTE)
             right.allocated = True

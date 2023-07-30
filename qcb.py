@@ -1,6 +1,5 @@
 import numpy as np 
 from typing import *
-from msf import MSF
 from dag2 import DAG
 from symbol import Symbol
 import copy
@@ -13,6 +12,7 @@ class QCB():
     '''
     def __init__(self, width, height, operations: DAG):
         self.segments: Set[Segment] = {Segment(0, 0, width-1, height-1)}
+        self.mappable_segments = set()
         self.operations: DAG = operations
         self.cycles = 17
         self.symbol = operations.get_symbol()
@@ -25,6 +25,7 @@ class QCB():
         self.externs = operations.externs
 
         self.compiled_layers: list[Bind|ExternBind] = []
+        self.io = self.symbol.io
 
     # ExternInterface impls
     def n_cycles(self):
@@ -51,6 +52,9 @@ class QCB():
     def instantiate(self):
         return copy.deepcopy(self)
 
+    def is_extern(self):
+        return self.symbol.is_extern()
+
     def __tikz__(self):
         return test_tikz_helper2.tikz_qcb(self)
 
@@ -58,20 +62,40 @@ class QCB():
 class SCPatch():
     # Singletons
     EXTERN = Symbol('EXTERN')
-    REG = Symbol('REG')
+    REG = Symbol('REGISTER')
     ROUTE = Symbol('ROUTE')
     IO = Symbol('IO')
+    INTERMEDIARY = Symbol('INTERMEDIARY')
     NONE = None
 
-    def __init__(self, alloc_type: 'None|str|MSF' = None):
-        if alloc_type not in [self.REG, self.ROUTE, self.IO, self.NONE]:
-            self.state = self.EXTERN
-            self.msf = alloc_type
+    def __init__(self, qcb: 'None|QCB' = None):
+        if qcb is not None and qcb.is_extern(): # not in [self.REG, self.ROUTE, self.IO, self.NONE]:
+            self.state = self.EXTERN    
         else:
-            self.state = alloc_type
+            self.state = qcb
+        self.slot = qcb
 
     def get_symbol(self):
+        if self.state == self.EXTERN:
+            return self.slot.get_symbol()
         return self.state
+
+    def get_slot(self):
+        return self.slot
+
+    def is_extern(self):
+        return self.state == SCPatch.EXTERN
+
+    def __eq__(self, other):
+        if self.is_extern(): # All externs are equal
+            return other.is_extern()
+        else:
+            return other.state == self.state
+
+    def satisfies(self, other):
+        if not self.is_extern():
+            return self == other
+        return self.slot.satisfies(other)
 
 class Segment():
     edge_labels = ['above', 'right', 'below', 'left']
@@ -114,15 +138,7 @@ class Segment():
         'below':lambda a, b: [a.below.add(b), b.above.add(a)],
         'left' :lambda a, b: [a.left.add(b),  b.right.add(a)]
         } 
-    
-    # Clear a from a.<label> element
-    # seg_clear = {
-    #     'above':lambda a, b: b.below.discard(a),
-    #     'right':lambda a, b: b.left.discard(a),
-    #     'below':lambda a, b: b.above.discard(a),
-    #     'left' :lambda a, b: b.right.discard(a)
-    #     }
-    
+
     # TODO Pls no properties
     width = property(lambda self: self.x_1 - self.x_0 + 1)
     height = property(lambda self: self.y_1 - self.y_0 + 1)
@@ -147,16 +163,20 @@ class Segment():
     def get_symbol(self):
         return self.state.get_symbol()
 
+    def get_slot(self):
+        return self.state.get_slot()
+
+    def is_extern(self):
+        return self.get_symbol().is_extern()
+
+    def get_adjacent(self):
+        return self.above | self.below | self.left | self.right
+
     def __tikz__(self):
         return test_tikz_helper2.tikz_qcb_segment(self)
 
     def y_position(self):
         return (self.y_0, self.x_0)
-
-    # def apply_state(self, qcb, state):
-    #     for x in range(self.x_0, x_1):
-    #         for y in range(self.y_0, y_1):
-    #             qcb[x, y].state = state
 
     def edges(self, labels=None):
         if labels is None:
@@ -595,59 +615,4 @@ class Segment():
         }
         return set(e for e in edge_dict[label] if self.seg_adjacent(other, e, label))
 
-# class QCB():
-#     def __init__(self, height, width, **msfs_templates):
-#         self.msfs = {i.symbol:i for i in msfs_templates}
-#         self.height = height
-#         self.width = width
-#         self.qcb = np.array([[SCPatch() for _ in range(width)] for _ in range(height)], SCPatch)
-
-#         self.open_segments = np.array([[0, 0]])
-
-#         self.factories = {}
-
-#     def __getitem__(self, x, y):
-#         return self.qcb[x][y]
-
-#     def __repr__(self):
-#         string = ''
-#         lookups = {None:'_', "MSF":"@", "Routing":"~", "Data":"#"}
-#         for i in range(self.height):
-#             for j in range(self.width):
-#                 block = self.qcb[i][j]
-#                 string += lookups[block.state]
-#             string += '\n'
-#         return string
-
-#     def build(self, dag):
-
-#         allocated_segments = []
-#         unallocated_segments = [Segment(0, 0, self.width, self.height)]
-
-#         for factory in dag.msfs:
-#             if factory not in self.msfs:
-#                 raise Exception("Magic State Factory {} Not Defined".format(factory))
-#             if self.place(self.msfs[factory]) == False:
-#                 raise Exception("No legal placement for MSFs")
-
-#     def place_factory(self, unallocated_segments, factory):
-#         for segment in unallocated_segments:
-#             if segment.y_0 + factory.height < self.height:
-#                 if segment.x_0 + factory.width < self.width:
-#                     region_clear = True
-#                     for i in range(segment.x_0, segment.x_0 + width):
-#                         if self.qcb[i][segment.y_0].state is not None:
-#                             region_clear = False
-                    
-#                     # Try next region
-#                     if region_clear:
-#                         new_segments = segment.split()
-
-
-#             split_segments = segments[0].split(factory.height, factory.width)
-#             segments.pop(0)
-#             segments.append(split_segments[1:])
-#             return split_segments[0]    
-
 import test_tikz_helper2
-#from test_tikz_helper2 import tikz_qcb, tikz_qcb_segment

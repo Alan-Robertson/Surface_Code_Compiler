@@ -1,4 +1,3 @@
-
 from qcb import Segment, SCPatch
 from typing import *
 from allocator2 import AllocatorError, QCB
@@ -8,151 +7,34 @@ from dag2 import DAG
 from utils import log
 from symbol import Symbol, ExternSymbol # annotation only
 
-
-# debug_count = 0
-class RegNode():
-
-    REGISTER = Symbol('REG')
-
-    def __init__(self, seg: 'Segment|None', children: 'Set[RegNode]|None'=None, pred_sym:'Symbol|None' = None):
-        assert seg or children
-        # global debug_count
-        # self.debug = debug_count
-        # debug_count += 1
-        if seg and pred_sym is None:
-            self.seg = seg
-            self.slots = {self.REGISTER: seg.width * seg.height}
-            self.weight = 0
-            self.children = set()            
-            self.visited = {seg}
-            self.fringe = {seg}
-            self.parent = self
-            self.pred_sym = pred_sym
-        elif seg and pred_sym is not None:
-            self.seg = seg
-            self.slots = {pred_sym: 1}
-            self.weight = 0
-            self.children = set()
-            self.visited = {seg}
-            self.fringe = {seg}
-            self.parent = self
-            self.pred_sym = pred_sym
-        else:
-            self.seg = None
-            self.slots = {
-                k: sum(c.slots.get(k, 0) for c in children)
-                for k in set.union(set(), *(c.slots.keys() for c in children))
-            }
-            self.weight = max(c.weight for c in children)
-            self.children = set(children)
-            self.visited = set.union(*(c.visited for c in children))
-            self.fringe = set.union(*(c.fringe for c in children))
-            self.parent = self
-            for c in children:
-                c.parent = self
-            self.pred_sym = pred_sym
-        
-        self.qubits: List[int] = []
-        self.child_used: \
-            dict[RegNode, DefaultDict[Symbol, int]] \
-                = {c: defaultdict(int) for c in self.children}
-        self.child_max: \
-            dict[RegNode, DefaultDict[Symbol, int]] \
-                = {c: c.slots for c in self.children}
-
-
-    def root(self):
-        curr = self
-        while curr.parent != curr:
-            curr = curr.parent
-        return curr
-
-    def distribute(self, value):
-        if self.children:
-            for c in self.children:
-                c.distribute(value / len(self.children))
-            self.weight += value / len(self.children)
-        else:
-            self.weight += value
-
-    def get_mapping_neighbours(self) -> Set[Segment]:
-        neighbours = set()
-        for s in self.fringe:
-            neighbours.update(s.above | s.below | s.left | s.right)
-        neighbours.difference_update(self.visited)
-        return neighbours
-
-    def alloc_qubit(self, qubit: 'Symbol|ExternSymbol'):
-        pred = qubit.predicate
-        
-
-        if self.seg:
-            if len(self.qubits) < self.slots.get(pred, 0):
-                self.qubits.append(qubit)
-                return self
-            else:
-                raise AllocatorError("Can't map qubit, slots exhausted!")
-            
-        ordering = sorted(self.children, 
-                        key=lambda c: 
-                            (self.child_used[c].get(pred, 0), 
-                            -c.weight, 
-                            -self.child_max[c].get(pred, 0)
-                            )
-                        )
-        for c in ordering:
-            if self.child_used[c].get(pred, 0) < self.child_max[c].get(pred, 0):
-                alloc = c.alloc_qubit(qubit)
-                self.child_used[c][pred] += 1
-                self.qubits.append(qubit)
-                return alloc
-        print(self, qubit, 
-              {c: self.child_used[c].get(pred, 0) for c in self.child_used}, 
-              {c: self.child_max[c].get(pred, 0) for c in self.child_max}
-              )
-        raise AllocatorError("Can't map qubit, slots in children exhausted!")
-
-
-
-    # def __repr__(self):
-    #     return f'RegNode({self.debug})'
-    # def __str__(self):
-    #     return repr(self)
-    def print(self): 
-        if self.seg:
-            print(f'Block {str(self.seg)} {self.weight=} {self.qubits=}')
-        else:
-            print(f'Begin {id(self)}')
-            for c in self.children:
-                c.print()
-            print(f'End {id(self)}')
-
-
+from mapping_tree import RegNode, ExternRegNode, IntermediateNode
+from test_tikz_helper2 import tikz_mapping_tree
 
 class QCBMapper:
-    def __init__(self, grid_segments: List[Segment]):
-        self.grid_segments = grid_segments
-
+    def __init__(self, segments: List[Segment]):
+        self.segments = segments
 
         # mapping tree variables
         self.mapping_forest: Set[RegNode] = set()
         self.mapping: 'Dict[Segment, RegNode]' = {}
+        self.node_to_segment = dict()
+        self.segment_to_node = dict()
         self.root: RegNode|None = None
         self.qubit_mapping: 'Dict[int, RegNode]' = {}
-    
-    def map_all(self, g: DAG):
-        # TODO rewrite
-        conj, _ = g.calculate_physical_conjestion()
-        prox, _ = g.calculate_physical_proximity()
 
-        lookup = g.lookup()
+    def __tikz__(self):
+        return tikz_mapping_tree(self)
+    
+    def map_all(self, dag: DAG):
+        # TODO rewrite
+        conj, _ = dag.calculate_physical_conjestion()
+        prox, _ = dag.calculate_physical_proximity()
+
+        lookup = dag.lookup()
 
         self.map_symbols(conj, prox, _, lookup)
 
-        # Here we map msfs
         self.map_extern_syms(conj, prox, _, lookup)
-
-        # self.labels = None
 
         return self.generate_mapping_dict()
     
@@ -216,38 +98,67 @@ class QCBMapper:
         self.root.print()     
 
     def generate_mapping_tree(self):
-        for s in self.grid_segments:
-            if s.state.state == SCPatch.REG:
-                n = RegNode(seg=s)
-                self.mapping_forest.add(n)
-                self.mapping[s] = n
-            elif s.state.state == SCPatch.EXTERN:
-                n = RegNode(seg=s, pred_sym=s.state.msf.symbol.predicate)
-                self.mapping_forest.add(n)
-                self.mapping[s] = n
+        for segment in self.segments:
+            if segment.get_symbol() == SCPatch.REG:
+                node = RegNode(segment)
+                #self.mapping_forest.add(node)
+                self.segment_to_node[segment] = node
+                self.node_to_segment[node] = segment
 
-        # self.grow_mapping_forest()
-        # self.grow_mapping_forest(debug=True)
+            elif segment.get_symbol().is_extern():
+                node = ExternRegNode(segment, segment.get_symbol().predicate)
+                #self.mapping_forest.add(node)
+                self.segment_to_node[segment] = node
+                self.node_to_segment[node] = segment
 
-        # maxiter = 1000
-        # i = 0
-        # while len(self.mapping) < len(self.grid_segments) and i < maxiter:
-        #     self.grow_mapping_forest()
-        #     i+=1
-        
-        # print(len(self.grid_segments))
-        # while len(self.mapping) < len(self.grid_segments):
-        while len(self.mapping_forest) > 1:
-            self.grow_mapping_forest()
-        # for s in self.mapping_forest:
-        #     s.print()
-        
-        self.root = next(iter(self.mapping_forest))
+                while len(self.mapping_forest) > 1:
+                    self.grow_mapping_forest()
+                
+                self.root = next(iter(self.mapping_forest))
 
         return self.root
         
 
-    
+    def construct_spanning_tree(self, tikz=False):
+
+        fringe = dict()
+        visited = set()
+        curr_mapping = mapping
+
+
+        # Update the fringe
+        for element in curr_mapping:
+            for adjacent_node in element.get_adjacent():
+                if adjacent_node not in visited:
+                    if adjacent_node in fringe:
+                        fringe[adjacent_node].append(element)
+                    else:
+                        fringe[adjacent_node] = [element]
+
+
+        # Resolve expansion of the fringe
+        joint_nodes = dict()
+        for element in fringe:
+            # Single element expansion, just incorporate it
+            if len(fringe[element]) == 1:
+                pass
+            else:
+                multi_join = False
+                for joint_element in fringe[element]:
+                    if joint_element in joint_nodes:
+                        multi_join = True
+                        break
+                        
+                if not multi_join:
+                    new_node = IntermediateNode(fringe[element])
+                    for child in fringe[element]:
+                        joint_nodes[child] = new_node
+
+
+
+
+
+
 
     def grow_mapping_forest(self, debug=False):
         new_fringes = {root: set() for root in self.mapping_forest}
@@ -306,7 +217,7 @@ class QCBMapper:
             if len(group) == 1:
                 new_forest.add(group.pop())
             else:
-                new_forest.add(RegNode(None, children=group))
+                new_forest.add(IntermediateNode(group))
         self.mapping_forest = new_forest
 
 
