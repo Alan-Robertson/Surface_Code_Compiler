@@ -103,18 +103,6 @@ def animate_footer():
 def new_frame():
     return "\n \\newframe \n"
 
-def make_bg(segments):
-    out = ''
-    for s in segments:
-        colour = colour_map.get(s.state.state, 'yellow')
-        
-        out += f"\\draw[fill={colour},fill opacity=0.5] ({s.x_0},-{s.y_0}) -- ({s.x_0},-{s.y_1+1}) -- ({s.x_1+1},-{s.y_1+1}) -- ({s.x_1+1},-{s.y_0}) -- cycle;\n"
-        if s.state.state == SCPatch.EXTERN:
-            out += f"\\node at ({s.x_0+0.5},-{s.y_0+0.5}) {{{s.state.state}{s.state.msf.symbol}}};\n"
-        else:
-            out += f"\\node at ({s.x_0+0.5},-{s.y_0+0.5}) {{{s.state.state}{s.debug_name}}};\n"
-    return out
-
 
 def tikz_tree_nodes(element):
     x = 0
@@ -128,7 +116,7 @@ def tikz_tree_nodes(element):
             y += y_val
         x /= len(element.children)
         y /= len(element.children)
-        tree_tikz_str, x, y = tikz_tree_node(element, x, y)
+        tree_tikz_str, x, y = tikz_tree_node(element, round(x, 1), round(y, 1))
         tikz_str += tree_tikz_str
 
         for child in element.children:
@@ -136,7 +124,7 @@ def tikz_tree_nodes(element):
 
         return tikz_str, x, y
     else: # Leaf Node
-        leaf_tikz_str, x, y = tikz_tree_leaf(element, colour=tikz_obj_to_colour(node.get_parent()))
+        leaf_tikz_str, x, y = tikz_tree_leaf(element, colour=tikz_obj_to_colour(element.get_parent()))
         tikz_str += leaf_tikz_str
         return tikz_str, x, y
 
@@ -190,19 +178,6 @@ def tikz_mapping_tree(mapper):
     tikz_str += tree_tikz_str
     tikz_str += tikz_footer()
     return tikz_str
-
-# def regnode_data(node:'RegNode'):
-#     out = f"w={round(node.weight, 2)}"
-#     # out += f"\\\\s={node.slots}"
-#     if node.seg:
-#         out += f"\\\\{node.seg.x_0, node.seg.y_0}"
-#     if node.qubits and not node.children:
-        
-#         out += f"\\\\ {','.join(map(str, node.qubits))}"
-#         out += f"\\\\ {','.join(map(lambda x: hex(id(x)), node.qubits))}"
-#         out += f"\\\\ {str(len(node.qubits))}"
-#     out = out.replace('_', '\\_')
-#     return out
 
 def tikz_rectangle(x_0, y_0, x_1, y_1, *args, **kwargs):
     return f"\\draw[{tikz_argparse(*args, **kwargs)}] \

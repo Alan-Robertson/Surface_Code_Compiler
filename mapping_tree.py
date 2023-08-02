@@ -1,5 +1,7 @@
-
-
+from qcb import SCPatch
+from collections import deque as consume
+from itertools import chain
+from functools import reduce
 
 class QCBTree():
     def __init__(self, qcb_graph):
@@ -29,7 +31,6 @@ class QCBTree():
         for tree_node in self.nodes:
             tree_node.neighbours = set(map(self.graph_to_tree.__getitem__, tree_node.vertex.get_adjacent()))
 
-
     def selector(self, vertex):
         if vertex.is_extern():
             return ExternRegNode
@@ -40,77 +41,48 @@ class QCBTree():
         return TreeNode # IO Nodes
 
     def construct_spanning_tree(self, tikz=False):
-        visited = set()
-        curr_fringe = self.leaves
+        
+        fringe = self.leaves
 
-        joint_nodes = dict()
-        fringe = dict()
+        while len(fringe) > 0:
+            
+            curr_fringe = fringe
+            joint_nodes = set()    
+            fringe = set()
 
-        while len(curr_fringe) > 0:
-            # Update the fringe
+            # Merge on a shared intermediary
             for node in curr_fringe:
                 for adjacent_node in node.get_adjacent():
 
                     # Add unvisited node to the fringe
-                    if not adjacent_node in visited:
-                        if adjacent_node in fringe:
-                            fringe[adjacent_node].append(node.get_parent())
-                        else:
-                            fringe[adjacent_node] = [node.get_parent()]
+                    if not adjacent_node.visited():
+                        fringe.add(adjacent_node)
+                        if (parent := node.get_parent()) in joint_nodes:
+                            joint_nodes.remove(parent)
+                        joint_nodes.add(adjacent_node.merge(parent))
 
-                    # Potential Simultaneous Expansion Event
-                    else:
-                        # Check if nodes do not share a parent
-                        if adjacent_node.get_parent() != node.get_parent():
-
-                            # Node is already being joined in this cycle
-                            if node.get_parent() in joint_nodes:
-                                joint_nodes[adjacent_node.get_parent()] = joint_nodes[node.get_parent()]
-
-                            # Adjacent Node is already being joined in this cycle
-                            elif adjacent_node.get_parent() in joint_nodes:
-                                joint_nodes[node.get_parent()] = joint_nodes[adjacent_node.get_parent()]
-
-                            # New Merging Event
-                            else:
-                                new_node = IntermediateRegWrapper(node.get_parent(), adjacent_node.get_parent())
-                                joint_nodes[node] = new_node
-                                joint_nodes[adjacent_node] = new_node
-
-            for node in fringe:
-                # Single element expansion, just incorporate it
-                if len(fringe[node]) == 1:
-                    node.parent = fringe[node][0]
-                else:
-                    # Span over the fringe
-                    wrapper = IntermediateRegWrapper(*map(lambda x: x.get_parent(), fringe[node]))
-                    for joining_node in fringe[node]:
-                        if joining_node in joint_nodes:
-                            wrapper.bind(joint_nodes[joining_node])
-                        else:
-                            joint_nodes[joining_node] = wrapper
-
+                    # Potential merger
+                    elif adjacent_node.get_parent() is not node.get_parent():
+                        if (parent := node.get_parent()) in joint_nodes:
+                            joint_nodes.remove(parent)
+                        joint_nodes.add(adjacent_node.merge(parent))                   
+                                                   
             # Merge wrappers
-            merge_nodes = set(map(lambda x: x.confirm(), joint_nodes.values()))
-            x.nodes |= merge_nodes
+            consume(map(lambda x: x.flatten(), joint_nodes))
+            consume(map(lambda x: x.alloc(), fringe))
+            merged_nodes = set(map(lambda x: x.confirm(), joint_nodes))
+            self.nodes |= merged_nodes
 
-            parents = set(map(lambda x : x.get_parent(), curr_fringe))
 
-            curr_fringe = set()
-            for node in fringe:
-                visited.add(node)
-                curr_fringe.add(node)
+        self.root = next(iter(self.nodes)).get_parent()
         return
-
-
-        
-
+       
+from test_tikz_helper2 import tikz_partial_tree
     
 class TreeNode():
     def __init__(self, vertex):
         self.vertex = vertex
         self.neighbours = set()
-        self.weight = 0
         self.parent = self
         
     def get_symbol(self):
@@ -128,8 +100,30 @@ class TreeNode():
     def get_slot(self):
         return self.vertex.get_slot()
 
+    def visited(self):
+        return not (self.parent == self)
+
+    def bind(self):
+        '''
+            Proxy for wrapper binding
+        '''
+        self.prev_parent = self.parent
+        return {self}
+
+    def merge(self, other):
+        '''
+            Base case abstract method wrapper
+        '''
+        return self.get_parent()._merge(other.get_parent())
+
+    def _merge(self, other):
+        bind = IntermediateRegWrapper(self, other)
+        self.parent = bind
+        other.parent = bind
+        return bind
+
     def __repr__(self):
-        return repr(self.vertex)
+        return repr(f"VERTEX: {self.vertex.__repr__()}")
 
     def get_parent(self):
         parent = self.parent
@@ -137,14 +131,66 @@ class TreeNode():
             parent = parent.parent
         return parent
 
+    def alloc(self, *args, **kwargs):
+        return
+
+    def alloc_slots(self, *args, **kwargs):
+        return self.parent.alloc_slots(*args, **kwargs)
+
+    def contains_leaf(self, leaf):
+        return self is leaf
+
+
 class RouteNode(TreeNode):
     def __init__(self, vertex):
+        self.parents = set()
         super().__init__(vertex)
+
+    def _merge(self, other):
+        bind = IntermediateRegWrapper(other)
+        self.parent = bind
+        other.parent = bind
+        return bind
+
+    def bind(self):
+        self.parent = self.get_parent()
+        
+
+    def distribute(self):
+        joining_nodes = set(i for i in self.get_adjacent() if (i.visited() and (i.get_parent() == self.parent)))
+        value = 1 / len(joining_nodes)
+        for node in joining_nodes:
+            node.alloc_slots(SCPatch.ROUTE, value)
+        self.parents = joining_nodes
+        
+
+    def alloc(self, slot):
+        return False
 
 class RegNode(TreeNode):
     def __init__(self, vertex):
         self.slots = dict()
+        self.weight = 0
         super().__init__(vertex)
+
+    def alloc_slots(self, slot, value):
+        if slot in self.slots:
+            self.slots[slot] += value
+        else:
+            self.slots[slot] = value
+
+    def get_route_weight(self):
+        return self.slots.get(SCPatch.ROUTE, 0)
+
+    def alloc(self):
+        pass
+
+    def resolve_wrapper(self):
+        return self
+
+    def flatten(self):
+        return {self}
+
 
 class ExternRegNode(RegNode):
     def __init__(self, vertex):
@@ -158,25 +204,10 @@ class IntermediateRegWrapper(RegNode):
         Delays binding to the intermediate reg node
     '''
     def __init__(self, *children):
+        self.parent = self
         self.children = set(children)
         self.intermediate_register = IntermediateRegNode()
 
-    def confirm(self):
-        self.intermediate_register.add_children(*self.children)
-        return self.intermediate_register
-
-    def bind(self, other):
-        other.intermediate_register = self.intermediate_register
-
-    def __repr__(self):
-        return "[[BIND INTERMEDIATE]]"
-
-
-class IntermediateRegNode(RegNode):
-    def __init__(self, *children):
-        self.children = set(children)
-        self.slots = dict()
-        self.parent = self
 
     def add_child(self, child):
         self.children.add(child)
@@ -186,16 +217,90 @@ class IntermediateRegNode(RegNode):
         for child in children:
             self.add_child(child)
 
+    def flatten(self):
+        flattened_children = set()
+        for node in self.children:
+            flattened_children |= node.bind()
+        self.children = flattened_children
+
+
+    def bind(self):
+        self.flatten()
+       
+        # Single and Top
+        if len(self.children) == 1 and self.parent == self:
+            child = next(iter(self.children))
+            self.parent = child
+            self.intermediate_register = self.parent
+            self.parent.children = self.children
+            return child
+
+        # Single 
+        if len(self.children) == 1:
+            child = next(iter(self.children))
+            self.intermediate_register = child
+            self.parent = child
+
+        # Top level node, promote children
+        if self.parent == self:
+            self.parent = self.intermediate_register
+            self.parent.children = self.children
+            return self.parent
+
+        # Leave this for the garbage collector
+        del self.intermediate_register
+        self.intermediate_register = self.parent
+        return self.children
+
+    def __repr__(self):
+        return "[[BIND INTERMEDIATE]]"
+
+    def __contains__(self, other):
+        '''
+            Returns if it is an immediate child
+        '''
+        return other in self.children
+
+    def contains(self, leaf):
+        '''
+            Returns if it is a leaf
+        '''
+        return (leaf is self) or (leaf in self.children) or (any(map(lambda x: x.contains_leaf(leaf), self.children)))
+
+    def resolve_wrapper(self):
+        return self.intermediate_register
+
+class IntermediateRegNode(RegNode):
+    def __init__(self, *children):
+        self.children = set(children)
+        self.slots = dict()
+        self.parent = self
+
     def get_segment(self):
         return None
 
     def get_slot(self):
         return SCPatch.INTERMEDIARY
 
+    def bind(self):
+        for child in self.children:
+            child.parent = self
+        return {self}
+
     def __repr__(self):
         return "[[INTERMEDIATE]]"
 
+    def __contains__(self, other):
+        return other in self.children
 
+    def contains_leaf(self, leaf):
+        '''
+            Returns if it is a leaf
+        '''
+        return leaf in self.children or any(map(lambda x: x.contains_leaf(leaf), self.children))
+
+
+#from test_tikz_helper2 import tikz_partial_tree
 
 
 # class RegNode():

@@ -2,7 +2,7 @@ from qcb import Segment, SCPatch
 from typing import *
 import copy
 
-from test_tikz_helper2 import tikz_pruned_qcb
+from test_tikz_helper2 import tikz_pruned_qcb, tikz_graph_qcb
 
 
 class GraphNode:
@@ -34,11 +34,11 @@ class QCBGraph:
         self.graph_to_segments = dict()
         self.segments_to_graph = dict()
 
-        self.pruned_graph = QCBPrune(qcb.segments)
+        self.pruned_graph = QCBPrune(copy.deepcopy(qcb.segments))
         self.construct_graph(self.pruned_graph.segments)
 
     def __tikz__(self):
-        return tikz_graph_qcb(self)
+        return tikz_pruned_graph_qcb(self)
 
     def construct_graph(self, segments):
         for segment in segments:

@@ -42,6 +42,13 @@ allocator.optimise()
 
 graph = QCBGraph(qcb_base)
 
+from mapping_tree import QCBTree, TreeNode, RouteNode, RegNode, ExternRegNode, IntermediateRegWrapper, IntermediateRegNode
+
+x = QCBTree(graph)
+x.construct_spanning_tree()
+
+#print(tikz_partial_tree(*x.nodes))
+
 # from mapper2 import QCBMapper
 
 # mapper = QCBMapper(prune.segments)

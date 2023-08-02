@@ -1,19 +1,14 @@
-import numpy as np 
-from typing import *
-from dag2 import DAG
 from symbol import Symbol
-import copy
-from bind import Bind, ExternBind
 
 class QCB():
     '''
         Closure object
         Contains both a QCB memory layout and a DAG execution description
     '''
-    def __init__(self, width, height, operations: DAG):
+    def __init__(self, width, height, operations: 'DAG'):
         self.segments: Set[Segment] = {Segment(0, 0, width-1, height-1)}
         self.mappable_segments = set()
-        self.operations: DAG = operations
+        self.operations = operations
         self.cycles = 17
         self.symbol = operations.get_symbol()
         self.prewarm = 0
@@ -616,3 +611,8 @@ class Segment():
         return set(e for e in edge_dict[label] if self.seg_adjacent(other, e, label))
 
 import test_tikz_helper2
+
+import copy
+from typing import *
+from dag2 import DAG
+from bind import Bind, ExternBind
