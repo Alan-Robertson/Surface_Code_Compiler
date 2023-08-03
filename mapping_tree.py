@@ -73,7 +73,6 @@ class QCBTree():
             merged_nodes = set(map(lambda x: x.confirm(), joint_nodes))
             self.nodes |= merged_nodes
 
-
         self.root = next(iter(self.nodes)).get_parent()
         return
        
@@ -107,14 +106,21 @@ class TreeNode():
         '''
             Proxy for wrapper binding
         '''
-        self.prev_parent = self.parent
         return {self}
+    def distribute(self):
+        '''
+            Abstract interface
+        '''
+        pass
 
     def merge(self, other):
         '''
             Base case abstract method wrapper
         '''
-        return self.get_parent()._merge(other.get_parent())
+        bind = self.get_parent()._merge(other.get_parent())
+        if self.parent is self:
+            bind = self.parent
+        return bind
 
     def _merge(self, other):
         bind = IntermediateRegWrapper(self, other)
@@ -148,22 +154,20 @@ class RouteNode(TreeNode):
 
     def _merge(self, other):
         bind = IntermediateRegWrapper(other)
-        self.parent = bind
+        self.parent = other.get_parent()
         other.parent = bind
         return bind
 
     def bind(self):
         self.parent = self.get_parent()
-        
 
     def distribute(self):
-        joining_nodes = set(i for i in self.get_adjacent() if (i.visited() and (i.get_parent() == self.parent)))
+        joining_nodes = set(i for i in self.get_adjacent() if (i.visited() and (i.get_parent() == self.get_parent())))
         value = 1 / len(joining_nodes)
         for node in joining_nodes:
-            node.alloc_slots(SCPatch.ROUTE, value)
+            node.parent.alloc_slots(SCPatch.ROUTE, value)
         self.parents = joining_nodes
         
-
     def alloc(self, slot):
         return False
 
@@ -219,10 +223,15 @@ class IntermediateRegWrapper(RegNode):
 
     def flatten(self):
         flattened_children = set()
-        for node in self.children:
-            flattened_children |= node.bind()
+        for child in self.children:
+            flattened_children |= child.bind()
+            child.parent = self.parent
         self.children = flattened_children
 
+    def alloc_slots(self, slot, value):
+        value /= len(self.children)
+        for child in self.children:
+            child.alloc_slots(slot, value)
 
     def bind(self):
         self.flatten()
@@ -231,15 +240,19 @@ class IntermediateRegWrapper(RegNode):
         if len(self.children) == 1 and self.parent == self:
             child = next(iter(self.children))
             self.parent = child
-            self.intermediate_register = self.parent
+            self.intermediate_register = child
             self.parent.children = self.children
+            child.parent = child
             return child
 
         # Single 
         if len(self.children) == 1:
             child = next(iter(self.children))
             self.intermediate_register = child
+            for child in self.children:
+                child.parent is self.parent
             self.parent = child
+            return self.children
 
         # Top level node, promote children
         if self.parent == self:
@@ -250,6 +263,8 @@ class IntermediateRegWrapper(RegNode):
         # Leave this for the garbage collector
         del self.intermediate_register
         self.intermediate_register = self.parent
+        for child in self.children:
+            child.parent = self.parent
         return self.children
 
     def __repr__(self):

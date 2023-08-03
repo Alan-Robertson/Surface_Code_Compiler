@@ -4,6 +4,9 @@ from functools import reduce
 
 class SymbolTest(unittest.TestCase):
     def test_reg_reg(self):
+        '''
+            reg - reg
+        '''
         a = RegNode(None)
         b = RegNode(None)
 
@@ -21,8 +24,13 @@ class SymbolTest(unittest.TestCase):
         assert (type(intermediate) is IntermediateRegNode)
         assert (a in intermediate.children)
         assert (b in intermediate.children)
+        assert (a.get_parent() is intermediate)
+        assert (b.get_parent() is intermediate)
 
     def test_reg_route(self):
+        '''
+            reg - route
+        '''
         route = RouteNode(None)
         reg = RegNode(None)
 
@@ -33,9 +41,15 @@ class SymbolTest(unittest.TestCase):
         
         intermediate = bind.bind()
         assert (reg is intermediate)
-        
+        assert (reg.parent is reg)
+        assert (route.parent is reg)
+        assert (route.get_parent() is reg)
 
     def test_reg_reg_reg(self):
+        '''
+            b - c - a
+        '''
+
         a = RegNode(None)
         b = RegNode(None)
         c = RegNode(None)
@@ -72,6 +86,12 @@ class SymbolTest(unittest.TestCase):
         d = RegNode('d')
         route = RouteNode('route')
 
+        route.neighbours = {b, c}
+        b.neighbours = {route, a}
+        c.neighbours = {route, d}
+        a.neighbours = {b}
+        d.neighbours = {c}
+
         bind_ab = a.merge(b)
         bind_cd = c.merge(d)
 
@@ -89,95 +109,100 @@ class SymbolTest(unittest.TestCase):
         assert (intermediate_cd in bind)
 
         intermediate = bind.bind()
+        
+
         assert (intermediate_ab in bind)
         assert (intermediate_cd in bind)
         assert (intermediate_ab in intermediate)
         assert (intermediate_cd in intermediate)
+        assert (route.get_parent() is intermediate)
+        assert (route.parent is intermediate_ab)
 
-    # def test_alloc_int(self):
-    #     '''
-    #         a - route - b
-    #     '''
-
-    #     a = RegNode('a')
-    #     b = RegNode('b')
-    #     route = RouteNode('route')
-
-    #     a.neighbours = {route}
-    #     b.neighbours = {route}
-    #     route.neighbours = {a, b}
-
-    #     starter = {a, b}
-    #     joint_nodes = set()        
-    #     fringe = reduce(lambda a, b: a | b, map(lambda x: x.get_adjacent(), starter))
-
-    #     for node in starter:
-    #         for adjacent_node in node.get_adjacent():
-    #             parent = node.get_parent()
-    #             adj_parent = adjacent_node.get_parent()
-    #             if parent in joint_nodes:
-    #                 joint_nodes.remove(parent)
-    #             if adj_parent in joint_nodes:
-    #                 joint_nodes.remove(adj_parent)
-    #             joint_nodes.add(adjacent_node.merge(parent))
-
-    #     assert route.get_parent() in joint_nodes
-    #     assert route.parent not in joint_nodes
-
-    #     consume(map(lambda x : x.bind(), joint_nodes))
-
-    #     parents = set(map(lambda x : x.get_parent(), fringe))
-
-    #     consume(map(lambda x: x.alloc(), fringe))
-    #     consume(map(lambda x: x.confirm(), joint_nodes))
-
-    #     assert(len(parents)) == 1
-    #     assert a.get_route_weight() == 0.5
-    #     assert b.get_route_weight() == 0.5
-
-    #     fringe = {RouteNode('Route')}
+        route.bind()
+        assert (route.get_parent() is intermediate)
+        assert (route.parent is intermediate)
 
 
-    # def test_alloc_int(self):
-    #     '''
-    #         c - route - a - route  - b
-    #     '''
+    def test_alloc_int(self):
+         '''
+             a - route - b
+         '''
 
-    #     a = RegNode('a')
-    #     b = RegNode('b')
-    #     c = RegNode('c')
-    #     route_a = RouteNode('route')
-    #     route_b = RouteNode('route')
+         a = RegNode('a')
+         b = RegNode('b')
+         route = RouteNode('route')
 
-    #     a.neighbours = {route_a, route_b}
-    #     b.neighbours = {route_a}
-    #     route_a.neighbours = {a, b}
-    #     route_b.neighbours = {a, c}
-    #     c.neighbours = {route_b}
+         a.neighbours = {route}
+         b.neighbours = {route}
+         route.neighbours = {a, b}
 
-    #     starter = {a, b, c}
-    #     joint_nodes = set()
-    #     fringe = reduce(lambda a, b: a | b, map(lambda x: x.get_adjacent(), starter))
+         starter = {a, b}
+         joint_nodes = set()        
+         fringe = reduce(lambda a, b: a | b, map(lambda x: x.get_adjacent(), starter))
 
-    #     for node in fringe:
-    #         for adjacent_node in node.get_adjacent():
-    #             parent = node.get_parent()
-    #             if parent in joint_nodes:
-    #                 joint_nodes.remove(parent)
-    #             joint_nodes.add(adjacent_node.merge(parent))
+         for node in starter:
+             for adjacent_node in node.get_adjacent():
+                 parent = node.get_parent()
+                 adj_parent = adjacent_node.get_parent()
+                 if parent in joint_nodes:
+                     joint_nodes.remove(parent)
+                 if adj_parent in joint_nodes:
+                     joint_nodes.remove(adj_parent)
+                 joint_nodes.add(adjacent_node.merge(parent))
 
-    #     consume(map(lambda x : x.bind(), joint_nodes))
+         assert route.get_parent() in joint_nodes
+         assert route.parent not in joint_nodes
 
-    #     parents = set(map(lambda x : x.get_parent(), fringe))
+         consume(map(lambda x: x.distribute(), fringe))
+         consume(map(lambda x : x.bind(), joint_nodes))
+         consume(map(lambda x : x.bind(), fringe))
 
-    #     consume(map(lambda x: x.alloc(), fringe))
+         assert a.get_route_weight() > 0
+         assert b.get_route_weight() > 0
 
-    #     assert(len(parents) == 2)
-    #     assert a.get_route_weight() == 0
-    #     assert b.get_route_weight() == 0
+         fringe = {RouteNode('Route')}
 
-    #     fringe = {RouteNode('Route')}
-                
+
+    def test_alloc_int(self):
+        '''
+            c - route - a - route  - b
+        '''
+
+        a = RegNode('a')
+        b = RegNode('b')
+        c = RegNode('c')
+        route_a = RouteNode('route')
+        route_b = RouteNode('route')
+
+        a.neighbours = {route_a, route_b}
+        b.neighbours = {route_a}
+        route_a.neighbours = {a, b}
+        route_b.neighbours = {a, c}
+        c.neighbours = {route_b}
+
+        starter = {a, b, c}
+        joint_nodes = set()
+        fringe = reduce(lambda a, b: a | b, map(lambda x: x.get_adjacent(), starter))
+
+        for node in fringe:
+            for adjacent_node in node.get_adjacent():
+                parent = node.get_parent()
+                if parent in joint_nodes:
+                    joint_nodes.remove(parent)
+                joint_nodes.add(adjacent_node.merge(parent))
+
+        consume(map(lambda x: x.distribute(), fringe))
+        consume(map(lambda x : x.bind(), joint_nodes))
+        consume(map(lambda x : x.bind(), fringe))
+
+        parents = set(map(lambda x : x.get_parent(), fringe))
+
+        assert(len(parents) == 2)
+        assert a.get_route_weight() == 0
+        assert b.get_route_weight() == 0
+
+        fringe = {RouteNode('Route')}
+                   
 
 from mapping_tree import RouteNode, RegNode, ExternRegNode, IntermediateRegWrapper, IntermediateRegNode
 from qcb import SCPatch
