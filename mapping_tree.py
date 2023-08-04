@@ -41,38 +41,32 @@ class QCBTree():
         return TreeNode # IO Nodes
 
     def construct_spanning_tree(self, tikz=False):
-        
+ 
         fringe = self.leaves
+        parents = fringe
 
-        while len(fringe) > 0:
-            
-            curr_fringe = fringe
-            joint_nodes = set()    
-            fringe = set()
+        while len(parents) > 1: 
 
-            # Merge on a shared intermediary
-            for node in curr_fringe:
-                for adjacent_node in node.get_adjacent():
+            joint_nodes = set()
+            starter = fringe
+            fringe = reduce(lambda a, b: a | b, map(lambda x: x.get_adjacent(), starter))
+ 
+            for node in starter:
+                 for adjacent_node in node.get_adjacent():
+                     parent = node.get_parent()
+                     adj_parent = adjacent_node.get_parent()
+                     if parent in joint_nodes:
+                         joint_nodes.remove(parent)
+                     if adj_parent in joint_nodes:
+                         joint_nodes.remove(adj_parent)
+                     joint_nodes.add(adj_parent.merge(parent))
 
-                    # Add unvisited node to the fringe
-                    if not adjacent_node.visited():
-                        fringe.add(adjacent_node)
-                        if (parent := node.get_parent()) in joint_nodes:
-                            joint_nodes.remove(parent)
-                        joint_nodes.add(adjacent_node.merge(parent))
+            consume(map(lambda x: x.distribute(), fringe))
+            consume(map(lambda x: x.bind(), joint_nodes))
+            consume(map(lambda x: x.bind(), fringe))
 
-                    # Potential merger
-                    elif adjacent_node.get_parent() is not node.get_parent():
-                        if (parent := node.get_parent()) in joint_nodes:
-                            joint_nodes.remove(parent)
-                        joint_nodes.add(adjacent_node.merge(parent))                   
-                                                   
-            # Merge wrappers
-            consume(map(lambda x: x.flatten(), joint_nodes))
-            consume(map(lambda x: x.alloc(), fringe))
-            merged_nodes = set(map(lambda x: x.confirm(), joint_nodes))
-            self.nodes |= merged_nodes
-
+            parents = set(map(lambda x : x.get_parent(), fringe))
+       
         self.root = next(iter(self.nodes)).get_parent()
         return
        
@@ -112,6 +106,9 @@ class TreeNode():
             Abstract interface
         '''
         pass
+    
+    def distributed(self):
+        return False
 
     def merge(self, other):
         '''
@@ -150,6 +147,7 @@ class TreeNode():
 class RouteNode(TreeNode):
     def __init__(self, vertex):
         self.parents = set()
+        self.weight_distributed = False
         super().__init__(vertex)
 
     def _merge(self, other):
@@ -162,12 +160,20 @@ class RouteNode(TreeNode):
         self.parent = self.get_parent()
 
     def distribute(self):
+        if self.distributed():
+            return
+
         joining_nodes = set(i for i in self.get_adjacent() if (i.visited() and (i.get_parent() == self.get_parent())))
         value = 1 / len(joining_nodes)
         for node in joining_nodes:
             node.parent.alloc_slots(SCPatch.ROUTE, value)
         self.parents = joining_nodes
-        
+        self.weight_distributed = True
+        return
+       
+    def distributed(self):
+        return self.weight_distributed
+
     def alloc(self, slot):
         return False
 
