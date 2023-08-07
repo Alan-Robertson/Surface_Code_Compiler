@@ -52,7 +52,7 @@ class TreeSlot():
     def get_weight(self):
         # Faster to manually track this in the ordering
         if self.weight_updated:
-            self.last_weight = max(x.get_weight(self.symbol) for x in self.ordering)
+            self.last_weight = max((x.get_weight(self.symbol) for x in self.ordering), default=0)
             self.weight_updated = False
         return self.last_weight
 
@@ -61,12 +61,11 @@ class TreeSlot():
         while binding == TreeSlots.NO_CHILDREN_ERROR:
             if self.exhausted():
                 return TreeSlots.NO_CHILDREN_ERROR
-       
             allocated = self.ordering.pop()
             binding = allocated.alloc(self.symbol)
-       
+        
         # Round robin, re-insert at the start
-        if not binding.exhausted(self.symbol):
+        if not allocated.exhausted(self.symbol):
             self.ordering.insert(0, allocated)
         self.weight_updated = True
         return binding 

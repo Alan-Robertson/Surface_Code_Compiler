@@ -72,17 +72,17 @@ class SlotTest(unittest.TestCase):
         obj_b = DummyObj('TST', 2, 2)
         s.distribute('TST', obj_a)
         s.distribute('TST', obj_b)
-
         top.distribute('TST', s)
         assert (len(s.slots['TST'].ordering) == 2)
-
         assert top.get_weight('TST') == 3
         assert top.alloc('TST') == obj_a
-        print(top.alloc('TST'))
-        assert top.alloc('TST') == obj_b
         assert(len(s.slots['TST'].ordering) == 1)
-        # Slot exhausted
         assert top.get_weight('TST') == 2
+        assert top.alloc('TST') == obj_b
+        assert top.alloc('TST') == obj_b
+        assert top.alloc('TST') == TreeSlots.NO_CHILDREN_ERROR
+        assert top.get_weight('TST') == 0 
+ 
 
 
 if __name__ == '__main__':
