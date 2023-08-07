@@ -70,7 +70,6 @@ class QCBTree():
         self.root = next(iter(self.nodes)).get_parent()
         return
        
-from test_tikz_helper2 import tikz_partial_tree
     
 class TreeNode():
     def __init__(self, vertex):
@@ -134,11 +133,17 @@ class TreeNode():
             parent = parent.parent
         return parent
 
+    def get_bound_parent(self):
+        parent = self
+        while parent != parent.parent and not isinstance(parent.parent, IntermediateRegWrapper):
+            parent = parent.parent
+        return parent
+
     def alloc(self, *args, **kwargs):
         return
 
-    def alloc_slots(self, *args, **kwargs):
-        return self.parent.alloc_slots(*args, **kwargs)
+    def distribute_slots(self, *args, **kwargs):
+        return self.parent.distribute_slots(*args, **kwargs)
 
     def contains_leaf(self, leaf):
         return self is leaf
@@ -166,7 +171,7 @@ class RouteNode(TreeNode):
         joining_nodes = set(i for i in self.get_adjacent() if (i.visited() and (i.get_parent() == self.get_parent())))
         value = 1 / len(joining_nodes)
         for node in joining_nodes:
-            node.parent.alloc_slots(SCPatch.ROUTE, value)
+            node.get_bound_parent().distribute_slots(SCPatch.ROUTE, value)
         self.parents = joining_nodes
         self.weight_distributed = True
         return
@@ -183,7 +188,7 @@ class RegNode(TreeNode):
         self.weight = 0
         super().__init__(vertex)
 
-    def alloc_slots(self, slot, value):
+    def distribute_slots(self, slot, value):
         if slot in self.slots:
             self.slots[slot] += value
         else:
@@ -234,10 +239,10 @@ class IntermediateRegWrapper(RegNode):
             child.parent = self.parent
         self.children = flattened_children
 
-    def alloc_slots(self, slot, value):
+    def distribute_slots(self, slot, value):
         value /= len(self.children)
         for child in self.children:
-            child.alloc_slots(slot, value)
+            child.distribute_slots(slot, value)
 
     def bind(self):
         self.flatten()
@@ -320,197 +325,4 @@ class IntermediateRegNode(RegNode):
         '''
         return leaf in self.children or any(map(lambda x: x.contains_leaf(leaf), self.children))
 
-
-#from test_tikz_helper2 import tikz_partial_tree
-
-
-# class RegNode():
-#     def __init__(self, segment):
-        
-#         self.segment = segment
-#         self.slots = {SCPatch.REG: segment.width * segment.height}
-#         self.weight = 0
-#         self.children = set()            
-#         self.visited = {segment}
-#         self.fringe = {segment}
-#         self.parent = self
-
-#         self.symbol = SCPatch.REG
-
-#         self.qubits: List[int] = []
-#         self.child_used = dict()
-#         self.child_max = dict()
-
-
-#     def get_symbol(self):
-#         return self.symbol
-
-#     def get_slot(self):
-#         return self.segment.get_slot()
-
-#     def get_patch_type(self):
-#         return self.segment.state
-
-#     def is_extern(self):
-#         return self.get_slot().is_extern()
-
-#     def root(self):
-#         '''
-#             Get root of tree
-#         '''
-#         curr = self
-#         while curr.parent != curr:
-#             curr = curr.parent
-#         return curr
-
-#     def distribute(self, value):
-#         '''
-#             Distribute weights between children
-#         '''
-#         self.weight += value
-
-#     def get_mapping_neighbours(self) -> Set[Segment]:
-#         neighbours = set()
-#         for segment in self.fringe:
-#             neighbours.update(segment.get_adjacent())
-#         neighbours.difference_update(self.visited)
-#         return neighbours
-
-#     def get_adjacent(self):
-#         return self.segment.get_adjacent()
-
-#     def alloc(self, symbol: 'Symbol|ExternSymbol'):
-#         slot_type = symbol.predicate
-        
-#         if self.segment is not None:
-#             if len(self.qubits) < self.slots.get(pred, 0):
-#                 self.qubits.append(qubit)
-#                 return self
-#             else:
-#                 raise AllocatorError("Can't map qubit, slots exhausted!")
-            
-#         ordering = sorted(self.children, 
-#                         key=lambda c: 
-#                             (self.child_used[c].get(pred, 0), 
-#                             -c.weight, 
-#                             -self.child_max[c].get(pred, 0)
-#                             )
-#                         )
-#         for c in ordering:
-#             if self.child_used[c].get(pred, 0) < self.child_max[c].get(pred, 0):
-#                 alloc = c.alloc(qubit)
-#                 self.child_used[c][pred] += 1
-#                 self.qubits.append(qubit)
-#                 return alloc
-#         print(self, qubit, 
-#               {c: self.child_used[c].get(pred, 0) for c in self.child_used}, 
-#               {c: self.child_max[c].get(pred, 0) for c in self.child_max}
-#               )
-#         raise AllocatorError("Can't map qubit, slots in children exhausted!")
-
-#     def print(self): 
-#         if self.seg:
-#             print(f'Block {str(self.seg)} {self.weight=} {self.qubits=}')
-#         else:
-#             print(f'Begin {id(self)}')
-#             for c in self.children:
-#                 c.print()
-#             print(f'End {id(self)}')
-
-
-# class IntermediateNode(RegNode):
-#     def __init__(self, children: 'Set[RegNode]'):
-        
-#         self.segment = None
-#         self.symbol = None
-
-#         self.slots = { # Union of all children's slots
-#             slot_type: sum(child.slots.get(slot_type, 0) for child in children)
-#             for slot_type in set.union(set(), *(child.slots.keys() for child in children))
-#         }
-#         self.weight = max(child.weight for child in children)
-#         self.children = set(children)
-#         self.visited = set.union(*(child.visited for child in children))
-#         self.fringe = set.union(*(child.fringe for child in children))
-#         self.parent = self
-
-#         # Set parents of children
-#         for child in children:
-#             child.parent = self
-        
-#         self.qubits: List[int] = []
-#         self.child_used: \
-#             dict[RegNode, DefaultDict[Union[str, int], int]] \
-#                 = {child: defaultdict(int) for child in self.children}
-#         self.child_max: \
-#             dict[RegNode, DefaultDict[Union[str, int], int]] \
-#                 = {child: child.slots for child in self.children}
-
-#         def add_children(self, children):
-#             for child in children:
-#                 self.add_child(child)
-
-#         def add_child(self, child):
-#             if child not in self.children:
-#                 self.children.add(child)
-#                 self.slots
-
-#         def get_slot(self):
-#             return SCPatch.INTERMEDIARY
-
-#         def alloc(self, symbol: 'Symbol|ExternSymbol'):
-#             slot_type = symbol.predicate
-            
-#             if self.segment is not None:
-#                 if len(self.qubits) < self.slots.get(pred, 0):
-#                     self.qubits.append(qubit)
-#                     return self
-#                 else:
-#                     raise AllocatorError("Can't map qubit, slots exhausted!")
-                
-#             ordering = sorted(self.children, 
-#                             key=lambda c: 
-#                                 (self.child_used[c].get(pred, 0), 
-#                                 -c.weight, 
-#                                 -self.child_max[c].get(pred, 0)
-#                                 )
-#                             )
-#             for c in ordering:
-#                 if self.child_used[c].get(pred, 0) < self.child_max[c].get(pred, 0):
-#                     alloc = c.alloc(qubit)
-#                     self.child_used[c][pred] += 1
-#                     self.qubits.append(qubit)
-#                     return alloc
-#             print(self, qubit, 
-#                   {c: self.child_used[c].get(pred, 0) for c in self.child_used}, 
-#                   {c: self.child_max[c].get(pred, 0) for c in self.child_max}
-#                   )
-#             raise AllocatorError("Can't map qubit, slots in children exhausted!")
-
-#         def distribute(self, value):
-#             '''
-#                 Distribute weights between children
-#             '''    
-#             for child in self.children:
-#                 child.distribute(value / len(self.children))
-#             self.weight += value / len(self.children)
-
-# class ExternRegNode(RegNode):
-
-#     def __init__(self, vertex):
-   
-#         self.segment = segment
-#         self.symbol = symbol
-
-#         self.slots = {symbol: 1}
-        
-#         self.children = set()
-#         self.visited = {segment}
-#         self.fringe = {segment}
-#         self.parent = self
-
-#         self.weight = 0
-
-#         self.qubits: List[int] = []
-#         self.child_used = dict()
-#         self.child_max = dict()
+from test_tikz_helper2 import tikz_partial_tree
