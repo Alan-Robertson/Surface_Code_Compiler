@@ -1,6 +1,5 @@
 import qcb
 
-
     
 def make_segments(segments_raw):
     segments = []

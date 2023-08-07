@@ -1,4 +1,6 @@
 from qcb import SCPatch
+from tree_slots import TreeSlot, SegmentSlot
+
 from collections import deque as consume
 from itertools import chain
 from functools import reduce
@@ -142,8 +144,8 @@ class TreeNode():
     def alloc(self, *args, **kwargs):
         return
 
-    def distribute_slots(self, *args, **kwargs):
-        return self.parent.distribute_slots(*args, **kwargs)
+    def distribute_weight(self, *args, **kwargs):
+        return self.parent.distribute_weight(*args, **kwargs)
 
     def contains_leaf(self, leaf):
         return self is leaf
@@ -171,7 +173,7 @@ class RouteNode(TreeNode):
         joining_nodes = set(i for i in self.get_adjacent() if (i.visited() and (i.get_parent() == self.get_parent())))
         value = 1 / len(joining_nodes)
         for node in joining_nodes:
-            node.get_bound_parent().distribute_slots(SCPatch.ROUTE, value)
+            node.get_bound_parent().distribute_weight(value)
         self.parents = joining_nodes
         self.weight_distributed = True
         return
@@ -188,14 +190,11 @@ class RegNode(TreeNode):
         self.weight = 0
         super().__init__(vertex)
 
-    def distribute_slots(self, slot, value):
-        if slot in self.slots:
-            self.slots[slot] += value
-        else:
-            self.slots[slot] = value
+    def distribute_weight(self, value):
+        self.weight += value
 
-    def get_route_weight(self):
-        return self.slots.get(SCPatch.ROUTE, 0)
+    def get_weight(self):
+        return self.weight
 
     def alloc(self):
         pass
@@ -239,10 +238,10 @@ class IntermediateRegWrapper(RegNode):
             child.parent = self.parent
         self.children = flattened_children
 
-    def distribute_slots(self, slot, value):
+    def distribute_weight(self, slot, value):
         value /= len(self.children)
         for child in self.children:
-            child.distribute_slots(slot, value)
+            child.distribute_weight(slot, value)
 
     def bind(self):
         self.flatten()

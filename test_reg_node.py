@@ -157,8 +157,8 @@ class SymbolTest(unittest.TestCase):
          consume(map(lambda x : x.bind(), joint_nodes))
          consume(map(lambda x : x.bind(), fringe))
 
-         assert a.get_route_weight() > 0
-         assert b.get_route_weight() > 0
+         assert a.get_weight() > 0
+         assert b.get_weight() > 0
 
          fringe = {RouteNode('Route')}
 
@@ -201,8 +201,8 @@ class SymbolTest(unittest.TestCase):
         parents = set(map(lambda x : x.get_parent(), fringe))
 
         assert(len(parents) == 1)
-        assert a.get_route_weight() > 0
-        assert b.get_route_weight() > 0
+        assert a.get_weight() > 0
+        assert b.get_weight() > 0
 
     def test_two_step(self):
         '''
@@ -240,8 +240,8 @@ class SymbolTest(unittest.TestCase):
         parents = set(map(lambda x : x.get_parent(), fringe))
 
         assert(len(parents) == 2)
-        assert a.get_route_weight() > 0
-        assert b.get_route_weight() > 0
+        assert a.get_weight() > 0
+        assert b.get_weight() > 0
 
         starter = fringe 
         fringe = reduce(lambda a, b: a | b, map(lambda x: x.get_adjacent(), starter))
@@ -261,8 +261,8 @@ class SymbolTest(unittest.TestCase):
         consume(map(lambda x: x.bind(), fringe))
 
         parents = set(map(lambda x : x.get_parent(), fringe))
-        assert (a.get_route_weight() > 0.9) and (a.get_route_weight() < 1.1)
-        assert (b.get_route_weight() > 0.4) and (b.get_route_weight() < 1.1)
+        assert (a.get_weight() > 0.9) and (a.get_weight() < 1.1)
+        assert (b.get_weight() > 0.4) and (b.get_weight() < 1.1)
 
     def test_three_step(self):
         '''
@@ -302,8 +302,8 @@ class SymbolTest(unittest.TestCase):
 
 
         assert(len(parents) == 2)
-        assert a.get_route_weight() > 0.9
-        assert b.get_route_weight() > 0.9
+        assert a.get_weight() > 0.9
+        assert b.get_weight() > 0.9
 
         starter = fringe 
         fringe = reduce(lambda a, b: a | b, map(lambda x: x.get_adjacent(), starter))
@@ -323,8 +323,8 @@ class SymbolTest(unittest.TestCase):
         consume(map(lambda x: x.bind(), fringe))
 
         parents = set(map(lambda x : x.get_parent(), fringe))
-        assert (a.get_route_weight() > 1.4) and (a.get_route_weight() < 1.6)
-        assert (b.get_route_weight() > 1.4) and (b.get_route_weight() < 1.6)
+        assert (a.get_weight() > 1.4) and (a.get_weight() < 1.6)
+        assert (b.get_weight() > 1.4) and (b.get_weight() < 1.6)
 
 
     def test_four_step(self):
@@ -409,8 +409,8 @@ class SymbolTest(unittest.TestCase):
 
         parents = set(map(lambda x : x.get_parent(), fringe))
         assert(len(parents) == 1)
-        assert(a.get_route_weight() > 1.9 and a.get_route_weight() < 2.1)
-        assert(b.get_route_weight() > 1.9 and b.get_route_weight() < 2.1)
+        assert(a.get_weight() > 1.9 and a.get_weight() < 2.1)
+        assert(b.get_weight() > 1.9 and b.get_weight() < 2.1)
 
     def test_three_reg_step(self):
         '''
@@ -462,9 +462,9 @@ class SymbolTest(unittest.TestCase):
 
             parents = set(map(lambda x : x.get_parent(), fringe))
 
-        assert(a.get_route_weight() > 1.3) and (a.get_route_weight() < 1.4)        
-        assert(b.get_route_weight() > 1.3) and (b.get_route_weight() < 1.4)        
-        assert(c.get_route_weight() > 1.3) and (c.get_route_weight() < 1.4)        
+        assert(a.get_weight() > 1.3) and (a.get_weight() < 1.4)        
+        assert(b.get_weight() > 1.3) and (b.get_weight() < 1.4)        
+        assert(c.get_weight() > 1.3) and (c.get_weight() < 1.4)        
 
     def test_four_reg_step(self):
         '''
@@ -520,10 +520,10 @@ class SymbolTest(unittest.TestCase):
 
             parents = set(map(lambda x : x.get_parent(), fringe))
 
-        assert(a.get_route_weight() > 1.24) and (a.get_route_weight() < 1.26)        
-        assert(b.get_route_weight() > 1.24) and (b.get_route_weight() < 1.26)        
-        assert(c.get_route_weight() > 1.24) and (c.get_route_weight() < 1.26)        
-        assert(d.get_route_weight() > 1.24) and (d.get_route_weight() < 1.26)        
+        assert(a.get_weight() > 1.24) and (a.get_weight() < 1.26)        
+        assert(b.get_weight() > 1.24) and (b.get_weight() < 1.26)        
+        assert(c.get_weight() > 1.24) and (c.get_weight() < 1.26)        
+        assert(d.get_weight() > 1.24) and (d.get_weight() < 1.26)        
 
     def test_two_step_split(self):
         '''
@@ -560,8 +560,8 @@ class SymbolTest(unittest.TestCase):
         
         parents = set(map(lambda x : x.get_parent(), fringe))
 
-        assert (a.get_route_weight() > 1.4) and (a.get_route_weight() < 1.6)
-        assert (b.get_route_weight() > 0.4) and (b.get_route_weight() < 0.6)
+        assert (a.get_weight() > 1.4) and (a.get_weight() < 1.6)
+        assert (b.get_weight() > 0.4) and (b.get_weight() < 0.6)
 
     def test_two_step_other_split(self):
         '''
@@ -598,8 +598,8 @@ class SymbolTest(unittest.TestCase):
         
         parents = set(map(lambda x : x.get_parent(), fringe))
         
-        assert (a.get_route_weight() > 0.4) and (a.get_route_weight() < 0.6)
-        assert (b.get_route_weight() > 1.4) and (b.get_route_weight() < 1.6)
+        assert (a.get_weight() > 0.4) and (a.get_weight() < 0.6)
+        assert (b.get_weight() > 1.4) and (b.get_weight() < 1.6)
 
     def test_four_reg_step_splits(self):
         '''
@@ -662,10 +662,10 @@ class SymbolTest(unittest.TestCase):
 
             parents = set(map(lambda x : x.get_parent(), fringe))
 
-        assert(a.get_route_weight() > 1.24) and (a.get_route_weight() < 1.26)        
-        assert(b.get_route_weight() > 3.24) and (b.get_route_weight() < 3.26)        
-        assert(c.get_route_weight() > 2.24) and (c.get_route_weight() < 2.26)        
-        assert(d.get_route_weight() > 1.24) and (d.get_route_weight() < 1.26)        
+        assert(a.get_weight() > 1.24) and (a.get_weight() < 1.26)        
+        assert(b.get_weight() > 3.24) and (b.get_weight() < 3.26)        
+        assert(c.get_weight() > 2.24) and (c.get_weight() < 2.26)        
+        assert(d.get_weight() > 1.24) and (d.get_weight() < 1.26)        
 
 
 from mapping_tree import RouteNode, RegNode, ExternRegNode, IntermediateRegWrapper, IntermediateRegNode

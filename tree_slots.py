@@ -72,3 +72,32 @@ class TreeSlot():
 
     def exhausted(self):
         return len(self.ordering) == 0
+
+class SegmentSlot():
+    def __init__(self, leaf):
+        self.symbol = leaf.get_symbol()
+        self.weight = leaf.slots[SCPatch.ROUTE]
+        self.n_slots = leaf.get_segment().get_slots()
+    
+    def get_weight(self, symbol):
+        return self.weight
+
+    def alloc(self, symbol):
+        if self.symbol != symbol:
+            return TreeSlots.NO_CHILDREN_ERROR
+        if self.slots == 0:
+            return TreeSlots.NO_CHILDREN_ERROR
+        else:
+            self.slots -= 1
+            return self
+
+    def exhausted(self, symbol):
+        return self.slots == 0
+
+    def __repr__(self):
+        return f"[{self.symbol}: {self.weight}, {self.slots}]"
+
+    def n_slots(self):
+        return self.slots
+
+

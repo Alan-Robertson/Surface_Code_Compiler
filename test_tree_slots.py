@@ -1,4 +1,4 @@
-from slots import TreeSlots, TreeSlot
+from tree_slots import TreeSlots, TreeSlot
 import unittest
 
 
