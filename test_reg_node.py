@@ -3,7 +3,7 @@ from utils import consume
 from functools import reduce
 from symbol import Symbol
 
-class Dummy:
+class GraphNodeInterface:
     def __init__(self, string, n_slots=1):
         self.string = string
         self.n_slots = n_slots
@@ -23,8 +23,8 @@ class SymbolTest(unittest.TestCase):
         '''
             reg - reg
         '''
-        a = RegNode(Dummy('a'))
-        b = RegNode(Dummy('b'))
+        a = RegNode(GraphNodeInterface('a'))
+        b = RegNode(GraphNodeInterface('b'))
 
         fringe = {a, b}
 
@@ -47,8 +47,8 @@ class SymbolTest(unittest.TestCase):
         '''
             reg - route
         '''
-        route = RouteNode(Dummy('route'))
-        reg = RegNode(Dummy('reg'))
+        route = RouteNode(GraphNodeInterface('route'))
+        reg = RegNode(GraphNodeInterface('reg'))
 
         bind = route.merge(reg)
         assert (type(bind) is IntermediateRegWrapper)
@@ -66,9 +66,9 @@ class SymbolTest(unittest.TestCase):
             b - c - a
         '''
 
-        a = RegNode(Dummy('a'))
-        b = RegNode(Dummy('b'))
-        c = RegNode(Dummy('c'))
+        a = RegNode(GraphNodeInterface('a'))
+        b = RegNode(GraphNodeInterface('b'))
+        c = RegNode(GraphNodeInterface('c'))
 
         bind_ab = a.merge(b)
         bind = c.merge(a)
@@ -96,11 +96,11 @@ class SymbolTest(unittest.TestCase):
             a - b - route - c - d
         '''
 
-        a = RegNode(Dummy('a'))
-        b = RegNode(Dummy('b'))
-        c = RegNode(Dummy('c'))
-        d = RegNode(Dummy('d'))
-        route = RouteNode(Dummy('route'))
+        a = RegNode(GraphNodeInterface('a'))
+        b = RegNode(GraphNodeInterface('b'))
+        c = RegNode(GraphNodeInterface('c'))
+        d = RegNode(GraphNodeInterface('d'))
+        route = RouteNode(GraphNodeInterface('route'))
 
         route.neighbours = {b, c}
         b.neighbours = {route, a}
@@ -144,9 +144,9 @@ class SymbolTest(unittest.TestCase):
              a - route - b
          '''
 
-         a = RegNode(Dummy('a'))
-         b = RegNode(Dummy('b'))
-         route = RouteNode(Dummy('route'))
+         a = RegNode(GraphNodeInterface('a'))
+         b = RegNode(GraphNodeInterface('b'))
+         route = RouteNode(GraphNodeInterface('route'))
 
          a.neighbours = {route}
          b.neighbours = {route}
@@ -182,11 +182,11 @@ class SymbolTest(unittest.TestCase):
             c - route - a - route  - b
         '''
 
-        a = RegNode(Dummy('a'))
-        b = RegNode(Dummy('b'))
-        c = RegNode(Dummy('c'))
-        route_a = RouteNode(Dummy('route'))
-        route_b = RouteNode(Dummy('route'))
+        a = RegNode(GraphNodeInterface('a'))
+        b = RegNode(GraphNodeInterface('b'))
+        c = RegNode(GraphNodeInterface('c'))
+        route_a = RouteNode(GraphNodeInterface('route'))
+        route_b = RouteNode(GraphNodeInterface('route'))
 
         a.neighbours = {route_a, route_b}
         b.neighbours = {route_a}
@@ -212,7 +212,7 @@ class SymbolTest(unittest.TestCase):
         consume(map(lambda x: x.bind(), joint_nodes))
         consume(map(lambda x: x.bind(), fringe))
 
-        parents = set(map(lambda x : x.get_parent(), fringe))
+        parents = set(map(lambda x : x.parent, fringe))
 
         assert(len(parents) == 1)
         assert a.get_weight() > 0
@@ -222,10 +222,10 @@ class SymbolTest(unittest.TestCase):
         '''
             a - route - route  - b
         '''
-        a = RegNode(Dummy('a'))
-        b = RegNode(Dummy('b'))
-        route_a = RouteNode(Dummy('route_a'))
-        route_b = RouteNode(Dummy('route_b'))
+        a = RegNode(GraphNodeInterface('a'))
+        b = RegNode(GraphNodeInterface('b'))
+        route_a = RouteNode(GraphNodeInterface('route_a'))
+        route_b = RouteNode(GraphNodeInterface('route_b'))
 
         a.neighbours = {route_a}
         b.neighbours = {route_b}
@@ -251,7 +251,7 @@ class SymbolTest(unittest.TestCase):
         consume(map(lambda x: x.bind(), fringe))
         
 
-        parents = set(map(lambda x : x.get_parent(), fringe))
+        parents = set(map(lambda x : x.parent, fringe))
 
         assert(len(parents) == 2)
         assert a.get_weight() > 0
@@ -274,7 +274,7 @@ class SymbolTest(unittest.TestCase):
         consume(map(lambda x: x.bind(), joint_nodes))
         consume(map(lambda x: x.bind(), fringe))
 
-        parents = set(map(lambda x : x.get_parent(), fringe))
+        parents = set(map(lambda x : x.parent, fringe))
         assert (a.get_weight() > 0.9) and (a.get_weight() < 1.1)
         assert (b.get_weight() > 0.4) and (b.get_weight() < 1.1)
 
@@ -282,11 +282,11 @@ class SymbolTest(unittest.TestCase):
         '''
             a - route - route - route  - b
         '''
-        a = RegNode(Dummy('a'))
-        b = RegNode(Dummy('b'))
-        route_a = RouteNode(Dummy('route_a'))
-        route_b = RouteNode(Dummy('route_b'))
-        route_c = RouteNode(Dummy('route_c'))
+        a = RegNode(GraphNodeInterface('a'))
+        b = RegNode(GraphNodeInterface('b'))
+        route_a = RouteNode(GraphNodeInterface('route_a'))
+        route_b = RouteNode(GraphNodeInterface('route_b'))
+        route_c = RouteNode(GraphNodeInterface('route_c'))
 
         a.neighbours = {route_a}
         b.neighbours = {route_b}
@@ -312,7 +312,7 @@ class SymbolTest(unittest.TestCase):
         consume(map(lambda x: x.bind(), joint_nodes))
         consume(map(lambda x: x.bind(), fringe))
 
-        parents = set(map(lambda x : x.get_parent(), fringe))
+        parents = set(map(lambda x : x.parent, fringe))
 
 
         assert(len(parents) == 2)
@@ -336,7 +336,7 @@ class SymbolTest(unittest.TestCase):
         consume(map(lambda x: x.bind(), joint_nodes))
         consume(map(lambda x: x.bind(), fringe))
 
-        parents = set(map(lambda x : x.get_parent(), fringe))
+        parents = set(map(lambda x : x.parent, fringe))
         assert (a.get_weight() > 1.4) and (a.get_weight() < 1.6)
         assert (b.get_weight() > 1.4) and (b.get_weight() < 1.6)
 
@@ -346,12 +346,12 @@ class SymbolTest(unittest.TestCase):
             a - route - route - route - route - b
         '''
 
-        a = RegNode(Dummy('a'))
-        b = RegNode(Dummy('b'))
-        route_a = RouteNode(Dummy('route_a'))
-        route_b = RouteNode(Dummy('route_b'))
-        route_c = RouteNode(Dummy('route_c'))
-        route_d = RouteNode(Dummy('route_d'))
+        a = RegNode(GraphNodeInterface('a'))
+        b = RegNode(GraphNodeInterface('b'))
+        route_a = RouteNode(GraphNodeInterface('route_a'))
+        route_b = RouteNode(GraphNodeInterface('route_b'))
+        route_c = RouteNode(GraphNodeInterface('route_c'))
+        route_d = RouteNode(GraphNodeInterface('route_d'))
 
         a.neighbours = {route_a}
         b.neighbours = {route_d}
@@ -378,7 +378,7 @@ class SymbolTest(unittest.TestCase):
         consume(map(lambda x: x.bind(), joint_nodes))
         consume(map(lambda x: x.bind(), fringe))
 
-        parents = set(map(lambda x : x.get_parent(), fringe))
+        parents = set(map(lambda x : x.parent, fringe))
         
 
         starter = fringe 
@@ -400,7 +400,7 @@ class SymbolTest(unittest.TestCase):
         consume(map(lambda x: x.bind(), joint_nodes))
         consume(map(lambda x: x.bind(), fringe))
 
-        parents = set(map(lambda x : x.get_parent(), fringe))
+        parents = set(map(lambda x : x.parent, fringe))
         
         starter = fringe 
         joint_nodes = set()
@@ -421,7 +421,7 @@ class SymbolTest(unittest.TestCase):
         consume(map(lambda x: x.bind(), joint_nodes))
         consume(map(lambda x: x.bind(), fringe))
 
-        parents = set(map(lambda x : x.get_parent(), fringe))
+        parents = set(map(lambda x : x.parent, fringe))
         assert(len(parents) == 1)
         assert(a.get_weight() > 1.9 and a.get_weight() < 2.1)
         assert(b.get_weight() > 1.9 and b.get_weight() < 2.1)
@@ -433,13 +433,13 @@ class SymbolTest(unittest.TestCase):
                           c
         '''
 
-        a = RegNode(Dummy('a'))
-        b = RegNode(Dummy('b'))
-        c = RegNode(Dummy('c'))
-        route_a = RouteNode(Dummy('route_a'))
-        route_b = RouteNode(Dummy('route_b'))
-        route_c = RouteNode(Dummy('route_c'))
-        route_d = RouteNode(Dummy('route_d'))
+        a = RegNode(GraphNodeInterface('a'))
+        b = RegNode(GraphNodeInterface('b'))
+        c = RegNode(GraphNodeInterface('c'))
+        route_a = RouteNode(GraphNodeInterface('route_a'))
+        route_b = RouteNode(GraphNodeInterface('route_b'))
+        route_c = RouteNode(GraphNodeInterface('route_c'))
+        route_d = RouteNode(GraphNodeInterface('route_d'))
 
         a.neighbours = {route_a}
         b.neighbours = {route_b}
@@ -474,7 +474,7 @@ class SymbolTest(unittest.TestCase):
             consume(map(lambda x: x.bind(), fringe))
             
 
-            parents = set(map(lambda x : x.get_parent(), fringe))
+            parents = set(map(lambda x : x.parent, fringe))
 
         assert(a.get_weight() > 1.3) and (a.get_weight() < 1.4)        
         assert(b.get_weight() > 1.3) and (b.get_weight() < 1.4)        
@@ -489,15 +489,15 @@ class SymbolTest(unittest.TestCase):
                           c
         '''
 
-        a = RegNode(Dummy('a'))
-        b = RegNode(Dummy('b'))
-        c = RegNode(Dummy('c'))
-        d = RegNode(Dummy('d'))
-        route_a = RouteNode(Dummy('route_a'))
-        route_b = RouteNode(Dummy('route_b'))
-        route_c = RouteNode(Dummy('route_c'))
-        route_d = RouteNode(Dummy('route_d'))
-        route_e = RouteNode(Dummy('route_e'))
+        a = RegNode(GraphNodeInterface('a'))
+        b = RegNode(GraphNodeInterface('b'))
+        c = RegNode(GraphNodeInterface('c'))
+        d = RegNode(GraphNodeInterface('d'))
+        route_a = RouteNode(GraphNodeInterface('route_a'))
+        route_b = RouteNode(GraphNodeInterface('route_b'))
+        route_c = RouteNode(GraphNodeInterface('route_c'))
+        route_d = RouteNode(GraphNodeInterface('route_d'))
+        route_e = RouteNode(GraphNodeInterface('route_e'))
 
         a.neighbours = {route_a}
         b.neighbours = {route_b}
@@ -532,7 +532,7 @@ class SymbolTest(unittest.TestCase):
             consume(map(lambda x: x.bind(), joint_nodes))
             consume(map(lambda x: x.bind(), fringe))
 
-            parents = set(map(lambda x : x.get_parent(), fringe))
+            parents = set(map(lambda x : x.parent, fringe))
 
         assert(a.get_weight() > 1.24) and (a.get_weight() < 1.26)        
         assert(b.get_weight() > 1.24) and (b.get_weight() < 1.26)        
@@ -544,10 +544,10 @@ class SymbolTest(unittest.TestCase):
             route - a - route  - b
         '''
 
-        a = RegNode(Dummy('a'))
-        b = RegNode(Dummy('b'))
-        route_a = RouteNode(Dummy('route_a'))
-        route_b = RouteNode(Dummy('route_b'))
+        a = RegNode(GraphNodeInterface('a'))
+        b = RegNode(GraphNodeInterface('b'))
+        route_a = RouteNode(GraphNodeInterface('route_a'))
+        route_b = RouteNode(GraphNodeInterface('route_b'))
 
         a.neighbours = {route_a, route_b}
         b.neighbours = {route_b}
@@ -572,7 +572,7 @@ class SymbolTest(unittest.TestCase):
         consume(map(lambda x: x.bind(), joint_nodes))
         consume(map(lambda x: x.bind(), fringe))
         
-        parents = set(map(lambda x : x.get_parent(), fringe))
+        parents = set(map(lambda x : x.parent, fringe))
 
         assert (a.get_weight() > 1.4) and (a.get_weight() < 1.6)
         assert (b.get_weight() > 0.4) and (b.get_weight() < 0.6)
@@ -581,10 +581,10 @@ class SymbolTest(unittest.TestCase):
         '''
             a - route  - b - route
         '''
-        a = RegNode(Dummy('a'))
-        b = RegNode(Dummy('b'))
-        route_a = RouteNode(Dummy('route_a'))
-        route_b = RouteNode(Dummy('route_b'))
+        a = RegNode(GraphNodeInterface('a'))
+        b = RegNode(GraphNodeInterface('b'))
+        route_a = RouteNode(GraphNodeInterface('route_a'))
+        route_b = RouteNode(GraphNodeInterface('route_b'))
 
         a.neighbours = {route_a}
         b.neighbours = {route_a, route_b}
@@ -610,7 +610,7 @@ class SymbolTest(unittest.TestCase):
         consume(map(lambda x: x.bind(), fringe))
         
         
-        parents = set(map(lambda x : x.get_parent(), fringe))
+        parents = set(map(lambda x : x.parent, fringe))
         
         assert (a.get_weight() > 0.4) and (a.get_weight() < 0.6)
         assert (b.get_weight() > 1.4) and (b.get_weight() < 1.6)
@@ -625,18 +625,18 @@ class SymbolTest(unittest.TestCase):
                         route
         '''
 
-        a = RegNode(Dummy('a'))
-        b = RegNode(Dummy('b'))
-        c = RegNode(Dummy('c'))
-        d = RegNode(Dummy('d'))
-        route_a = RouteNode(Dummy('route_a'))
-        route_b = RouteNode(Dummy('route_b'))
-        route_b_one = RouteNode(Dummy('route_b_1'))
-        route_b_two = RouteNode(Dummy('route_b_2'))
-        route_c = RouteNode(Dummy('route_c'))
-        route_c_one = RouteNode(Dummy('route_c'))
-        route_d = RouteNode(Dummy('route_d'))
-        route_e = RouteNode(Dummy('route_e'))
+        a = RegNode(GraphNodeInterface('a'))
+        b = RegNode(GraphNodeInterface('b'))
+        c = RegNode(GraphNodeInterface('c'))
+        d = RegNode(GraphNodeInterface('d'))
+        route_a = RouteNode(GraphNodeInterface('route_a'))
+        route_b = RouteNode(GraphNodeInterface('route_b'))
+        route_b_one = RouteNode(GraphNodeInterface('route_b_1'))
+        route_b_two = RouteNode(GraphNodeInterface('route_b_2'))
+        route_c = RouteNode(GraphNodeInterface('route_c'))
+        route_c_one = RouteNode(GraphNodeInterface('route_c'))
+        route_d = RouteNode(GraphNodeInterface('route_d'))
+        route_e = RouteNode(GraphNodeInterface('route_e'))
 
         a.neighbours = {route_a}
         b.neighbours = {route_b, route_b_one}
@@ -674,7 +674,7 @@ class SymbolTest(unittest.TestCase):
             consume(map(lambda x: x.bind(), joint_nodes))
             consume(map(lambda x: x.bind(), fringe))
 
-            parents = set(map(lambda x : x.get_parent(), fringe))
+            parents = set(map(lambda x : x.parent, fringe))
 
         assert(a.get_weight() > 1.24) and (a.get_weight() < 1.26)        
         assert(b.get_weight() > 3.24) and (b.get_weight() < 3.26)        

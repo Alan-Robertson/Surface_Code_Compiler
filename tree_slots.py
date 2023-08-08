@@ -16,6 +16,9 @@ class TreeSlots():
         for symbol in slots:
             self.distribute(symbol, slots)
 
+    def bind_slot(self, slot):
+        self.distribute(slot.get_symbol(), slot)
+
     def distribute(self, symbol, child):
         if symbol not in self.slots:
             self.slots[symbol] = TreeSlot(symbol)
@@ -103,14 +106,14 @@ class SegmentSlot():
         self.n_slots -= 1
         return self
 
-    def get_symbol():
+    def get_symbol(self):
         return self.symbol
 
     def exhausted(self, symbol):
         return self.n_slots == 0
 
     def __repr__(self):
-        return f"[{self.symbol}: {self.weight}, {self.slots}]"
+        return f"[{self.symbol}: {self.n_slots}]"
 
     def n_slots(self):
         return self.slots

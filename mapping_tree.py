@@ -1,5 +1,5 @@
 from qcb import SCPatch
-from tree_slots import TreeSlot, SegmentSlot
+from tree_slots import TreeSlots, SegmentSlot
 
 from collections import deque as consume
 from itertools import chain
@@ -68,7 +68,7 @@ class QCBTree():
             consume(map(lambda x: x.bind(), joint_nodes))
             consume(map(lambda x: x.bind(), fringe))
 
-            parents = set(map(lambda x : x.get_parent(), fringe))
+            parents = set(map(lambda x : x.parent, fringe))
        
         self.root = next(iter(self.nodes)).get_parent()
         return
@@ -78,6 +78,7 @@ class QCBTree():
         parents = {leaf.distribute() for leave in self.leaves}
         while len(parents) > 1:
             parents = {node.distribute() for node in parents}
+
 
 
 class TreeNode():
@@ -153,13 +154,10 @@ class TreeNode():
 
     def distribute(self, *args, **kwargs):
         pass
-
-#    def distribute(self):
-#        self.parent.child_distribute(self.slots)
-#        return self.parent
-#
+    
     def contains_leaf(self, leaf):
         return self is leaf
+        
 
 class RouteNode(TreeNode):
     def __init__(self, vertex):
@@ -189,6 +187,9 @@ class RouteNode(TreeNode):
         return
        
     def distributed(self):
+        '''
+            Each route node can only be distributed once
+        '''
         return self.weight_distributed
 
     def alloc(self, slot):
@@ -202,6 +203,12 @@ class RegNode(TreeNode):
 
     def distribute_weight(self, value):
         self.weight += value
+
+    def distribute_slots(self):
+        self.parent.bind_slot(self.slots)
+
+    def merge_slots(self, slots):
+        self.slots.distribute_slots(slots)
 
     def get_weight(self):
         return self.weight
@@ -308,7 +315,7 @@ class IntermediateRegWrapper(RegNode):
 class IntermediateRegNode(RegNode):
     def __init__(self, *children):
         self.children = set(children)
-        self.slots = dict()
+        self.slots = TreeSlots(self)
         self.parent = self
 
     def get_segment(self):
@@ -321,6 +328,10 @@ class IntermediateRegNode(RegNode):
         for child in self.children:
             child.parent = self
         return {self}
+
+    def bind_slot(self, slot):
+        self.slots.bind_slot(slot)
+
 
     def __repr__(self):
         return "[[INTERMEDIATE]]"
