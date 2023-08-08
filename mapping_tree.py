@@ -193,7 +193,7 @@ class RouteNode(TreeNode):
         return self.weight_distributed
 
     def alloc(self, slot):
-        return False
+        return self.slots.alloc(slot)
 
 class RegNode(TreeNode):
     def __init__(self, vertex):
@@ -213,8 +213,8 @@ class RegNode(TreeNode):
     def get_weight(self):
         return self.weight
 
-    def alloc(self):
-        pass
+    def alloc(self, slot):
+        return self.slots.alloc(slot)
 
     def resolve_wrapper(self):
         return self

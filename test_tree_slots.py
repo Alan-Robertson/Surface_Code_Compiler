@@ -57,7 +57,7 @@ class GraphNodeInterface:
         return self.n_slots
 
     def __repr__(self):
-        return str(self.string)
+        return self.symbol.__repr__()
 
 class SlotTest(unittest.TestCase):
 
@@ -119,12 +119,11 @@ class SlotTest(unittest.TestCase):
         top.distribute_slots(s)
 
         # And allocated from the root
-        assert top.alloc(SCPatch.REG) == slot_a
-        assert top.alloc(SCPatch.REG) == slot_b
-        assert top.alloc(SCPatch.REG) == slot_a
-        assert top.alloc(SCPatch.REG) == slot_b
+        assert top.alloc(SCPatch.REG) == obj_a
+        assert top.alloc(SCPatch.REG) == obj_b
+        assert top.alloc(SCPatch.REG) == obj_a
+        assert top.alloc(SCPatch.REG) == obj_b
         assert top.alloc(SCPatch.REG) == TreeSlots.NO_CHILDREN_ERROR 
-
 
     def test_segment_slot(self):
         segment_a = GraphNodeInterface(SCPatch.REG)
@@ -163,18 +162,18 @@ class SlotTest(unittest.TestCase):
         '''
             Build all the way from the graph
         '''
-        a = RegNode(GraphNodeInterface('a'))
-        b = RegNode(GraphNodeInterface('b'))
-        c = RegNode(GraphNodeInterface('c'))
-        d = RegNode(GraphNodeInterface('d'))
-        route_a = RouteNode(GraphNodeInterface('route_a'))
-        route_b = RouteNode(GraphNodeInterface('route_b'))
-        route_b_one = RouteNode(GraphNodeInterface('route_b_1'))
-        route_b_two = RouteNode(GraphNodeInterface('route_b_2'))
-        route_c = RouteNode(GraphNodeInterface('route_c'))
-        route_c_one = RouteNode(GraphNodeInterface('route_c'))
-        route_d = RouteNode(GraphNodeInterface('route_d'))
-        route_e = RouteNode(GraphNodeInterface('route_e'))
+        a = RegNode(GraphNodeInterface(SCPatch.REG))
+        b = RegNode(GraphNodeInterface(SCPatch.REG))
+        c = RegNode(GraphNodeInterface(SCPatch.REG))
+        d = RegNode(GraphNodeInterface(SCPatch.REG))
+        route_a = RouteNode(GraphNodeInterface(SCPatch.ROUTE))
+        route_b = RouteNode(GraphNodeInterface(SCPatch.ROUTE))
+        route_b_one = RouteNode(GraphNodeInterface(SCPatch.ROUTE))
+        route_b_two = RouteNode(GraphNodeInterface(SCPatch.ROUTE))
+        route_c = RouteNode(GraphNodeInterface(SCPatch.ROUTE))
+        route_c_one = RouteNode(GraphNodeInterface(SCPatch.ROUTE))
+        route_d = RouteNode(GraphNodeInterface(SCPatch.ROUTE))
+        route_e = RouteNode(GraphNodeInterface(SCPatch.ROUTE))
 
         a.neighbours = {route_a}
         b.neighbours = {route_b, route_b_one}
@@ -189,7 +188,6 @@ class SlotTest(unittest.TestCase):
         route_d.neighbours = {d, route_e}
         route_e.neighbours = {route_a, route_b, route_c, route_d}
 
-        leaves = {a, b, c, d}
         fringe = {a, b, c, d}
         parents = fringe
 
@@ -220,6 +218,11 @@ class SlotTest(unittest.TestCase):
             consume(map(lambda x: x.distribute_slots(), layer))
             layer = set(map(lambda x: x.get_parent(), layer))
 
+        root = next(iter(layer))
+        leaves = {a, b, c, d}
+        for i in range(4):
+            assert(root.alloc(SCPatch.REG) in leaves)
+        assert(root.alloc(SCPatch.REG) is TreeSlots.NO_CHILDREN_ERROR)
 
 if __name__ == '__main__':
     unittest.main()

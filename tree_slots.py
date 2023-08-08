@@ -93,10 +93,13 @@ class SegmentSlot():
     def __init__(self, leaf):
         self.symbol = leaf.get_symbol()
         self.n_slots = leaf.get_segment().get_n_slots()
-        self.leaf = leaf
+        self.tree_node = leaf
     
     def get_weight(self, symbol):
-        return self.leaf.get_weight()
+        return self.tree_node.get_weight()
+
+    def get_tree_node(self):
+        return self.tree_node
 
     def alloc(self, symbol):
         if self.symbol != symbol:
@@ -104,7 +107,7 @@ class SegmentSlot():
         if self.n_slots == 0:
             return TreeSlots.NO_CHILDREN_ERROR
         self.n_slots -= 1
-        return self
+        return self.tree_node
 
     def get_symbol(self):
         return self.symbol
