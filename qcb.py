@@ -73,10 +73,13 @@ class SCPatch():
     def get_symbol(self):
         if self.state == self.EXTERN:
             return self.slot.get_symbol()
-        return self.state
+        return self.state.get_symbol()
 
     def get_slot(self):
         return self.slot
+
+    def get_patch(self):
+        return self
 
     def is_extern(self):
         return self.state == SCPatch.EXTERN
@@ -160,6 +163,16 @@ class Segment():
 
     def get_slot(self):
         return self.state.get_slot()
+
+    def get_n_slots(self):
+        # How many distinct elements are in this patch
+        if self.get_slot() is SCPatch.EXTERN:
+            return 1
+        if self.get_slot() in {SCPatch.REG, SCPatch.IO}:
+            return self.width * self.height
+        return 0
+        return self.state.get_n_slots()
+
 
     def is_extern(self):
         return self.get_symbol().is_extern()

@@ -84,6 +84,27 @@ class SlotTest(unittest.TestCase):
         assert top.get_weight('TST') == 0 
  
 
+    def test_nested_distribute(self):
+        s = TreeSlots(None)
+        top = TreeSlots(None)
+        obj_a = DummyObj('TST', 3, 1)
+        obj_b = DummyObj('TST', 2, 2)
+        obj_c = DummyObj('QWOP', 1, 1)
+        s.distribute('TST', obj_a)
+        s.distribute('TST', obj_b)
+        s.distribute('QWOP', obj_c)
+        top.distribute_slots(s)
+        assert (len(s.slots['TST'].ordering) == 2)
+        assert top.get_weight('TST') == 3
+        assert top.alloc('TST') == obj_a
+        assert(len(s.slots['TST'].ordering) == 1)
+        assert top.get_weight('TST') == 2
+        assert top.alloc('TST') == obj_b
+        assert top.alloc('TST') == obj_b
+        assert top.alloc('TST') == TreeSlots.NO_CHILDREN_ERROR
+        assert top.get_weight('TST') == 0 
+        assert top.alloc('QWOP') == obj_c
+        
 
 if __name__ == '__main__':
     unittest.main()

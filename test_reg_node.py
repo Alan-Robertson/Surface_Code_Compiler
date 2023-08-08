@@ -1,14 +1,30 @@
 import unittest
 from utils import consume
 from functools import reduce
+from symbol import Symbol
+
+class Dummy:
+    def __init__(self, string, n_slots=1):
+        self.string = string
+        self.n_slots = n_slots
+
+    def get_symbol(self):
+        return self
+    def get_segment(self):
+        return self
+    def get_n_slots(self):
+        return self.n_slots
+    def __repr__(self):
+        return str(self.string)
+
 
 class SymbolTest(unittest.TestCase):
     def test_reg_reg(self):
         '''
             reg - reg
         '''
-        a = RegNode(None)
-        b = RegNode(None)
+        a = RegNode(Dummy('a'))
+        b = RegNode(Dummy('b'))
 
         fringe = {a, b}
 
@@ -31,8 +47,8 @@ class SymbolTest(unittest.TestCase):
         '''
             reg - route
         '''
-        route = RouteNode(None)
-        reg = RegNode(None)
+        route = RouteNode(Symbol('route'))
+        reg = RegNode(Symbol('reg'))
 
         bind = route.merge(reg)
         assert (type(bind) is IntermediateRegWrapper)
@@ -80,7 +96,7 @@ class SymbolTest(unittest.TestCase):
             a - b - route - c - d
         '''
 
-        a = RegNode('a')
+        a = RegNode(Dummy('a'))
         b = RegNode('b')
         c = RegNode('c')
         d = RegNode('d')
@@ -128,7 +144,7 @@ class SymbolTest(unittest.TestCase):
              a - route - b
          '''
 
-         a = RegNode('a')
+         a = RegNode(Dummy('a'))
          b = RegNode('b')
          route = RouteNode('route')
 
@@ -168,7 +184,7 @@ class SymbolTest(unittest.TestCase):
             c - route - a - route  - b
         '''
 
-        a = RegNode('a')
+        a = RegNode(Dummy('a'))
         b = RegNode('b')
         c = RegNode('c')
         route_a = RouteNode('route')
@@ -208,7 +224,7 @@ class SymbolTest(unittest.TestCase):
         '''
             a - route - route  - b
         '''
-        a = RegNode('a')
+        a = RegNode(Dummy('a'))
         b = RegNode('b')
         route_a = RouteNode('route_a')
         route_b = RouteNode('route_b')
@@ -268,7 +284,7 @@ class SymbolTest(unittest.TestCase):
         '''
             a - route - route - route  - b
         '''
-        a = RegNode('a')
+        a = RegNode(Dummy('a'))
         b = RegNode('b')
         route_a = RouteNode('route_a')
         route_b = RouteNode('route_b')
@@ -332,7 +348,7 @@ class SymbolTest(unittest.TestCase):
             a - route - route - route - route - b
         '''
 
-        a = RegNode('a')
+        a = RegNode(Dummy('a'))
         b = RegNode('b')
         route_a = RouteNode('route_a')
         route_b = RouteNode('route_b')
@@ -419,7 +435,7 @@ class SymbolTest(unittest.TestCase):
                           c
         '''
 
-        a = RegNode('a')
+        a = RegNode(Dummy('a'))
         b = RegNode('b')
         c = RegNode('c')
         route_a = RouteNode('route_a')
@@ -475,7 +491,7 @@ class SymbolTest(unittest.TestCase):
                           c
         '''
 
-        a = RegNode('a')
+        a = RegNode(Dummy('a'))
         b = RegNode('b')
         c = RegNode('c')
         d = RegNode('d')
@@ -530,7 +546,7 @@ class SymbolTest(unittest.TestCase):
             route - a - route  - b
         '''
 
-        a = RegNode('a')
+        a = RegNode(Dummy('a'))
         b = RegNode('b')
         route_a = RouteNode('route_a')
         route_b = RouteNode('route_b')
@@ -567,7 +583,7 @@ class SymbolTest(unittest.TestCase):
         '''
             a - route  - b - route
         '''
-        a = RegNode('a')
+        a = RegNode(Dummy('a'))
         b = RegNode('b')
         route_a = RouteNode('route_a')
         route_b = RouteNode('route_b')
@@ -611,7 +627,7 @@ class SymbolTest(unittest.TestCase):
                         route
         '''
 
-        a = RegNode('a')
+        a = RegNode(Dummy('a'))
         b = RegNode('b')
         c = RegNode('c')
         d = RegNode('d')

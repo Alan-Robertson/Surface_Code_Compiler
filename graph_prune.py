@@ -14,10 +14,13 @@ class GraphNode:
         return self.neighbours
 
     def get_symbol(self):
-        return self.segment.get_adjacent()
+        return self.segment.get_symbol()
 
     def get_slot(self):
         return self.segment.get_slot()
+
+    def get_patch(self):
+        return
 
     def is_extern(self):
         return self.segment.is_extern()

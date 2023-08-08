@@ -219,8 +219,3 @@ class QCBMapper:
             else:
                 new_forest.add(IntermediateNode(group))
         self.mapping_forest = new_forest
-
-
-
-            
-

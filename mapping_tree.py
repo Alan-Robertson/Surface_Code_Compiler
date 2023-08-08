@@ -32,6 +32,7 @@ class QCBTree():
         # Reconstruct adjacency
         for tree_node in self.nodes:
             tree_node.neighbours = set(map(self.graph_to_tree.__getitem__, tree_node.vertex.get_adjacent()))
+        self.construct_spanning_tree()
 
     def selector(self, vertex):
         if vertex.is_extern():
@@ -71,8 +72,14 @@ class QCBTree():
        
         self.root = next(iter(self.nodes)).get_parent()
         return
-       
-    
+
+
+    def distribute_slots(self):
+        parents = {leaf.distribute() for leave in self.leaves}
+        while len(parents) > 1:
+            parents = {node.distribute() for node in parents}
+
+
 class TreeNode():
     def __init__(self, vertex):
         self.vertex = vertex
@@ -144,12 +151,15 @@ class TreeNode():
     def alloc(self, *args, **kwargs):
         return
 
-    def distribute_weight(self, *args, **kwargs):
+    def distribute(self, *args, **kwargs):
         return self.parent.distribute_weight(*args, **kwargs)
 
+#    def distribute(self):
+#        self.parent.child_distribute(self.slots)
+#        return self.parent
+#
     def contains_leaf(self, leaf):
         return self is leaf
-
 
 class RouteNode(TreeNode):
     def __init__(self, vertex):
@@ -186,9 +196,9 @@ class RouteNode(TreeNode):
 
 class RegNode(TreeNode):
     def __init__(self, vertex):
-        self.slots = dict()
-        self.weight = 0
         super().__init__(vertex)
+        self.weight = 0
+        self.slots = SegmentSlot(self)
 
     def distribute_weight(self, value):
         self.weight += value
@@ -238,10 +248,10 @@ class IntermediateRegWrapper(RegNode):
             child.parent = self.parent
         self.children = flattened_children
 
-    def distribute_weight(self, slot, value):
+    def distribute_weight(self, value):
         value /= len(self.children)
         for child in self.children:
-            child.distribute_weight(slot, value)
+            child.distribute_weight(value)
 
     def bind(self):
         self.flatten()
@@ -317,6 +327,15 @@ class IntermediateRegNode(RegNode):
 
     def __contains__(self, other):
         return other in self.children
+
+    def distribute_weight(self, value):
+        if self in self.children:
+            # TODO DEBUG THIS
+            print(self, self.children)
+            return
+        value /= len(self.children)
+        for child in self.children:
+            child.distribute_weight(value)
 
     def contains_leaf(self, leaf):
         '''

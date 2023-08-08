@@ -12,6 +12,10 @@ class TreeSlots():
         self.tree_node = tree_node
         self.slots = {}
 
+    def distribute_slots(self, slots):
+        for symbol in slots:
+            self.distribute(symbol, slots)
+
     def distribute(self, symbol, child):
         if symbol not in self.slots:
             self.slots[symbol] = TreeSlot(symbol)
@@ -27,6 +31,12 @@ class TreeSlots():
 
     def exhausted(self, symbol):
         return self.slots[symbol].exhausted()
+
+    def __getitem__(self, item):
+        return self.slots[item]
+
+    def __iter__(self):
+        return iter(self.slots)
 
 class TreeSlot():
     '''
@@ -74,30 +84,34 @@ class TreeSlot():
         return len(self.ordering) == 0
 
 class SegmentSlot():
+    '''
+        This slot binds to either a REG, IO or EXTERN
+    '''
     def __init__(self, leaf):
         self.symbol = leaf.get_symbol()
-        self.weight = leaf.slots[SCPatch.ROUTE]
-        self.n_slots = leaf.get_segment().get_slots()
+        self.n_slots = leaf.get_segment().get_n_slots()
+        self.leaf = leaf
     
     def get_weight(self, symbol):
-        return self.weight
+        return self.leaf.get_weight()
 
     def alloc(self, symbol):
         if self.symbol != symbol:
             return TreeSlots.NO_CHILDREN_ERROR
-        if self.slots == 0:
+        if self.n_slots == 0:
             return TreeSlots.NO_CHILDREN_ERROR
-        else:
-            self.slots -= 1
-            return self
+        self.n_slots -= 1
+        return self
+
+    def get_symbol():
+        return self.symbol
 
     def exhausted(self, symbol):
-        return self.slots == 0
+        return self.n_slots == 0
 
     def __repr__(self):
         return f"[{self.symbol}: {self.weight}, {self.slots}]"
 
     def n_slots(self):
         return self.slots
-
 
