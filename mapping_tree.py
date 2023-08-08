@@ -152,7 +152,7 @@ class TreeNode():
         return
 
     def distribute(self, *args, **kwargs):
-        return self.parent.distribute_weight(*args, **kwargs)
+        pass
 
 #    def distribute(self):
 #        self.parent.child_distribute(self.slots)

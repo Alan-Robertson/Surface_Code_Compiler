@@ -47,8 +47,8 @@ class SymbolTest(unittest.TestCase):
         '''
             reg - route
         '''
-        route = RouteNode(Symbol('route'))
-        reg = RegNode(Symbol('reg'))
+        route = RouteNode(Dummy('route'))
+        reg = RegNode(Dummy('reg'))
 
         bind = route.merge(reg)
         assert (type(bind) is IntermediateRegWrapper)
@@ -66,9 +66,9 @@ class SymbolTest(unittest.TestCase):
             b - c - a
         '''
 
-        a = RegNode(None)
-        b = RegNode(None)
-        c = RegNode(None)
+        a = RegNode(Dummy('a'))
+        b = RegNode(Dummy('b'))
+        c = RegNode(Dummy('c'))
 
         bind_ab = a.merge(b)
         bind = c.merge(a)
@@ -97,10 +97,10 @@ class SymbolTest(unittest.TestCase):
         '''
 
         a = RegNode(Dummy('a'))
-        b = RegNode('b')
-        c = RegNode('c')
-        d = RegNode('d')
-        route = RouteNode('route')
+        b = RegNode(Dummy('b'))
+        c = RegNode(Dummy('c'))
+        d = RegNode(Dummy('d'))
+        route = RouteNode(Dummy('route'))
 
         route.neighbours = {b, c}
         b.neighbours = {route, a}
@@ -145,8 +145,8 @@ class SymbolTest(unittest.TestCase):
          '''
 
          a = RegNode(Dummy('a'))
-         b = RegNode('b')
-         route = RouteNode('route')
+         b = RegNode(Dummy('b'))
+         route = RouteNode(Dummy('route'))
 
          a.neighbours = {route}
          b.neighbours = {route}
@@ -176,8 +176,6 @@ class SymbolTest(unittest.TestCase):
          assert a.get_weight() > 0
          assert b.get_weight() > 0
 
-         fringe = {RouteNode('Route')}
-
 
     def test_alloc_int(self):
         '''
@@ -185,10 +183,10 @@ class SymbolTest(unittest.TestCase):
         '''
 
         a = RegNode(Dummy('a'))
-        b = RegNode('b')
-        c = RegNode('c')
-        route_a = RouteNode('route')
-        route_b = RouteNode('route')
+        b = RegNode(Dummy('b'))
+        c = RegNode(Dummy('c'))
+        route_a = RouteNode(Dummy('route'))
+        route_b = RouteNode(Dummy('route'))
 
         a.neighbours = {route_a, route_b}
         b.neighbours = {route_a}
@@ -225,9 +223,9 @@ class SymbolTest(unittest.TestCase):
             a - route - route  - b
         '''
         a = RegNode(Dummy('a'))
-        b = RegNode('b')
-        route_a = RouteNode('route_a')
-        route_b = RouteNode('route_b')
+        b = RegNode(Dummy('b'))
+        route_a = RouteNode(Dummy('route_a'))
+        route_b = RouteNode(Dummy('route_b'))
 
         a.neighbours = {route_a}
         b.neighbours = {route_b}
@@ -285,10 +283,10 @@ class SymbolTest(unittest.TestCase):
             a - route - route - route  - b
         '''
         a = RegNode(Dummy('a'))
-        b = RegNode('b')
-        route_a = RouteNode('route_a')
-        route_b = RouteNode('route_b')
-        route_c = RouteNode('route_c')
+        b = RegNode(Dummy('b'))
+        route_a = RouteNode(Dummy('route_a'))
+        route_b = RouteNode(Dummy('route_b'))
+        route_c = RouteNode(Dummy('route_c'))
 
         a.neighbours = {route_a}
         b.neighbours = {route_b}
@@ -349,11 +347,11 @@ class SymbolTest(unittest.TestCase):
         '''
 
         a = RegNode(Dummy('a'))
-        b = RegNode('b')
-        route_a = RouteNode('route_a')
-        route_b = RouteNode('route_b')
-        route_c = RouteNode('route_c')
-        route_d = RouteNode('route_d')
+        b = RegNode(Dummy('b'))
+        route_a = RouteNode(Dummy('route_a'))
+        route_b = RouteNode(Dummy('route_b'))
+        route_c = RouteNode(Dummy('route_c'))
+        route_d = RouteNode(Dummy('route_d'))
 
         a.neighbours = {route_a}
         b.neighbours = {route_d}
@@ -436,12 +434,12 @@ class SymbolTest(unittest.TestCase):
         '''
 
         a = RegNode(Dummy('a'))
-        b = RegNode('b')
-        c = RegNode('c')
-        route_a = RouteNode('route_a')
-        route_b = RouteNode('route_b')
-        route_c = RouteNode('route_c')
-        route_d = RouteNode('route_d')
+        b = RegNode(Dummy('b'))
+        c = RegNode(Dummy('c'))
+        route_a = RouteNode(Dummy('route_a'))
+        route_b = RouteNode(Dummy('route_b'))
+        route_c = RouteNode(Dummy('route_c'))
+        route_d = RouteNode(Dummy('route_d'))
 
         a.neighbours = {route_a}
         b.neighbours = {route_b}
@@ -492,14 +490,14 @@ class SymbolTest(unittest.TestCase):
         '''
 
         a = RegNode(Dummy('a'))
-        b = RegNode('b')
-        c = RegNode('c')
-        d = RegNode('d')
-        route_a = RouteNode('route_a')
-        route_b = RouteNode('route_b')
-        route_c = RouteNode('route_c')
-        route_d = RouteNode('route_d')
-        route_e = RouteNode('route_e')
+        b = RegNode(Dummy('b'))
+        c = RegNode(Dummy('c'))
+        d = RegNode(Dummy('d'))
+        route_a = RouteNode(Dummy('route_a'))
+        route_b = RouteNode(Dummy('route_b'))
+        route_c = RouteNode(Dummy('route_c'))
+        route_d = RouteNode(Dummy('route_d'))
+        route_e = RouteNode(Dummy('route_e'))
 
         a.neighbours = {route_a}
         b.neighbours = {route_b}
@@ -547,9 +545,9 @@ class SymbolTest(unittest.TestCase):
         '''
 
         a = RegNode(Dummy('a'))
-        b = RegNode('b')
-        route_a = RouteNode('route_a')
-        route_b = RouteNode('route_b')
+        b = RegNode(Dummy('b'))
+        route_a = RouteNode(Dummy('route_a'))
+        route_b = RouteNode(Dummy('route_b'))
 
         a.neighbours = {route_a, route_b}
         b.neighbours = {route_b}
@@ -584,9 +582,9 @@ class SymbolTest(unittest.TestCase):
             a - route  - b - route
         '''
         a = RegNode(Dummy('a'))
-        b = RegNode('b')
-        route_a = RouteNode('route_a')
-        route_b = RouteNode('route_b')
+        b = RegNode(Dummy('b'))
+        route_a = RouteNode(Dummy('route_a'))
+        route_b = RouteNode(Dummy('route_b'))
 
         a.neighbours = {route_a}
         b.neighbours = {route_a, route_b}
@@ -628,17 +626,17 @@ class SymbolTest(unittest.TestCase):
         '''
 
         a = RegNode(Dummy('a'))
-        b = RegNode('b')
-        c = RegNode('c')
-        d = RegNode('d')
-        route_a = RouteNode('route_a')
-        route_b = RouteNode('route_b')
-        route_b_one = RouteNode('route_b_1')
-        route_b_two = RouteNode('route_b_2')
-        route_c = RouteNode('route_c')
-        route_c_one = RouteNode('route_c')
-        route_d = RouteNode('route_d')
-        route_e = RouteNode('route_e')
+        b = RegNode(Dummy('b'))
+        c = RegNode(Dummy('c'))
+        d = RegNode(Dummy('d'))
+        route_a = RouteNode(Dummy('route_a'))
+        route_b = RouteNode(Dummy('route_b'))
+        route_b_one = RouteNode(Dummy('route_b_1'))
+        route_b_two = RouteNode(Dummy('route_b_2'))
+        route_c = RouteNode(Dummy('route_c'))
+        route_c_one = RouteNode(Dummy('route_c'))
+        route_d = RouteNode(Dummy('route_d'))
+        route_e = RouteNode(Dummy('route_e'))
 
         a.neighbours = {route_a}
         b.neighbours = {route_b, route_b_one}

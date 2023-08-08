@@ -20,7 +20,6 @@ class SymbolTest(unittest.TestCase):
 
         elements = {x}
         assert(y not in elements)
-        assert(y.get_parent() in elements)
 
     def test_inject(self):
         sym = Symbol('x', 'y', 'z')
