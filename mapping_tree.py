@@ -5,6 +5,8 @@ from collections import deque as consume
 from itertools import chain
 from functools import reduce
 
+from test_tikz_helper2 import tikz_header, tikz_footer
+
 class QCBTree():
     def __init__(self, qcb_graph):
         self.root = None
@@ -44,7 +46,10 @@ class QCBTree():
         return TreeNode # IO Nodes
 
     def construct_spanning_tree(self, tikz=False):
- 
+
+        if tikz:
+            tikz_str = ""
+
         fringe = self.leaves
         parents = fringe
 
@@ -69,7 +74,8 @@ class QCBTree():
             consume(map(lambda x: x.bind(), fringe))
 
             parents = set(map(lambda x : x.parent, fringe))
-       
+            consume(map(lambda x: x.bind(), parents)) 
+
         self.root = next(iter(self.nodes)).get_parent()
         return
 
@@ -167,19 +173,24 @@ class RouteNode(TreeNode):
 
     def _merge(self, other):
         bind = IntermediateRegWrapper(other)
-        self.parent = other.get_parent()
+        self.parent = bind
         other.parent = bind
         return bind
 
     def bind(self):
         self.parent = self.get_parent()
+        return set()
 
     def distribute(self):
         if self.distributed():
             return
 
-        joining_nodes = set(i for i in self.get_adjacent() if (i.visited() and (i.get_parent() == self.get_parent())))
+        joining_nodes = set(i for i in self.get_adjacent() if (i.visited() and (i.get_parent() == self.get_parent()) and (type(i) is not RouteNode or type(i.parent) is not IntermediateRegWrapper)))
+
+
+        #update_nodes = set(i for i in joining_nodes if not isinstance(i.get_bound_parent(), RouteNode))
         value = 1 / len(joining_nodes)
+
         for node in joining_nodes:
             node.get_bound_parent().distribute_weight(value)
         self.parents = joining_nodes
@@ -263,7 +274,7 @@ class IntermediateRegWrapper(RegNode):
     def bind(self):
         self.flatten()
        
-        # Single and Top
+        # Single child and top level
         if len(self.children) == 1 and self.parent == self:
             child = next(iter(self.children))
             self.parent = child
@@ -272,12 +283,12 @@ class IntermediateRegWrapper(RegNode):
             child.parent = child
             return child
 
-        # Single 
+        # Single child, promote them 
         if len(self.children) == 1:
             child = next(iter(self.children))
             self.intermediate_register = child
             for child in self.children:
-                child.parent is self.parent
+                child.parent = self.parent
             self.parent = child
             return self.children
 
@@ -285,6 +296,8 @@ class IntermediateRegWrapper(RegNode):
         if self.parent == self:
             self.parent = self.intermediate_register
             self.parent.children = self.children
+            for child in self.children:
+                child.parent = self.parent
             return self.parent
 
         # Leave this for the garbage collector

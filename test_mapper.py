@@ -1,20 +1,21 @@
-from dag2 import DAG
-from qcb import QCB
-from symbol import Symbol, ExternSymbol, symbol_map
-
-from instructions import INIT, CNOT, T, Toffoli
-from scope import Scope
-from extern_interface import ExternInterface
-
-from pprint import pprint
+from graph_prune import QCBGraph
+from mapping_tree import QCBTree
 from allocator2 import Allocator
 from qcb import QCB
-from graph_prune import QCBPrune
-from test_tikz_helper2 import *
+from dag2 import DAG
 
-from mapper import QCBMapper
+from instructions import INIT, CNOT, T, Toffoli
 
-g = DAG(Symbol('tst'))
+from mapper import Mapper
+from symbol import Symbol, ExternSymbol
+
+import unittest
+
+class MapperTest(unittest.TestCase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+g = DAG(Symbol('Test'))
 g.add_gate(INIT('a', 'b', 'c', 'd'))
 g.add_gate(CNOT('a', 'b'))
 g.add_gate(CNOT('c', 'd'))
@@ -43,15 +44,5 @@ allocator = Allocator(qcb_base, factory_impl)
 allocator.allocate()
 allocator.optimise()
 
-
-prune = QCBPrune(qcb_base.segments)
-prune.map_to_grid()
-
-print_connectivity_graph(prune.grid_segments, 'main_connectivity.tex')
-
-
-mapper = QCBMapper(prune.grid_segments)
-root = mapper.generate_mapping_tree()
-mapper.map_all(g)
-
-print_mapping_tree(root, 'main_mapping_tree.tex')
+graph = QCBGraph(qcb_base)
+tree = QCBTree(graph)

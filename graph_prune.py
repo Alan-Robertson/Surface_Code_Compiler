@@ -41,7 +41,7 @@ class QCBGraph:
         self.construct_graph(self.pruned_graph.segments)
 
     def __tikz__(self):
-        return tikz_pruned_graph_qcb(self)
+        return tikz_pruned_qcb(self)
 
     def construct_graph(self, segments):
         for segment in segments:
@@ -212,5 +212,3 @@ class QCBPrune:
             seg.above = {route_above}
             route_above.above.add(seg)   
 
-    
-        

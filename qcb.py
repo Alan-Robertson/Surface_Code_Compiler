@@ -81,6 +81,9 @@ class SCPatch():
     def get_patch(self):
         return self
 
+    def get_state(self):
+        return self.state
+
     def is_extern(self):
         return self.state == SCPatch.EXTERN
 
@@ -163,6 +166,9 @@ class Segment():
 
     def get_slot(self):
         return self.state.get_slot()
+
+    def get_state(self):
+        return self.state.get_state()
 
     def get_n_slots(self):
         # How many distinct elements are in this patch

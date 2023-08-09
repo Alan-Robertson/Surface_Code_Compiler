@@ -17,6 +17,14 @@ colour_map = {
     'debug' : COLOUR_DEBUG
 }
 
+def tikz_str(fn):
+    def wrapper(*args, **kwargs):
+        tikz_str = tikz_header()
+        tikz_str += fn(*args, **kwargs)
+        tikz_str += tikz_footer()
+        return tikz_str
+    return wrapper
+
 def tikz(obj):
     return obj.__tikz__()
 
@@ -130,7 +138,6 @@ def tikz_tree_nodes(element):
 
 def tikz_tree_node(node, x, y):
     return tikz_circle(x, y, hex(id(node)), f"{x}, {y}", draw=tikz_obj_to_colour(node.get_parent())), x, y 
-
 def tikz_tree_parent_edge(node):
     if node is not node.parent:
         return tikz_path(hex(id(node)), hex(id(node.parent)))
@@ -154,7 +161,6 @@ def tikz_bottom_up_tree(*nodes):
     tikz_str += tikz_footer()
     return tikz_str
 
-
 def tikz_tree_leaf(node, colour=None):
     if colour is None:
         colour = dag_colour_map(node)
@@ -171,13 +177,18 @@ def tikz_tree_leaf(node, colour=None):
 def tikz_tree_edge(parent, child):
     return tikz_path(hex(id(parent)), hex(id(child)))
 
+@tikz_str
+def tikz_full_qcb_tree(tree):
+    tikz_str = ""
+    for node in tree.nodes:
+        tikz_str += tikz_tree_leaf(node) 
 
-def tikz_mapping_tree(mapper):
-    tikz_str = tikz_header()
-    tree_tikz_str, _, __ = tikz_tree_nodes(mapper.root)
-    tikz_str += tree_tikz_str
-    tikz_str += tikz_footer()
+    for node in tree.nodes:
+        if node.parent is not node:
+            tikz_str += tikz_tree_edge(node, node.parent) 
     return tikz_str
+
+
 
 def tikz_rectangle(x_0, y_0, x_1, y_1, *args, **kwargs):
     return f"\\draw[{tikz_argparse(*args, **kwargs)}] \
@@ -185,7 +196,6 @@ def tikz_rectangle(x_0, y_0, x_1, y_1, *args, **kwargs):
 
 def tikz_node(x, y, label):
     return f"\\node at ({x},-{y}) {{{tikz_sanitise(label)}}};\n"
-
 
 def tikz_circle(x, y, key, label, *args, **kwargs):
     return f"\\node[shape=circle \
@@ -196,18 +206,17 @@ def tikz_path(start, end):
     return f"\\path[->] ({start}) edge ({end});\n"
 
 
-
 def tikz_segment_rectangle(segment, colour, *args):
-    return tikz_rectangle(
-            segment.x_0, 
-            segment.y_0, 
-            segment.x_1 + 1, 
+        return tikz_rectangle(
+                segment.x_0, 
+                segment.y_0, 
+                segment.x_1 + 1, 
             segment.y_1 + 1, 
             f"fill={colour}",
             "opacity=0.5")
 
 def tikz_qcb_segement(segment):
-    colour = colour_map[segment.state.state]
+    colour = colour_map[segment.get_state()]
     segment_str = tikz_segment_rectangle(segment, colour)
     sym = segment.get_symbol()
     segment_str += tikz_node(segment.x_0 + 0.5, segment.y_0 + 0.5, f"{segment}{sym}")
@@ -223,8 +232,8 @@ def tikz_qcb(qcb):
 def tikz_pruned_qcb(pruned_qcb):    
     tikz_str = tikz_header()
     # Draw segments
-    for segment in pruned_qcb.segments:
-        tikz_str += tikz_qcb_segement(segment)
+    for vertex in pruned_qcb.graph:
+        tikz_str += tikz_qcb_segement(vertex.get_segment())
 
     tikz_str += tikz_footer()
     return tikz_str

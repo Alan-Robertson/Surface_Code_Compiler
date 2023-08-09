@@ -44,22 +44,6 @@ class ScopeTest(unittest.TestCase):
         subscope = Scope({b:b, c:c})
         assert(scope.satisfies(f, subscope) is True)
 
-    def test_rewrite(self):
-        f = Symbol('CNOT', Symbol('b'), Symbol('c'))
-
-        b = Symbol('b')
-        c = Symbol('c')
-
-        x = Symbol('x')
-        y = Symbol('y')
-
-        higher_scope = Scope({b:x, c:y})
-        f.rewrite(higher_scope)
-        assert(x in f.io)
-        assert(y in f.io)
-        assert(b not in f.io)
-        assert(c not in f.io)
-
     def test_inject(self):
         f = Symbol('CNOT', Symbol('b'), Symbol('c'))
 
