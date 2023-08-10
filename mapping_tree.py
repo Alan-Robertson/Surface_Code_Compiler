@@ -57,7 +57,11 @@ class QCBTree():
 
             joint_nodes = set()
             starter = fringe
-            fringe = reduce(lambda a, b: a | b, map(lambda x: x.get_adjacent(), starter))
+            fringe = reduce(lambda a, b: a | b, 
+                       map(lambda x: set(
+                           i for i in x.get_adjacent() if i.get_parent() != x.get_parent()),
+                           starter)
+                       )
  
             for node in starter:
                  for adjacent_node in node.get_adjacent():
@@ -279,7 +283,6 @@ class IntermediateRegWrapper(RegNode):
             child = next(iter(self.children))
             self.parent = child
             self.intermediate_register = child
-            self.parent.children = self.children
             child.parent = child
             return child
 
@@ -353,10 +356,6 @@ class IntermediateRegNode(RegNode):
         return other in self.children
 
     def distribute_weight(self, value):
-        if self in self.children:
-            # TODO DEBUG THIS
-            print(self, self.children)
-            return
         value /= len(self.children)
         for child in self.children:
             child.distribute_weight(value)
