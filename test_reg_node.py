@@ -1292,7 +1292,7 @@ class RegNodeTest(unittest.TestCase):
         from mapping_tree import QCBTree
         from allocator2 import Allocator
         from qcb import QCB
-        from dag2 import DAG
+        from dag import DAG
         from instructions import INIT, CNOT, T, Toffoli
         from symbol import Symbol, ExternSymbol
 

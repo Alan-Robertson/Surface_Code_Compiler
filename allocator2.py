@@ -1,6 +1,5 @@
 from qcb import Segment, SCPatch, QCB
-#from msf import MSF
-from dag2 import DAG
+from dag import DAG
 from typing import *
 import copy
 class AllocatorError(Exception):

@@ -1,4 +1,4 @@
-from dag2 import DAG
+from dag import DAG
 from symbol import Symbol, ExternSymbol, symbol_map
 
 from instructions import INIT, CNOT, T, Toffoli

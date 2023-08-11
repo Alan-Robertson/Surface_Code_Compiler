@@ -4,6 +4,7 @@
 from functools import partial
 from symbol import Symbol, ExternSymbol, symbol_map, symbol_resolve
 from scope import Scope
+from dag import DAG, DAGNode
 
 INIT_SYMBOL = Symbol('INIT')
 def INIT(*symbol_constructors):
@@ -45,7 +46,6 @@ def CNOT(ctrl, targ):
     dag.add_node(sym, n_cycles=3)
     return dag
 
-from dag2 import DAG, DAGNode
 
 
 def T(targ):

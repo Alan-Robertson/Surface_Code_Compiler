@@ -643,5 +643,5 @@ import test_tikz_helper2
 
 import copy
 from typing import *
-from dag2 import DAG
+from dag import DAG
 from bind import Bind, ExternBind

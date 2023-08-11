@@ -1,360 +1,470 @@
-class DAG():
-    def __init__(self, n_blocks = 0, initial_gates = None, scope=None):
+import numpy as np
+from heapq import heappush
+
+from itertools import chain
+from functools import reduce
+
+class DAGNode():
+    def __init__(self, symbol, *args, scope=None, externs=None, n_cycles=1):
+        if not isinstance(symbol, Symbol):
+            symbol = Symbol(symbol)
+
+        if externs is None:
+            externs = dict()
+        if isinstance(externs, Symbol):
+            externs = {externs:None}
+        externs = Scope({extern:None for extern in externs})
+
+        self.symbol = symbol
+
+        if scope is None:
+            scope = self.symbol.bind_scope()
+        self.scope = scope
+
+        # Catches any undeclared externs in the scope
+        for sym in self.scope.values():
+            if sym.is_extern():
+                externs[sym] = None
+        
+        self.predicates = set()
+        self.antecedents = set()
+        self.externs = externs
+
+        self.__n_cycles = n_cycles
+        self.gates = [self]
+        self.layers = [self]
+        self.layer = 0
+        self.slack = float('inf')
+
+        # TODO discuss w/ alan
+        # self.anc = None
+        # self.start = -1
+        # self.end = -1
+        # self.compiled_layers = None 
+        # ^ This is needed to extract the order in which logical externs 
+        # are executed on the physical externs; TODO discuss alternatives
+
+    def __call__(self, scope=None):
+        self.predicates = set()
+        self.antecedents = set()
+        if scope is not None:
+            self.inject(scope)
+        return self
+
+
+    def inject(self, scope):
+        if not isinstance(scope, Scope):
+            scope = Scope(scope)
+        self.scope.inject(scope)
+        self.symbol.inject(scope)
+
+    def unrollable(self):
+        return self.scope.unrollable()
+
+    def n_cycles(self):
+        return self.__n_cycles
+        
+    def __repr__(self):
+        return self.symbol.__repr__()
+
+    def non_local(self):
+        return len(self.symbol.io) > 1
+
+    def is_extern(self):
+        return self.symbol.is_extern()
+
+    def get_symbol(self):
+        return self.symbol
+
+    def get_unary_symbol(self):
+        return next(iter(self.symbol))
+
+    def internal_scope(self):
+        return Scope(dict((i, j) for i, j in self.scope.items() if not i.is_extern()))
+
+class DAG(DAGNode):
+    def __init__(self, symbol, scope=None):
+
+        if not isinstance(symbol, Symbol):
+            symbol = Symbol(symbol)
+        self.symbol = symbol
 
         if scope is None:
             scope = Scope()
-        if initial_gates is None:
-            initial_gates = []
-
         self.scope = scope
 
-        # Internal Memory 
-        self.n_blocks = 0
-        
-        # Initial Nodes
-        self.gates = [INIT(i) for i in range(n_blocks)] # List of gates
+        for sym in self.symbol.io:
+            if sym not in self.scope:
+                self.scope[sym] = None
 
-        # Magic State Factory and Compositional nodes
-        self.external_dependencies = set()
+        self.gates: list[DAGNode] = []
+        self.last_layer = {}
 
-        # Layer Later
+        self.externs = Scope()
+        self.predicates = set()
+        self.antecedents = set()
+
+        self.physical_externs = set()
+
+        # Catches any undeclared externs in the scope
+        for sym in self.scope.values():
+            if sym.is_extern():
+                self.externs[sym] = None
+
         self.layers = []
-        self.layers_conjestion = []
-        self.layers_msf = []
+        self.layer = 0
+        self.slack = float('inf')
 
-        self.msf_extra = None # For rewriting, remove
+        for obj in self.scope:
+            if self.scope[obj] is None:
+                init_gate = INIT(obj)
+                self.gates.append(init_gate)
+                self.last_layer[obj] = init_gate
+                self.update_layer(init_gate)
+                self.update_dependencies(init_gate)
 
-        # Tracks which node each gate was last involved in
-        self.last_block = {Symbol(i):self.gates[i] for i in range(n_blocks)} 
+
+    def __getitem__(self, index):
+        return self.scope(index)
+
+    def n_cycles(self):
+        return len(self.layers)
+
+    def add_gate(self, dag, *args, scope=None, **kwargs):
+
+        gate = dag(scope=scope)
         
-        for gate in initial_gates:
-            self.add_gate(gate)
-
-    def __repr__(self):
-        return str(self.layers)
-
-    def add_gate(self, gate_constructor: type, *args, deps=None, targs=None, **kwargs):
-        '''
-            add_gate
-            Wrapper for adding all gate types
-        '''
-        if CompositionalGate in gate_constructor.mro():
-            return self.add_compositional_gate(gate_constructor, *args, deps=deps, targs=targs, **kwargs)
-        else:
-            return self.add_single_gate(gate_constructor, *args, deps=deps, targs=targs, **kwargs)
-
-    def add_compositional_gate(self, gate_constructor: type, *args, deps=None, targs=None, **kwargs):
-        '''
-            add_compositional_gate
-            Adds a set of composed gates to the DAG
-        '''
-        gate_group = gate_constructor(*args, deps=deps, targs=targs, **kwargs)
-        return [self.add_single_gate(gate, *g_args, **g_kwargs) for gate, g_args, g_kwargs in gate_group]
-  
-    def add_single_gate(self, gate_constructor: type, *args, deps=None, targs=None, **kwargs):
-        '''
-            add_gate
-            Adds a single gate to the DAG
-        '''
-        gate = gate_constructor(*args, deps=deps, targs=targs, **kwargs)
-        operands = gate.deps | gate.targs
-
-        # Register a new compositional object
-        if isinstance(gate, QCBGate) and gate.symbol not in self.external_dependencies:
-            self.external_dependencies.add(gate.symbol)
-
+        operands = gate.symbol.io
+        if len(gate.externs) > 0:
+            self.externs |= gate.externs
+        
         for operand in operands:
-            if operand not in self.scope:
+            if gate.scope[operand] is operand:
                 self.scope[operand] = None
-                initialiser = INIT(operand)
 
-                self.gates.append(initialiser)
-                self.last_block[operand] = initialiser
-
-        # Update last block 
-        predicates = {}
-        for t in map(lambda t: t.get_parent(), operands):
-            # Fungibility of QCBs
-            if t in self.external_dependencies:
-                predicates[t] = t
-            else:
-                predicates[t] = self.last_block[t]
-                self.last_block[t] = gate
-        
-        # Resolve gate predicates
-        gate.predicates = predicates
-        #gate.layer_num = max(((predicate.layer_num + 1, 0)[isinstance(predicate, DAGNode)] for predicate in gate.predicates.values()), default=0)
-
-        # Calculate slack on the gate
-        # for t in gate.predicates:
-        #     gate.predicates[t].slack = max(gate.predicates[t].slack, 1 / max(gate.layer_num - gate.predicates[t].layer_num, 1))
-        #     gate.predicates[t].antecedents[t] = gate
-
-        self.gates.append(gate)
-        self.layer_gate(gate)
+        if gate.unrollable():
+            self.unroll_gate(gate)
+        else:
+            self.gates.append(gate)
+            self.update_dependencies(gate)
         return gate
 
-    def layer_gate(self, gate):
-        if gate.layer_num >= len(self.layers):
-            self.layers += [[] for _ in range(gate.layer_num - len(self.layers) + 1)]
-            self.layers_conjestion += [0 for _ in range(gate.layer_num - len(self.layers_conjestion) + 1)]
-            self.layers_msf += [[] for _ in range(gate.layer_num - len(self.layers_msf) + 1)]
-        
-        self.layers_conjestion[gate.layer_num] += gate.non_local
-        self.layers[gate.layer_num].append(gate)
-        if gate.symbol in self.external_dependencies:
-            self.layers_msf[gate.layer_num].append(gate)
+    def add_node(self, symbol, *args, **kwargs):
+        gate = DAGNode(symbol, *args, **kwargs)
+        # Todo, check if this is needed
+        gate = gate(scope=self.scope)
+        if len(gate.externs) > 0:
+            self.externs |= gate.externs
+        self.gates.append(gate)
+        self.merge_scopes(gate)
+        self.update_dependencies(gate)
+        return gate
+                    
+    def unroll_gate(self, dag):
+        for gate in dag.gates:
+            if isinstance(gate, DAG):
+                self.unroll_gate(gate)
+            else:
+                self.gates.append(gate)
+                self.merge_scopes(gate)                
+                self.update_dependencies(gate)
 
-    def layer(self):
-        self.layers = []
-        for g in self.gates:
-            self.layer_gate(g)
+    def merge_scopes(self, gate):
+        for element in gate.symbol.io:
+            if element not in self.scope:
+                # Merge lower scope into higher
+                self.scope[element] = gate
+            if element not in self.last_layer:
+                self.last_layer[element] = gate
+        return
 
-    def depth_parallel(self, n_channels):
-        return sum(max(1, 1 + layer_conjestion - n_channels) for layer_conjestion in self.layers_conjestion)
+    def update_dependencies(self, gate):
+        for dep in gate.symbol.io:
+            predicate = self.last_layer[dep]
+            # Breaks self-referencing gates
+            if predicate is not gate:
+                predicate.antecedents.add(gate)
+                gate.predicates.add(predicate)
+                self.last_layer[dep] = gate
+        self.update_layer(gate)
+        return
         
-    def dag_traverse(self, n_channels, *msfs, blocking=True, debug=False):
-        traversed_layers = []
+    def update_layer(self, gate):
+        layer_num = 1 + max((predicate.layer for predicate in gate.predicates if predicate is not gate), default=-1)
+
+        # Create layers
+        if layer_num > len(self.layers) - 1:
+            self.layers += [[] for i in range(layer_num - len(self.layers) + 1)]
+        self.layers[layer_num].append(gate)
+        gate.layer = layer_num
+
+        # Update slack on predicates
+        for predicate in gate.predicates:
+            predicate.slack = min(predicate.slack, gate.layer - predicate.layer)
+        return
+
+    def inject(self, scope):
+        for gate in self.gates:
+            gate.inject(scope)
+        self.scope.inject(scope)
+        self.symbol.inject(scope)
+        return
+
+    def calculate_logical_proximity(self):
+        prox_len = len(self.scope)
+        prox = np.zeros((prox_len, prox_len))
+        lookup = dict(map(lambda x: x[::-1], enumerate(self.scope.keys())))
+
+        for layer in self.layers:
+            for gate in layer:
+                for targ in gate.scope:                            
+                    for other_targ in gate.scope:
+                        if other_targ is not targ:
+                            prox[lookup[targ], lookup[other_targ]] += 1
+        return prox, lookup
+
+    def calculate_logical_conjestion(self):
+        conj_len = len(self.scope)
+        conj = np.zeros((conj_len, conj_len))
+        lookup = dict(map(lambda x: x[::-1], enumerate(self.scope.keys()))) 
+
+        for layer in self.layers:
+            for gate in layer:
+                if len(gate.scope) > 1:
+                    for other_gate in layer:
+                        if gate is not other_gate and len(other_gate.scope) > 1:
+                            for targ in gate.scope:                            
+                                for other_targ in other_gate.scope:
+                                    conj[lookup[targ], lookup[other_targ]] += 1
+        return conj, lookup
+
+
+    def calculate_physical_conjestion(self):
+        conj_len = len(self.internal_scope()) + len(self.physical_externs)
+        conj = np.zeros((conj_len, conj_len))
+
+        lookup_inv = list(chain(self.internal_scope().keys(), self.physical_externs))
+        lookup = dict(map(lambda x: x[::-1], enumerate(lookup_inv)))  
+        
+        for layer in self.layers:
+            for gate in layer:
+                if len(gate.scope) > 1:
+                    for other_gate in layer:
+                        if gate is not other_gate and len(other_gate.scope) > 1:
+                            for targ in gate.scope:                            
+                                for other_targ in other_gate.scope:
+                                    tmp_targ = targ.get_parent()
+                                    tmp_other_targ = other_targ.get_parent()
+                                    
+                                    if tmp_targ.is_extern():
+                                        tmp_targ = self.scope[tmp_targ]
+                                    if tmp_other_targ.is_extern():
+                                        tmp_other_targ = self.scope[tmp_other_targ]
+
+                                    conj[lookup[tmp_targ], lookup[tmp_other_targ]] += 1
+        return conj, lookup
+
+    def lookup(self):
+        initial_list = list(self.internal_scope().keys()) + self.physical_externs
+        register = Symbol('REG')
+        lookup_list = list()
+        for element in initial_list:
+            if element.get_symbol().is_extern():
+                lookup_list.append(element.get_symbol())
+                
+            else:
+                sym = Symbol(element)
+                sym.predicate = register
+                lookup_list.append(sym)
+        return lookup_list
+
+    def calculate_physical_proximity(self):
+        prox_len = len(self.internal_scope()) + len(self.physical_externs)
+        prox = np.zeros((prox_len, prox_len))
+        lookup_inv = list(chain(self.internal_scope().keys(), self.physical_externs))
+        lookup = dict(map(lambda x: x[::-1], enumerate(lookup_inv))) 
+        
+        for layer in self.layers:
+            for gate in layer:
+                for targ in gate.scope:                            
+                    for other_targ in gate.scope:
+                        if other_targ is not targ:
+
+                            tmp_targ = targ.get_parent()
+                            tmp_other_targ = other_targ.get_parent()
+                            
+                            if tmp_targ.is_extern():
+                                tmp_targ = self.scope[tmp_targ]
+                            if tmp_other_targ.is_extern():
+                                tmp_other_targ = self.scope[tmp_other_targ]
+
+                            prox[lookup[tmp_targ], lookup[tmp_other_targ]] += 1
+
+        return prox, lookup
+
+    # TODO Create this as a separate wrapper
+    def compile(self, n_channels, *externs, extern_minimise=lambda extern: extern.n_cycles(), debug=False):
+        
+        # Clear any previous extern allocation
+        self.externs.clear_scope()
+        self.physical_externs = list(externs)
+
+        # Check I have enough channels
+        assert(n_channels > 0)
+
+        # Check that all externs are mapped
+        assert(all(any(map(lambda i: i.satisfies(extern), externs)) for extern in self.externs.keys()))
 
         # Magic state factory data
-        msfs = list(msfs)
-        msfs.sort(key = lambda x : x.cycles)
-        msfs_state = [0] * len(msfs)
+        idle_externs = list(externs)
+        idle_externs.sort(key=extern_minimise)
 
-        # Labelling
-        msfs_index = {}
-        msfs_type_counts = {}
-        for i, m in enumerate(msfs):
-            msfs_index[i] = msfs_type_counts.get(m.symbol, 0)
-            msfs_type_counts[m.symbol] = msfs_index[i] + 1 
-        # print(f"{msfs_index=}")
-        unresolved = copy.copy(self.layers[0])
-        unresolved_update = copy.copy(unresolved)
+        # Map of extern binds
+        extern_map = dict(zip(externs, map(ExternBind, externs)))
+        extern_gate_to_bind = lambda gate: extern_map[self.externs[gate.get_unary_symbol()]]
 
-        for symbol in self.composition_units:
-            self.composition_units[symbol].resolved = 0
-
-        while len(unresolved) > 0:
-            traversed_layers.append([])
-            non_local_gates_in_layer = 0
-            patch_used = [False] * self.n_blocks
-
-            unresolved.sort(key=lambda x: x.slack, reverse=True)
-
-            for gate in unresolved:
-               
-                # Gate already resolved, ignore
-                if gate.resolved:
-                    continue
-
-                # Channel resolution
-                if (not gate.non_local) or (gate.non_local and non_local_gates_in_layer < n_channels):
-
-                    # Check predicates
-                    predicates_resolved = True
-                    for predicate in gate.edges_precede:
-                        if not gate.edges_precede[predicate].resolved or (gate.edges_precede[predicate].magic_state == False and patch_used[predicate]):
-                            predicates_resolved = False
-                            break
-
-                    if predicates_resolved:
-                        traversed_layers[-1].append(gate)
-                        gate.resolved = True
-
-                        # Fungible MSF nodes
-                        for targ in gate.targs:
-                            if self.blocks[targ].magic_state is False:
-                                patch_used[targ] = True
-
-                        # Add antecedent gates
-                        for antecedent in gate.edges_antecede:
-                            if (gate.edges_antecede[antecedent] not in unresolved_update):
-                                unresolved_update.append(gate.edges_antecede[antecedent])
-
-                        # Expend a channel
-                        if gate.non_local:
-                            non_local_gates_in_layer += 1
-
-                        # Remove the gate from the next round
-                        unresolved_update.remove(gate)
-
-                        # Resolve magic state factory resources
-                        for predicate in gate.edges_precede:
-                            if gate.edges_precede[predicate].magic_state:
-                                for i, factory in enumerate(msfs):
-                                    # Consume first predicate for each MS needed for the gate
-                                    if predicate == factory.symbol and msfs_state[i] >= factory.cycles:
-                                        msfs_state[i] = 0
-                                        gate.edges_precede[predicate].resolved -= 1
-                                        # TODO fix: ugly hack
-                                        log("set", gate, i)
-                                        gate.msf_extra = (msfs_index[i], factory)
-                                                           #msfs_index[factory]
-                                        break
-            
-            # Update MSF cycle state
-            for i, gate in enumerate(msfs):
-                if msfs_state[i] <= msfs[i].cycles:
-                    msfs_state[i] += 1
-                if msfs_state[i] == msfs[i].cycles:
-                    self.composition_units[msfs[i].symbol].resolved += 1
-
-            unresolved = copy.copy(unresolved_update)
-            if debug:
-                print("FL:", front_layer)
-
-        for gate in self.gates:
-            gate.resolved = False
-
-        for symbol in self.composition_units:
-            self.composition_units[symbol].resolved = 0
-
-        return len(traversed_layers), traversed_layers
-
-
-    def depth_msf(self, *msfs, blocking=True, debug=True):
-        ms_factories = {}
-        for msf in msfs:
-            if msf.symbol not in ms_factories:
-                ms_factories[msf.symbol] = [[msf, 0]]
-            else:
-                ms_factories[msf.symbol].append([msf, 0])
-
-        # Sort low to high cycles for maximum throughput
-        for symbol in ms_factories:
-            ms_factories[symbol].sort(key=lambda msf: msf[0].cycles)
-
-        if debug:
-            print(ms_factories)
-
-        ms_gates = []
-        n_cycles = 0
-        while n_cycles < len(self.layers_msf) or len(ms_gates) > 0:
-            
-            if n_cycles < len(self.layers_msf):
-                ms_gates += self.layers_msf[n_cycles]
-
-            if debug:
-                print(n_cycles)
-                print(ms_factories)
-                print(ms_gates)
-                print("#####")
-
-            # Clear all gates possible
-            if (len(ms_gates) > 0):
-                i = 0
-                for ms_gate in ms_gates:
-                    for j, (factory, count) in enumerate(ms_factories[ms_gate.symbol]):
-                        if count >= factory.cycles:
-                            ms_factories[ms_gate.symbol[1]] -= factory.cycles
-                            ms_gates.pop(i)
-                            i -= 1
-                            break
-                    i += 1
-
-            # Update
-            for symbol in ms_factories:
-                for i, (factory, count) in enumerate(ms_factories[symbol]):
-                    if blocking and count < factory.cycles:
-                        ms_factories[symbol][i][1] += 1
-                    elif not blocking:
-                        ms_factories[symbol][i][1] += 1
-            n_cycles += 1
-        return n_cycles
-
-              
-
-    
-    def calculate_proximity(self):
-        m, minv = {}, []
-        syms = self.composition_units.keys()
-        for i in range(self.n_blocks):
-            m[i] = i
-            minv.append(i)
-        for s in syms:
-            m[s] = len(minv)
-            minv.append(s)
+        # Currently unallocated externs
+        idle_externs = list(extern_map.values())
         
-        prox = np.zeros((len(minv), len(minv)))
+        # Active and waiting gates
+        active = set()
+        waiting = list()
 
-        for layer in self.layers:
-            for gate in layer:
-                if len(gate.targs) > 1:
-                    for targ in gate.targs:                            
-                        for other_targ in gate.targs:
-                            if other_targ is not targ:
-                                prox[m[targ], m[other_targ]] += 1
-        return prox, m, minv
+        # Initially active gates
+        for gate in self.layers[0]:
+            if gate.is_extern():
+                index, binding = next(
+                    ((index, extern) for index, extern in enumerate(idle_externs) if extern.satisfies(gate)),
+                     (None, None)
+                     )
 
-    def calculate_conjestion(self):
-        m, minv = {}, []
-        syms = self.composition_units.keys()
-        for i in range(self.n_blocks):
-            m[i] = i
-            minv.append(i)
-        for s in syms:
-            m[s] = len(minv)
-            minv.append(s)
-        
-        conj = np.zeros((len(minv), len(minv)))
-
-        for layer in self.layers:
-            for gate in layer:
-                if len(gate.targs) > 1:
-                    for other_gate in layer:
-                        if other_gate is not gate and len(other_gate.targs) > 1:
-                            for targ in gate.targs:
-                                for other_targ in other_gate.targs:
-                                    conj[m[targ], m[other_targ]] += 1
-        return conj, m, minv
-
-    def remap_msfs(self, n_channels, msfs):
-        # TODO fix ugly hack
-        # gates_copy = copy.deepcopy(self.gates)
-
-        self.dag_traverse(n_channels, *msfs)
-        new_gates = []
-        for gate in self.gates:
-            old_msf = None
-            log(f"{gate=} {gate.edges_precede=} {gate.edges_antecede=}")
-            if gate.magic_state:
-                old_msf = gate.magic_state
-
-                msf_id, factory = gate.msf_extra
-                new_sym = f"{old_msf}_#{msf_id}"
-                
-                if old_msf in self.composition_units:
-                    del self.composition_units[old_msf]
-                del gate.edges_precede[old_msf]
-
-                if new_sym not in self.composition_units:
-                    prev = INIT(targs=new_sym, layer_num=0, magic_state=new_sym)
-                    new_gates.append(prev)
+                if binding is not None:
+                    idle_externs.pop(index)
+                    self.externs[gate.symbol] = binding.get_obj()
+                    self.scope[gate.symbol] = binding.get_obj()
+                    active.add(ExternBind(gate))
                 else:
-                    prev = self.composition_units[new_sym].edges_antecede[new_sym]
+                    # Cannot find a binding, add it to the wait list
+                    waiting.append(ExternBind(gate))
+            else:
+                active.add(DAGBind(gate))
 
-                prep = PREP(targs=new_sym, layer_num=prev.layer_num + 1, 
-                                magic_state=new_sym, cycles=factory.cycles)
+        # Gates that have finished, how many cycles this took, what happened in each layer
+        resolved = set() 
+        n_cycles = 0
+        layers = []
 
-                prev.edges_antecede[new_sym] = prep
-                prep.edges_precede[new_sym] = prev
-                prep.edges_antecede[new_sym] = gate
-                gate.edges_precede[new_sym] = prep
-                new_gates.append(prep)
-                self.composition_units[new_sym] = prep
+        # This is a semaphore
+        active_non_local_gates = 0
 
-                # gates_copy.append(gate.edges_precede[predicate])
-                if old_msf:
-                    gate.targs[gate.targs.index(old_msf)] = new_sym
-        self.gates += new_gates
-        log("new_gates", self.gates)
-        # return gates_copy
+        # Keep running until all gates are resolved
+        while len(active) > 0 or len(waiting) > 0:
+            layers.append([])
+            n_cycles += 1
+
+            # Update each active gate
+            for gate in active:
+                gate.cycle()
+                layers[-1].append(gate)
+                
+                # Update the underlying binding of each gate
+                if gate.is_extern():
+                    extern_gate_to_bind(gate).cycle()
+                
+            # Update each extern
+            for extern in idle_externs:
+                if extern.pre_warm():
+                    layers[-1].append(extern)
+
+            recently_resolved = list(filter(lambda x: x.resolved(), active))
+            active = set(filter(lambda x: not x.resolved(), active))
+
+            # For each gate we resolve check if there are any antecedents that can be added to the waiting list
+            for gate in recently_resolved:
+                if gate.resolved():
+                    resolved.add(gate)
+
+                    # Decrement semaphore for non-local gates 
+                    if gate.non_local():
+                        active_non_local_gates -= 1
+
+                    # See if any antecedents can be direct added to active
+                    for antecedent in gate.antecedents():
+                        all_resolved = True
+
+                        # Check the predicate of each antecedent
+                        for predicate in antecedent.predicates:       
+                            # Catches nodes that are externs
+                            # Ensure that the predicate has been mapped
+                            if predicate.is_extern() and self.externs[predicate.get_unary_symbol()] is not None:
+                                if not extern_gate_to_bind(predicate).resolved():
+                                    all_resolved = False
+                                    break
+
+                            elif DAGBind(predicate) not in resolved:
+                                all_resolved = False
+                                break
+                        if all_resolved:
+                            waiting.append(DAGBind(antecedent))
+
+                    # Unlock Externs For Reallocation
+                    if gate.get_symbol() == RESET_SYMBOL:
+                        reset_extern = gate.get_unary_symbol()
+                        extern_bind = extern_map[self.externs[reset_extern]]
+                        extern_bind.reset()                        
+                        idle_externs.append(extern_bind)
+
+            # Sort the waiting list based on the current slack
+            waiting.sort()
+            for gate in waiting:
+
+                # If it's an extern gate then see if a free resource exists
+                if gate.is_extern():
+                    index, binding = next(
+                        ((index, extern) for index, extern in enumerate(idle_externs) if extern.satisfies(gate)),
+                         (None, None)
+                         )
+
+                    if binding is not None:
+                        idle_externs.pop(index)
+                        self.externs[gate.get_symbol()] = binding.get_obj()
+                        self.scope[gate.get_symbol()] = binding.get_obj()
+                        active.add(gate)
+
+                else:
+                    # Gate is purely local, add it
+                    if not gate.non_local():
+                        active.add(gate)
+                        continue
+
+                    # Non-local gates only
+                    # Already expended all channels, skip
+                    if active_non_local_gates >= n_channels:
+                        continue
+
+                    # Gate is non-local but we have channel capacity for it
+                    active.add(gate)
+                    active_non_local_gates += 1
+
+            # Update the waiting list
+            waiting = list(filter(lambda x: x not in active, waiting))
             
-import numpy as np
-import copy
-from utils import log
+            if debug:
+                print("\n####")
+                print("CYCLE {n_cycles}")
+                print(f"\tACTIVE {active}\n\t WAITING {waiting}\n\t IDLE {idle_externs}\n\tCHANNELS {active_non_local_gates} / {n_channels}\n\t{resolved}")
+                print("####\n")
 
-from dag_node import DAGNode
-from instructions import INIT, PREP, MagicGate, CompositionalGate, QCBGate
+        return n_cycles, layers
+
+
+    def __tikz__(self):
+        return tikz_dag(self)
+           
+
 from symbol import Symbol
 from scope import Scope
+from instructions import INIT, RESET_SYMBOL
+from bind import DAGBind, ExternBind
+from test_tikz_helper2 import tikz_dag
+import copy
