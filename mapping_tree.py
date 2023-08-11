@@ -35,6 +35,7 @@ class QCBTree():
         for tree_node in self.nodes:
             tree_node.neighbours = set(map(self.graph_to_tree.__getitem__, tree_node.vertex.get_adjacent()))
         self.construct_spanning_tree()
+        self.distribute_slots()
 
     def selector(self, vertex):
         if vertex.is_extern():
@@ -83,12 +84,15 @@ class QCBTree():
         self.root = next(iter(self.nodes)).get_parent()
         return
 
+    def alloc(self, *args, **kwargs):
+        return self.root.alloc(*args, **kwargs)
 
     def distribute_slots(self):
-        parents = {leaf.distribute() for leave in self.leaves}
-        while len(parents) > 1:
-            parents = {node.distribute() for node in parents}
-
+        fringe = self.leaves
+        while len(fringe) > 1:
+            consume(map(lambda x: x.distribute_slots(), fringe))
+            fringe = {node.parent for node in fringe}
+        return 
 
 
 class TreeNode():
@@ -99,6 +103,15 @@ class TreeNode():
         
     def get_symbol(self):
         return self.vertex.get_symbol()
+    
+    def get_state(self):
+        return self.vertex.get_state()
+    
+    def get_slot(self):
+        return self.vertex.get_slot()
+
+    def get_slot_name(self):
+        return self.vertex.get_slot_name()
 
     def is_extern(self):
         return self.vertex.is_extern()
@@ -108,9 +121,6 @@ class TreeNode():
 
     def get_adjacent(self):
         return self.neighbours
-
-    def get_slot(self):
-        return self.vertex.get_slot()
 
     def visited(self):
         return not (self.parent == self)
@@ -220,10 +230,7 @@ class RegNode(TreeNode):
         self.weight += value
 
     def distribute_slots(self):
-        self.parent.bind_slot(self.slots)
-
-    def merge_slots(self, slots):
-        self.slots.distribute_slots(slots)
+        self.parent.merge_slot(self.slots)
 
     def get_weight(self):
         return self.weight
@@ -345,8 +352,23 @@ class IntermediateRegNode(RegNode):
             child.parent = self
         return {self}
 
-    def bind_slot(self, slot):
+    def merge_slot(self, slot):
+        '''
+            Binds a slots from a RegNode
+        '''
         self.slots.bind_slot(slot)
+
+    def distribute_slots(self):
+        '''
+            Dispatch method for distributing to the parent
+        '''
+        self.parent.merge_slots(self.slots)
+
+    def merge_slots(self, slots):
+        '''
+            Merges a selection of slots from Intermediate Nodes
+        '''
+        self.slots.distribute_slots(slots)
 
 
     def __repr__(self):

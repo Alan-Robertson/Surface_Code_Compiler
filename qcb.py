@@ -11,6 +11,7 @@ class QCB():
         self.operations = operations
         self.cycles = 17
         self.symbol = operations.get_symbol()
+        self.predicate = self.symbol.predicate
         self.prewarm = 0
 
         self.slack = float('inf')
@@ -53,6 +54,9 @@ class QCB():
     def __tikz__(self):
         return test_tikz_helper2.tikz_qcb(self)
 
+    def get_slot_name(self):
+        return self.symbol.predicate
+
 
 class SCPatch():
     # Singletons
@@ -83,6 +87,9 @@ class SCPatch():
 
     def get_state(self):
         return self.state
+
+    def get_slot_name(self):
+        return self.slot.predicate
 
     def is_extern(self):
         return self.state == SCPatch.EXTERN
@@ -170,11 +177,14 @@ class Segment():
     def get_state(self):
         return self.state.get_state()
 
+    def get_slot_name(self):
+        return self.state.get_slot_name()
+
     def get_n_slots(self):
         # How many distinct elements are in this patch
-        if self.get_slot() is SCPatch.EXTERN:
+        if self.get_state() == SCPatch.EXTERN:
             return 1
-        if self.get_slot() in {SCPatch.REG, SCPatch.IO}:
+        if self.get_state() in {SCPatch.REG, SCPatch.IO}:
             return self.width * self.height
         return 0
         return self.state.get_n_slots()

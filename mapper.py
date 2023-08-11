@@ -20,6 +20,3 @@ class Mapper():
                 raise Exception(f"Could not allocate {symbol}")
             self.map[symbol] == leaf.get_segment()
 
-
-
-

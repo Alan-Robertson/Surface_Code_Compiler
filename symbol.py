@@ -29,7 +29,7 @@ class Symbol(object):
         self.io = {j:i for i, j in enumerate(self.io_in)}
         self.io |= {j:len(self.io_in) + i for i, j in enumerate(self.io_out - self.io_in)}
         self.io_rev = dict(((j, i) for i, j in self.io.items()))
-
+           
     def format(self, io:'object|Sequence'):
         '''
             Basically overloads our constructor

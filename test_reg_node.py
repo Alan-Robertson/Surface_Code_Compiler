@@ -5,6 +5,7 @@ from symbol import Symbol
 
 from mapping_tree import RouteNode, RegNode, ExternRegNode, IntermediateRegWrapper, IntermediateRegNode
 from qcb import SCPatch
+from test_utils import GraphNodeInterface
 
 
 def bounded_difference(val, targ, eps=0.1):
@@ -48,20 +49,6 @@ def tree_iteration(fringe):
         return fringe, joint_nodes
 
 
-
-class GraphNodeInterface:
-    def __init__(self, string, n_slots=1):
-        self.string = string
-        self.n_slots = n_slots
-
-    def get_symbol(self):
-        return self
-    def get_segment(self):
-        return self
-    def get_n_slots(self):
-        return self.n_slots
-    def __repr__(self):
-        return str(self.string)
 
 
 class RegNodeTest(unittest.TestCase):

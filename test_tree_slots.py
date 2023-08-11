@@ -6,43 +6,46 @@ from qcb import SCPatch
 import unittest
 
 from test_utils import TreeNodeInterface, GraphNodeInterface 
-
+from symbol import Symbol, ExternSymbol
 
 class SlotTest(unittest.TestCase):
 
+    TST = Symbol('TST')
+    QWOP = Symbol('QWOP')
+
     def test_no_slots(self):
         s = TreeSlots(None)
-        assert s.alloc('TST') == TreeSlots.NO_CHILDREN_ERROR
+        assert s.alloc(self.TST) == TreeSlots.NO_CHILDREN_ERROR
 
     def test_one_alloc(self):
         s = TreeSlots(None)
-        obj = TreeNodeInterface('TST', 2, 1)
-        s.distribute('TST', obj)
-        assert s.get_weight('TST') == 2
-        assert s.alloc('TST').n_slots() == 0
-        assert s.alloc('TST') == TreeSlots.NO_CHILDREN_ERROR
+        obj = TreeNodeInterface(self.TST, 2, 1)
+        s.distribute(self.TST, obj)
+        assert s.get_weight(self.TST) == 2
+        assert s.alloc(self.TST).n_slots() == 0
+        assert s.alloc(self.TST) == TreeSlots.NO_CHILDREN_ERROR
 
     def test_two_allocs(self):
         s = TreeSlots(None)
-        obj = TreeNodeInterface('TST', 2, 2)
-        s.distribute('TST', obj)
-        assert s.get_weight('TST') == 2
-        assert s.alloc('TST').n_slots() == 1
-        assert s.alloc('TST').n_slots() == 0
-        assert s.alloc('TST') == TreeSlots.NO_CHILDREN_ERROR
+        obj = TreeNodeInterface(self.TST, 2, 2)
+        s.distribute(self.TST, obj)
+        assert s.get_weight(self.TST) == 2
+        assert s.alloc(self.TST).n_slots() == 1
+        assert s.alloc(self.TST).n_slots() == 0
+        assert s.alloc(self.TST) == TreeSlots.NO_CHILDREN_ERROR
 
     def test_two_slots(self):
         s = TreeSlots(None)
-        obj_a = TreeNodeInterface('TST', 3, 1)
-        obj_b = TreeNodeInterface('TST', 2, 2)
-        s.distribute('TST', obj_a)
-        s.distribute('TST', obj_b)
+        obj_a = TreeNodeInterface(self.TST, 3, 1)
+        obj_b = TreeNodeInterface(self.TST, 2, 2)
+        s.distribute(self.TST, obj_a)
+        s.distribute(self.TST, obj_b)
 
-        assert s.get_weight('TST') == 3
-        assert s.alloc('TST').n_slots() == 0
-        assert(len(s.slots['TST'].ordering) == 1)
+        assert s.get_weight(self.TST) == 3
+        assert s.alloc(self.TST).n_slots() == 0
+        assert(len(s.slots[self.TST].ordering) == 1)
         # Slot exhausted
-        assert s.get_weight('TST') == 2
+        assert s.get_weight(self.TST) == 2
 
     def test_nested(self):
         s = TreeSlots(None)
@@ -77,8 +80,8 @@ class SlotTest(unittest.TestCase):
     def test_segment_slot(self):
         segment_a = GraphNodeInterface(SCPatch.REG)
         segment_b = GraphNodeInterface(SCPatch.REG)
-        obj_a = SegmentSlot(TreeNodeInterface('TST', 3, 1, segment=segment_a))
-        obj_b = SegmentSlot(TreeNodeInterface('TST', 2, 2, segment=segment_b))
+        obj_a = SegmentSlot(TreeNodeInterface(self.TST, 3, 1, segment=segment_a))
+        obj_b = SegmentSlot(TreeNodeInterface(self.TST, 2, 2, segment=segment_b))
  
         s = TreeSlots(None)
         top = TreeSlots(None)
@@ -89,24 +92,53 @@ class SlotTest(unittest.TestCase):
     def test_nested_distribute(self):
         s = TreeSlots(None)
         top = TreeSlots(None)
-        obj_a = TreeNodeInterface('TST', 3, 1)
-        obj_b = TreeNodeInterface('TST', 2, 2)
-        obj_c = TreeNodeInterface('QWOP', 1, 1)
-        s.distribute('TST', obj_a)
-        s.distribute('TST', obj_b)
-        s.distribute('QWOP', obj_c)
+        obj_a = TreeNodeInterface(self.TST, 3, 1)
+        obj_b = TreeNodeInterface(self.TST, 2, 2)
+        obj_c = TreeNodeInterface(self.QWOP, 1, 1)
+        s.distribute(self.TST, obj_a)
+        s.distribute(self.TST, obj_b)
+        s.distribute(self.QWOP, obj_c)
         top.distribute_slots(s)
-        assert (len(s.slots['TST'].ordering) == 2)
-        assert top.get_weight('TST') == 3
-        assert top.alloc('TST') == obj_a
-        assert(len(s.slots['TST'].ordering) == 1)
-        assert top.get_weight('TST') == 2
-        assert top.alloc('TST') == obj_b
-        assert top.alloc('TST') == obj_b
-        assert top.alloc('TST') == TreeSlots.NO_CHILDREN_ERROR
-        assert top.get_weight('TST') == 0 
-        assert top.alloc('QWOP') == obj_c
+        assert (len(s.slots[self.TST].ordering) == 2)
+        assert top.get_weight(self.TST) == 3
+        assert top.alloc(self.TST) == obj_a
+        assert(len(s.slots[self.TST].ordering) == 1)
+        assert top.get_weight(self.TST) == 2
+        assert top.alloc(self.TST) == obj_b
+        assert top.alloc(self.TST) == obj_b
+        assert top.alloc(self.TST) == TreeSlots.NO_CHILDREN_ERROR
+        assert top.get_weight(self.TST) == 0 
+        assert top.alloc(self.QWOP) == obj_c
+    
+    def test_nested_distribute(self):
+        a = TreeSlots(None)
+        b = TreeSlots(None)
 
+        top = TreeSlots(None)
+        obj_a = TreeNodeInterface(self.TST, 3, 1)
+        obj_b = TreeNodeInterface(self.TST, 2, 2)
+        obj_c = TreeNodeInterface(self.QWOP, 4, 1)
+        obj_d = TreeNodeInterface(self.QWOP, 3, 1)
+        obj_e = TreeNodeInterface(self.QWOP, 2, 1)
+        obj_f = TreeNodeInterface(self.QWOP, 1, 1)
+
+        a.distribute(self.TST, obj_a)
+        a.distribute(self.TST, obj_c)
+        a.distribute(self.TST, obj_d)
+        b.distribute(self.TST, obj_b)
+        b.distribute(self.TST, obj_e)
+        b.distribute(self.TST, obj_f)
+
+        top.distribute_slots(a)
+        top.distribute_slots(b)
+
+        assert a in top.slots[self.TST].children
+        assert b in top.slots[self.TST].children
+
+        assert obj_a is top.alloc(self.TST)
+
+
+    
     def test_slot_merger(self):
         '''
             Build all the way from the graph
@@ -144,8 +176,12 @@ class SlotTest(unittest.TestCase):
 
             joint_nodes = set()
             starter = fringe
-            fringe = reduce(lambda a, b: a | b, map(lambda x: x.get_adjacent(), starter))
- 
+            fringe = reduce(lambda a, b: a | b, 
+                       map(lambda x: set(
+                           i for i in x.get_adjacent() if i.get_parent() != x.get_parent()),
+                           starter)
+                       )
+
             for node in starter:
                  for adjacent_node in node.get_adjacent():
                      parent = node.get_parent()
@@ -172,6 +208,59 @@ class SlotTest(unittest.TestCase):
         for i in range(4):
             assert(root.alloc(SCPatch.REG) in leaves)
         assert(root.alloc(SCPatch.REG) is TreeSlots.NO_CHILDREN_ERROR)
+
+    def test_compiler_chain(self):
+        from graph_prune import QCBGraph
+        from mapping_tree import QCBTree
+        from allocator2 import Allocator
+        from qcb import QCB
+        from dag2 import DAG
+        from instructions import INIT, CNOT, T, Toffoli
+        from symbol import Symbol, ExternSymbol
+
+        g = DAG(Symbol('Test'))
+        g.add_gate(INIT('a', 'b', 'c', 'd'))
+        g.add_gate(CNOT('a', 'b'))
+        g.add_gate(CNOT('c', 'd'))
+        g.add_gate(T('a'))
+        g.add_gate(CNOT('a', 'b'))
+        g.add_gate(Toffoli('a', 'b', 'c'))
+        g.add_gate(T('a'))
+        g.add_gate(T('a'))
+        g.add_gate(T('c'))
+        g.add_gate(T('d'))
+        g.add_gate(CNOT('c', 'd'))
+        g.add_gate(CNOT('c', 'a'))
+        g.add_gate(CNOT('b', 'd'))
+        g.add_gate(T('a'))
+        g.add_gate(T('c'))
+        g.add_gate(Toffoli('a', 'b', 'c'))
+        g.add_gate(CNOT('c', 'd'))
+        g.add_gate(CNOT('c', 'a'))
+        g.add_gate(CNOT('b', 'd'))
+
+        sym = ExternSymbol('T_Factory')
+        factory_impl = QCB(3, 5, DAG(symbol=sym, scope={sym:sym}))
+
+        qcb_base = QCB(15, 10, g)
+        allocator = Allocator(qcb_base, factory_impl)
+        allocator.allocate()
+        allocator.optimise()
+
+        graph = QCBGraph(qcb_base)
+        tree = QCBTree(graph)
+    
+        assert(len(tree.root.slots.slots) > 0)
+
+        N_REGISTERS = 33
+        N_EXTERNS = 4
+        for i in range(N_REGISTERS):
+            assert tree.alloc(SCPatch.REG) is not TreeSlots.NO_CHILDREN_ERROR
+        assert tree.alloc(SCPatch.REG) is TreeSlots.NO_CHILDREN_ERROR
+
+        for i in range(N_EXTERNS):
+            assert tree.alloc(sym.predicate) is not TreeSlots.NO_CHILDREN_ERROR
+        assert tree.alloc(sym.predicate) is TreeSlots.NO_CHILDREN_ERROR
 
 if __name__ == '__main__':
     unittest.main()

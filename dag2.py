@@ -271,14 +271,11 @@ class DAG(DAGNode):
         for element in initial_list:
             if element.get_symbol().is_extern():
                 lookup_list.append(element.get_symbol())
-                # print(element, element.get_symbol(), hex(id(element)), hex(id(element.get_symbol())), type(element))
                 
             else:
                 sym = Symbol(element)
                 sym.predicate = register
                 lookup_list.append(sym)
-        # print([(sym, hex(id(sym))) for sym in lookup_list])
-        # print([(sym, hex(id(sym))) for sym in self.physical_externs])
         return lookup_list
 
     def calculate_physical_proximity(self):

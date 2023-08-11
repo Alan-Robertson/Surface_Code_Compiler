@@ -17,7 +17,7 @@ class TreeSlots():
             self.distribute(symbol, slots)
 
     def bind_slot(self, slot):
-        self.distribute(slot.get_symbol(), slot)
+        self.distribute(slot.symbol, slot)
 
     def distribute(self, symbol, child):
         if symbol not in self.slots:
@@ -41,12 +41,15 @@ class TreeSlots():
     def __iter__(self):
         return iter(self.slots)
 
+    def __repr__(self):
+        return "NODE: " + "".join(self.slots[slot].__repr__() for slot in self.slots)
+
 class TreeSlot():
     '''
         Slot for a single symbol instance
     '''
     def __init__(self, symbol, initial_value=0):
-        self.symbol = symbol
+        self.symbol = symbol.predicate
         self.value = initial_value
         self.children = set()
         self.ordering = []
@@ -83,6 +86,9 @@ class TreeSlot():
         self.weight_updated = True
         return binding 
 
+    def __repr__(self):
+        return '\n'.join(slot.__repr__() for slot in self.ordering)
+
     def exhausted(self):
         return len(self.ordering) == 0
 
@@ -91,7 +97,7 @@ class SegmentSlot():
         This slot binds to either a REG, IO or EXTERN
     '''
     def __init__(self, leaf):
-        self.symbol = leaf.get_symbol()
+        self.symbol = leaf.get_slot_name()
         self.n_slots = leaf.get_segment().get_n_slots()
         self.tree_node = leaf
     

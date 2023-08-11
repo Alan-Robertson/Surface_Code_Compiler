@@ -42,9 +42,8 @@ allocator.allocate()
 allocator.optimise()
 
 
-prune = QCBPrune(qcb_base.segments)
+graph = QCBPrune(qcb_base.segments)
 
-# print_connectivity_graph(prune.grid_segments, 'main_connectivity.tex')
 
 from mapper2 import QCBMapper
 

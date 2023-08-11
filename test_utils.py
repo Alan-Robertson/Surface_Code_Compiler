@@ -1,8 +1,9 @@
 from tree_slots import TreeSlots, TreeSlot, SegmentSlot
+from symbol import symbol_resolve
 
 class TreeNodeInterface():
     def __init__(self, symbol, weight, slots, segment=None):
-        self.symbol = symbol
+        self.symbol = symbol_resolve(symbol)
         self.weight = weight
         self.slots = slots
         self.segment = segment
@@ -20,6 +21,16 @@ class TreeNodeInterface():
             return self
 
     def get_symbol(self):
+        return self.symbol
+
+    def get_slot(self):
+        return self.symbol
+
+    def get_slot_name(self):
+        return self.symbol
+
+
+    def get_state(self):
         return self.symbol
 
     def get_segment(self):
@@ -47,6 +58,15 @@ class GraphNodeInterface:
 
     def get_segment(self):
         return self
+
+    def get_slot(self):
+        return self.symbol
+    
+    def get_state(self):
+        return self.symbol
+
+    def get_slot_name(self):
+        return self.symbol
 
     def get_n_slots(self):
         return self.n_slots

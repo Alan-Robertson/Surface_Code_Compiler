@@ -60,7 +60,6 @@ class Allocator:
                            default=None)
         
         if not longest_reg or longest_reg.width == 1:
-            print("No longest found")
             return False
 
         split_x = (longest_reg.x_0 + longest_reg.x_1 + 1) // 2
@@ -73,7 +72,6 @@ class Allocator:
                         and s.y_0 != 0
                         and s.y_1 != self.height - 1]
 
-        print("affected", affected_regs)
 
         new_req = self.reg_allocated - self.reg_quota - len(affected_regs)
         while new_req < 0:
@@ -100,7 +98,6 @@ class Allocator:
 
             self.reg_allocated -= 1
 
-        print("regs", self.reg_allocated, "/", self.reg_quota)
         return True
 
     
@@ -139,7 +136,6 @@ class Allocator:
         options = sorted(map(heuristic, options), key=lambda o:o[1])
 
         curr_score = dag.compile(self.n_channels, *self.msfs)[0]
-        print(options, curr_score, self.n_channels, self.msfs)
 
         options = [o[0] for o in options if o[1] < curr_score]
 
@@ -162,7 +158,6 @@ class Allocator:
             self.n_channels += 1
             pass
 
-        print("final score", dag.compile(self.n_channels, *self.msfs)[0], self.n_channels, self.msfs)
 
         n_layers, compiled_layers = dag.compile(self.n_channels, *self.msfs)
         self.qcb.compiled_layers = compiled_layers
@@ -228,7 +223,6 @@ class Allocator:
 
     def place_io(self):
         if self.io_width == 0:
-            print("WARNING: IO width is 0")
             return
 
         segs, confirm = self.get_free_segments(self.qcb)[0].split(0, self.height - 1, self.io_width, 1)
@@ -268,8 +262,6 @@ class Allocator:
 
             # Attempt 2
             segs, confirm = self.get_free_segments(self.qcb)[0].alloc(extern.width, extern.height + 1)
-            print(self.get_free_segments(self.qcb)[0])
-            print(extern.width, extern.height)
             if not confirm:
                 raise AllocatorError("First MSF placement failed")
         
@@ -583,7 +575,6 @@ class Allocator:
             confirm(self.qcb.segments)
 
             row.allocated = False
-            print(row, drop_x)
             (drop, *regs), confirm = row.split(drop_x, row.y_0, 1, 1)
             confirm(self.qcb.segments)
 
@@ -609,7 +600,6 @@ class Allocator:
 
 
         if seg.y_0 == 0:
-            print(seg)
             return self.place_reg_top(seg)
         
         if all(s.state.state == SCPatch.ROUTE for s in seg.above):
@@ -696,7 +686,6 @@ class Allocator:
         self.global_merge_tl()
 
         while self.reg_allocated < self.reg_quota:
-            print(f"Current reg: {self.reg_allocated}/{self.reg_quota}")
             self.place_reg()
             self.global_merge_tl()
         

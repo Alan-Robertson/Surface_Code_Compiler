@@ -19,6 +19,9 @@ class GraphNode:
     def get_slot(self):
         return self.segment.get_slot()
 
+    def get_state(self):
+        return self.segment.get_state()
+
     def get_patch(self):
         return
 
@@ -27,6 +30,9 @@ class GraphNode:
 
     def get_segment(self):
         return self.segment    
+
+    def get_slot_name(self):
+        return self.segment.get_slot_name()
 
     def __repr__(self):
         return repr(self.segment.get_symbol())
