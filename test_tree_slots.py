@@ -1,7 +1,7 @@
 from functools import reduce
 from utils import consume
 from tree_slots import TreeSlots, TreeSlot, SegmentSlot
-from mapping_tree import RegNode, RouteNode
+from qcb_tree import RegNode, RouteNode
 from qcb import SCPatch
 import unittest
 
@@ -210,9 +210,9 @@ class SlotTest(unittest.TestCase):
         assert(root.alloc(SCPatch.REG) is TreeSlots.NO_CHILDREN_ERROR)
 
     def test_compiler_chain(self):
-        from graph_prune import QCBGraph
-        from mapping_tree import QCBTree
-        from allocator2 import Allocator
+        from qcb_graph import QCBGraph
+        from qcb_tree import QCBTree
+        from allocator import Allocator
         from qcb import QCB
         from dag import DAG
         from instructions import INIT, CNOT, T, Toffoli

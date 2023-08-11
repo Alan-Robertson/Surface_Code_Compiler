@@ -83,7 +83,6 @@ class Graph():
             anc.end()
         del self.locks[self.time]
         return completed
-
     
     def step(self, inc=1):
         self.time += inc

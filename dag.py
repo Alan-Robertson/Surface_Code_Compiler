@@ -36,14 +36,6 @@ class DAGNode():
         self.layer = 0
         self.slack = float('inf')
 
-        # TODO discuss w/ alan
-        # self.anc = None
-        # self.start = -1
-        # self.end = -1
-        # self.compiled_layers = None 
-        # ^ This is needed to extract the order in which logical externs 
-        # are executed on the physical externs; TODO discuss alternatives
-
     def __call__(self, scope=None):
         self.predicates = set()
         self.antecedents = set()

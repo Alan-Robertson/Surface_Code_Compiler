@@ -1,38 +1,93 @@
 from dag import DAG
-from symbol import Symbol, ExternSymbol, symbol_map
+from symbol import Symbol
 
-from instructions import INIT, CNOT, T, Toffoli
+from instructions import INIT, CNOT, T
 from scope import Scope
-from extern_interface import ExternInterface
-
-n_factories = 2
-n_channels = 2 
-
-g = DAG(Symbol('tst'))
-init = INIT('a', 'b', 'c', 'd')
-g.add_gate(init)
-g.add_gate(Toffoli('a', 'b', 'c'))
-g.add_gate(CNOT('a', 'b'))
-g.add_gate(CNOT('c', 'd'))
-g.add_gate(T('a'))
-g.add_gate(CNOT('a', 'b'))
-g.add_gate(T('a'))
-g.add_gate(T('a'))
-g.add_gate(T('c'))
-g.add_gate(T('d'))
-g.add_gate(CNOT('c', 'd'))
-g.add_gate(Toffoli('a', 'b', 'c'))
-g.add_gate(CNOT('c', 'a'))
-g.add_gate(CNOT('b', 'd'))
-g.add_gate(T('a'))
-g.add_gate(T('c'))
-g.add_gate(CNOT('c', 'd'))
-g.add_gate(CNOT('c', 'a'))
-g.add_gate(CNOT('b', 'd'))
-
-out = g.compile(n_channels, *[ExternInterface(ExternSymbol('T_Factory'), 17) for _ in range(n_factories)])
 
 
+from scope import Scope
+from symbol import Symbol, ExternSymbol
+import unittest
 
-# from pprint import pprint
-# pprint(out)
+class ScopeTest(unittest.TestCase):
+    def test_unroll(self):
+        g = DAG(Symbol('tst'))
+        g.add_gate(INIT('a', 'b', 'c'))
+
+        assert(Symbol('a') in g.scope)
+        assert(Symbol('b') in g.scope)
+        assert(Symbol('c') in g.scope)
+
+
+    def test_scope(self):
+        g = DAG(Symbol('tst'))
+        init = INIT('a', 'b', 'c')
+        scope = Scope({init['a']:g['x'], init['b']:g['y'], init['c']:g['z']})
+
+        g.add_gate(init, scope=scope)
+
+        assert(Symbol('x') in g.scope)
+        assert(Symbol('y') in g.scope)
+
+    def test_cnot(self):
+        g = DAG(Symbol('tst'))
+        g.add_gate(INIT('a', 'b', 'c'))
+
+        cnot = CNOT('a', 'b')
+        g.add_gate(cnot)
+        assert(g.gates[-1].symbol == cnot.symbol)
+
+
+    def test_dag_compose(self):
+        g = DAG(Symbol('tst'))
+        g.add_gate(INIT('a', 'b', 'c'))
+
+        h = DAG(Symbol('tst'))
+        h.add_gate(INIT('x', 'y', 'z'))
+
+        g.add_gate(h)
+
+        assert(Symbol('a') in g.scope)
+        assert(Symbol('x') in g.scope)
+        assert(Symbol('y') in g.scope)
+
+
+    def test_externs(self):
+        g = DAG(Symbol('tst'))
+        init = INIT('a', 'b', 'c')
+        
+        g.add_gate(init)
+        g.add_gate(T('a'))
+
+        assert(ExternSymbol('T_Factory') not in g.externs)
+        assert(g.externs.contains(ExternSymbol('T_Factory')))
+        
+
+    def test_extern_fungibility(self):
+        g = DAG(Symbol('tst'))
+        init = INIT('a', 'b', 'c')
+        
+        g.add_gate(init)
+
+        
+        g.add_gate(T('a'))
+        t_1 = g.gates[-3].symbol
+
+        g.add_gate(T('a'))
+        t_2 = g.gates[-3].symbol
+
+        extern_symbols = list(g.externs.keys())
+
+        assert(extern_symbols[0] == t_1)
+        assert(extern_symbols[0] is t_1)
+        assert(extern_symbols[1] == t_2)
+        assert(extern_symbols[1] is t_2)
+
+        assert(extern_symbols[1].satisfies(t_1))
+        assert(extern_symbols[1] != t_1)
+        assert(extern_symbols[0].satisfies(t_2))
+        assert(extern_symbols[0] !=  t_2)
+
+        
+if __name__ == '__main__':
+    unittest.main()

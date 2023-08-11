@@ -6,7 +6,6 @@ from queue import PriorityQueue
 from utils import log
 from mapper2 import QCBMapper
 from instructions import INIT_SYMBOL, RESET_SYMBOL
-from extern_interface import ExternInterface
 from bind import Bind, ExternBind
 from symbol import ExternSymbol
 

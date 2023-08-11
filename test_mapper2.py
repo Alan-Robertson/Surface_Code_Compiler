@@ -6,7 +6,7 @@ from instructions import INIT, CNOT, T, Toffoli
 from scope import Scope
 
 from pprint import pprint
-from allocator2 import Allocator
+from allocator import Allocator
 from qcb import QCB
 from graph_prune import QCBGraph
 from test_tikz_helper2 import *

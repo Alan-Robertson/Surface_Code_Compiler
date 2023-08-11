@@ -38,7 +38,7 @@ factory_impl = QCB(3, 5, DAG(symbol=sym, scope={sym:sym}))
 
 from pprint import pprint
 
-from allocator2 import Allocator
+from allocator import Allocator
 from qcb import QCB
 qcb_base = QCB(15, 10, g)
 
@@ -56,5 +56,4 @@ allocator.optimise()
 print()
 
 from test_tikz_helper2 import *
-#print_qcb(allocator.qcb.segments, "allocator2.tex")
 #print(allocator.msfs)

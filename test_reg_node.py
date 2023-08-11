@@ -3,7 +3,7 @@ from utils import consume
 from functools import reduce
 from symbol import Symbol
 
-from mapping_tree import RouteNode, RegNode, ExternRegNode, IntermediateRegWrapper, IntermediateRegNode
+from qcb_tree import RouteNode, RegNode, ExternRegNode, IntermediateRegWrapper, IntermediateRegNode
 from qcb import SCPatch
 from test_utils import GraphNodeInterface
 
@@ -1288,9 +1288,9 @@ class RegNodeTest(unittest.TestCase):
 
 
     def test_compiler_chain(self):
-        from graph_prune import QCBGraph
-        from mapping_tree import QCBTree
-        from allocator2 import Allocator
+        from qcb_graph import QCBGraph
+        from qcb_tree import QCBTree
+        from allocator import Allocator
         from qcb import QCB
         from dag import DAG
         from instructions import INIT, CNOT, T, Toffoli
