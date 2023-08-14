@@ -3,7 +3,7 @@ from utils import consume
 from qcb import SCPatch
 import unittest
 
-from mapper import Mapper
+from mapper import QCBMapper
 from test_utils import TreeNodeInterface, GraphNodeInterface 
 
 
@@ -50,7 +50,7 @@ class MapperTest(unittest.TestCase):
         graph = QCBGraph(qcb_base)
         tree = QCBTree(graph)
     
-        mapper = Mapper(dag, tree)
+        mapper = QCBMapper(dag, tree)
 
         for dag_node in dag.gates:
             assert len(mapper[dag_node]) > 0

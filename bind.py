@@ -125,8 +125,6 @@ class ExternBind(Bind):
     def __hash__(self):
         return id(self.obj)
 
-
-
 class DAGBind(Bind):
     '''
         Bind
@@ -173,3 +171,8 @@ class DAGBind(Bind):
 
     def is_extern(self):
         return False
+
+def RouteBind(Bind):
+    def __init__(self, bound_gate, addresses):
+        self.addresses = addresses
+        super().__init__(bound_gate.obj)

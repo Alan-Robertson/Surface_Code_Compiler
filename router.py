@@ -1,31 +1,32 @@
 from qcb import Segment, SCPatch, QCB
 from typing import *
 from circuit_model import Graph, GraphNode, ANC
-from dag2 import DAG, DAGNode
+from dag import DAG, DAGNode
 from queue import PriorityQueue
 from utils import log
-from mapper2 import QCBMapper
+from mapper import QCBMapper
 from instructions import INIT_SYMBOL, RESET_SYMBOL
 from bind import Bind, ExternBind
 from symbol import ExternSymbol
+from itertools import chain
+
 
 class QCBRouter:
-    def __init__(self, qcb: QCB, dag: DAG, mapper:QCBMapper, allocator):
+    def __init__(self, qcb:QCB, dag:DAG, mapper:QCBMapper):
         '''
             Initialise the router
         '''
         self.graph = Graph(shape=(qcb.width, qcb.height))
         self.dag = dag
         self.qcb = qcb
-        self.mapping = mapper.generate_mapping_dict()
-        # self.m = mapper.labels
+        self.mapping = mapper
 
-        allocator.reg_to_route(self.mapping.values())
+        self.active_gates = set()
 
         for segment in qcb.segments:
             for x in range(segment.x_0, segment.x_1 + 1):
                 for y in range(segment.y_0, segment.y_1 + 1):
-                    self.graph[(x, y)].set_underlying(segment.state.state)
+                    self.graph[(x, y)].set_underlying(segment.get_slot())
 
         self.anc: dict[Any, ANC] = {}    
         
@@ -40,15 +41,62 @@ class QCBRouter:
 
         self.physical_layers: list[list[DAGNode]] = []
 
+    def route(self):
+        self.active_gates = set()
+        waiting = self.dag.layers[0]
+        resolved = set()
+      
+        layers = []
 
-    # Probs not working
-    def debug(self):
-        for i, layer in enumerate(self.dag.layers):
-            for inst in layer:
-                print(inst, inst.anc)
-    
+        while len(waiting) > 0 and len(self.active_gates) > 0:
+            layers.append(list())
+            # Initially active gates
+            for gate in waiting:
+                
+                addresses = self.mapper[gate]
+                # Check that all addresses are free
+                if not all(self.attempt_gate(address) for address in addresses):
+                    # Not all addresses are currently free, keep waiting
+                    continue
+
+                # Attempt to route between the gates
+                route_exists = True
+                if gate.non_local():
+                    route_exists, route_addresses = self.find_route(addresses)
+                    self.addresses += route_addresses
+
+                # Route exists, all nodes are free
+                if route_exists:
+                    for address in addresses:
+                        self.graph[address].lock(gate)
+                    self.active_gate.add(RouteBind(gate, addresses))
+
+            recently_resolved = list(filter(lambda x: x.resolved(), self.active_gates))
+            self.active_gates = set(filter(lambda x: not x.resolved(), self.active_gates))
+
+            for gate in recently_resolved:
+                resolved.add(gate)            
+
+                # Should only trigger when the final antecedent is resolved
+                for antecedent in gate.antecedents():
+                    all_resolved = True
+                    for predicate in antecedent.predicates:
+                        if predicate not in resolved:
+                            all_resolved = False
+                            break
+                    if all_resolved:
+                        waiting.append(Bind(antecedent))
+                   
+            for gate in self.active_gates():
+                gate.cycle()
+                layers[-1].append(gate)
+            waiting.sort()
+        return layers
+
+
+
+
     def preprocess_externs(self, layered_ordering):
-        from itertools import chain
         ordering = [g.obj.obj for g in chain.from_iterable(layered_ordering) if g.is_extern()]
         extern_schedule = {phys_extern : [] for phys_extern in self.dag.physical_externs}
         for extern in ordering:
@@ -62,7 +110,6 @@ class QCBRouter:
         for phys_extern in self.extern_schedule:
             self.phys_externs[phys_extern] = [ExternBind(phys_extern), 'IDLE']
 
-        # gates = set(self.dag.gates)
 
         inits: list[DAGNode] = [g for g in self.dag.layers[0]]
         self.waiting = inits
@@ -71,7 +118,6 @@ class QCBRouter:
         while self.waiting or not self.active.empty():
             log(f"{self.waiting=} {self.active.queue=}")
             self.advance()
-            
         
         print(self.waiting, self.active.queue)
 
@@ -108,18 +154,6 @@ class QCBRouter:
         self.physical_layers += [list(self.active.queue)] * (dtime) 
         log(f"{completed=}")
 
-        # TODO discuss
-        # from itertools import chain
-        # for phys_extern in chain(self.prewarm_externs, self.active_externs):
-        #     phys_extern.cycle()
-        
-        # newly_ready = set()
-        # for phys_extern in self.prewarm_externs:
-        #     # if phys_extern.
-        #     pass
-
-        # end TODO
-
         while not self.active.empty() and self.anc.get(self.active.queue[0][2], None) in completed:
             inst = self.active.get()[2]
         for anc in completed:
@@ -144,12 +178,7 @@ class QCBRouter:
             if ant not in self.resolved and self.predicates_resolved(ant):
                 self.waiting.append(ant)
                 self.resolved.add(ant)
-            # else:
-            #     print('not resolved')
-            #     for pre in ant.predicates:
-            #         if pre not in self.resolved:
-            #             print('fail', pre, self.resolved)
-    
+            
     def get_coord(self, symbol):
         if symbol in self.mapping:
             return self.mapping[symbol]
@@ -160,7 +189,6 @@ class QCBRouter:
         elif symbol.parent is not symbol:
             offset = symbol.parent(symbol)
             x, y = self.get_coord(symbol.parent)
-            # return (x + offset, y)
             return (x, y) # TODO rejig for extern offsets
 
 
@@ -175,8 +203,6 @@ class QCBRouter:
             inst.end = inst.start + inst.n_cycles()
             return True
             
-
-    
     def route_double(self, q1, q2, inst: DAGNode):
         q1_node = self.graph[self.get_coord(q1)]
         q2_node = self.graph[self.get_coord(q2)]

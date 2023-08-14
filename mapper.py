@@ -1,7 +1,7 @@
 from qcb import SCPatch
 from tree_slots import TreeSlots
 
-class Mapper():
+class QCBMapper():
 
     def __init__(self, dag, mapping_tree):
         self.dag = dag

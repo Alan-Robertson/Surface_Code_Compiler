@@ -4,6 +4,20 @@ from qcb import SCPatch
 from typing import *
 from utils import log
 
+class QCBElement():
+    def __init__(self, router):
+        self.locking_dag is None
+        self.environment = router
+
+    def lock(self, dag):
+        if self.locking_dag not in environment.active_gates:
+            self.locking_dag = dag
+            return True
+        if self.locking_dag is dag:
+            return True
+        return False 
+
+
 class ANC():
     def __init__(self, nodes, expiry, inst):
         self.nodes = nodes
