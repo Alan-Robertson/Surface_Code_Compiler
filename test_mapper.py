@@ -53,8 +53,7 @@ class MapperTest(unittest.TestCase):
         mapper = Mapper(dag, tree)
 
         for dag_node in dag.gates:
-            print(mapper[dag_node])
-
+            assert len(mapper[dag_node]) > 0
 
 if __name__ == '__main__':
     unittest.main()

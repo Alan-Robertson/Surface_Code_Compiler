@@ -21,7 +21,7 @@ class Mapper():
 
     def dag_symbol_to_segment(self, symbol):
         if symbol.is_extern():
-           symbol = self.dag.scope[symbol.parent].symbol.parent 
+           symbol = self.dag.scope[symbol.get_parent()].symbol.get_parent() 
         return self.map[symbol] 
 
     def dag_node_to_segments(self, dag_node):

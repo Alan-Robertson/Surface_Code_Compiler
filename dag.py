@@ -294,7 +294,6 @@ class DAG(DAGNode):
 
         return prox, lookup
 
-    # TODO Create this as a separate wrapper
     def compile(self, n_channels, *externs, extern_minimise=lambda extern: extern.n_cycles(), debug=False):
         
         # Clear any previous extern allocation
@@ -446,7 +445,7 @@ class DAG(DAGNode):
                 print("CYCLE {n_cycles}")
                 print(f"\tACTIVE {active}\n\t WAITING {waiting}\n\t IDLE {idle_externs}\n\tCHANNELS {active_non_local_gates} / {n_channels}\n\t{resolved}")
                 print("####\n")
-
+    
         return n_cycles, layers
 
 

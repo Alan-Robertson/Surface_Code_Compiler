@@ -102,5 +102,10 @@ class Scope():
     def clear_scope(self):
         for i in self.mapping:
             self.mapping[i] = None 
-       
+      
+    def backfill_scope(self):
+        for i in self.mapping:
+            if not i.is_extern() and self.mapping[i] is None:
+                self.mapping[i] = self.mapping[i]
+
 from symbol import Symbol, ExternSymbol, symbol_resolve
