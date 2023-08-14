@@ -1,6 +1,3 @@
-# from dag_node import DAGNode
-# from typing import Sequence 
-# from dag import DAG
 from functools import partial
 from symbol import Symbol, ExternSymbol, symbol_map, symbol_resolve
 from scope import Scope

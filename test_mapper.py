@@ -1,18 +1,17 @@
 from functools import reduce
 from utils import consume
-from tree_slots import TreeSlots, TreeSlot, SegmentSlot
-from mapping_tree import RegNode, RouteNode
 from qcb import SCPatch
 import unittest
 
+from mapper import Mapper
 from test_utils import TreeNodeInterface, GraphNodeInterface 
 
 
 class MapperTest(unittest.TestCase):
 
     def test_reg_mapping(self):
-        from graph_prune import QCBGraph
-        from mapping_tree import QCBTree
+        from qcb_graph import QCBGraph
+        from qcb_tree import QCBTree
         from allocator import Allocator
         from qcb import QCB
         from dag import DAG
@@ -51,9 +50,10 @@ class MapperTest(unittest.TestCase):
         graph = QCBGraph(qcb_base)
         tree = QCBTree(graph)
     
-        mapper = QCBMapper(qcb_base, tree)
+        mapper = Mapper(dag, tree)
 
-        
+        for dag_node in dag.gates:
+            print(mapper[dag_node])
 
 
 if __name__ == '__main__':
