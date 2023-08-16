@@ -244,8 +244,6 @@ class SlotTest(unittest.TestCase):
 
         qcb_base = QCB(15, 10, g)
         allocator = Allocator(qcb_base, factory_impl)
-        allocator.allocate()
-        allocator.optimise()
 
         graph = QCBGraph(qcb_base)
         tree = QCBTree(graph)

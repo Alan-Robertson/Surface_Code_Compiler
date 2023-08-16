@@ -1,11 +1,38 @@
+from bind import AddrBind
 from symbol import Symbol
 
+# Purely for namespacing
+class SCEdge:
+    ABOVE = AddrBind('above')
+    BELOW = AddrBind('below')
+    RIGHT = AddrBind('right')
+    LEFT = AddrBind('left')
+
+    @staticmethod
+    def flip(edge):
+        match edge:
+            case SCEdge.ABOVE:
+                return SCEdge.BELOW
+            case SCEdge.BELOW:
+                return SCEdge.ABOVE
+            case SCEdge.RIGHT:
+                return SCEdge.LEFT
+            case SCEdge.LEFT:
+                return SCEdge.RIGHT
+        raise Exception("NOT AN EDGE")
+
+# Can't be instantiated with SCEdge
+SCEdge.VERTICAL_EDGES = {SCEdge.ABOVE, SCEdge.BELOW}
+SCEdge.HORIZONTAL_EDGES = {SCEdge.RIGHT, SCEdge.LEFT}
+SCEdge.EDGES = {SCEdge.ABOVE, SCEdge.RIGHT, SCEdge.BELOW, SCEdge.LEFT}
+
+    
 class QCB():
     '''
         Closure object
         Contains both a QCB memory layout and a DAG execution description
     '''
-    def __init__(self, width, height, operations: 'DAG'):
+    def __init__(self, width, height, operations: 'DAG', io=None):
         self.segments: Set[Segment] = {Segment(0, 0, width-1, height-1)}
         self.mappable_segments = set()
         self.operations = operations
@@ -14,6 +41,11 @@ class QCB():
         self.predicate = self.symbol.predicate
         self.prewarm = 0
 
+        if io is None:
+            self.io = dict()
+        else:
+            self.io = io
+
         self.slack = float('inf')
 
         self.width = width
@@ -21,7 +53,7 @@ class QCB():
         self.externs = operations.externs
 
         self.compiled_layers: list[Bind|ExternBind] = []
-        self.io = self.symbol.io
+        #self.io = self.symbol.io
 
     # ExternInterface impls
     def n_cycles(self):
@@ -92,13 +124,34 @@ class SCPatch():
         return self.slot.predicate
 
     def is_extern(self):
-        return self.state == SCPatch.EXTERN
+        return self.state is SCPatch.EXTERN
 
     def __eq__(self, other):
         if self.is_extern(): # All externs are equal
             return other.is_extern()
         else:
-            return other.state == self.state
+            return other.state is self.state
+
+    def test_edge_rules(self, edge):
+        '''
+            Test validity of patch to edge comparison
+        '''
+        if self.state is SCPatch.ROUTE:
+            return True
+        if self.state is SCPatch.REG:
+            return edge in SCEdge.VERTICAL_EDGES
+        if self.state is SCPatch.EXTERN:
+            return edge is SCEdge.ABOVE
+        return False
+
+    def valid_edge(self, other_patch, edge):
+        if not ((self.state is SCPatch.ROUTE) or (other_patch.state is SCPatch.Route)):
+            return False
+
+        if self.state is not SCPatch.ROUTE:
+            return self.test_rules(edge)
+        else:
+            return other_patch.test_rules(SCEdge.flip(edge))
 
     def satisfies(self, other):
         if not self.is_extern():
@@ -106,33 +159,33 @@ class SCPatch():
         return self.slot.satisfies(other)
 
 class Segment():
-    edge_labels = ['above', 'right', 'below', 'left']
+    edge_labels = [SCEdge.ABOVE, SCEdge.RIGHT, SCEdge.BELOW, SCEdge.LEFT]
     seg_alignments = {
-        'above':lambda a, b: a.y_0 - 1 == b.y_1,
+        SCEdge.ABOVE:lambda a, b: a.y_0 - 1 == b.y_1,
         #  b b
         #  a a
-        'right':lambda b, a: a.x_0 - 1 == b.x_1,
+        SCEdge.RIGHT:lambda b, a: a.x_0 - 1 == b.x_1,
         #  b a
         #  b a
-        'below':lambda a, b: a.y_1 + 1 == b.y_0,
+        SCEdge.BELOW:lambda a, b: a.y_1 + 1 == b.y_0,
         #  a a
         #  b b
-        'left' :lambda b, a: a.x_1 + 1 == b.x_0,
+        SCEdge.LEFT :lambda b, a: a.x_1 + 1 == b.x_0,
         #  a b
         #  a b
         }
     seg_capture = {
-        'above':(lambda a, b: ((a.x_0 <= b.x_0 and a.x_1 >= b.x_0) or (a.x_0 <= b.x_1 and a.x_1 >= b.x_1))),
+        SCEdge.ABOVE:(lambda a, b: ((a.x_0 <= b.x_0 and a.x_1 >= b.x_0) or (a.x_0 <= b.x_1 and a.x_1 >= b.x_1))),
         #  * a *     OR     * a *
         #    b * *        * * b
-        'right':(lambda a, b: ((a.y_0 <= b.y_0 and a.y_1 >= b.y_0) or (a.y_0 <= b.y_1 and a.y_1 >= b.y_1))),
+        SCEdge.RIGHT:(lambda a, b: ((a.y_0 <= b.y_0 and a.y_1 >= b.y_0) or (a.y_0 <= b.y_1 and a.y_1 >= b.y_1))),
         #  *             *
         #  a b    OR   * *
         #  * *         a b
         #    *         *
-        'below':(lambda a, b: ((a.x_0 <= b.x_0 and a.x_1 >= b.x_0) or (a.x_0 <= b.x_1 and a.x_1 >= b.x_1))),
+        SCEdge.BELOW:(lambda a, b: ((a.x_0 <= b.x_0 and a.x_1 >= b.x_0) or (a.x_0 <= b.x_1 and a.x_1 >= b.x_1))),
         # Same as above
-        'left' :(lambda a, b: ((a.y_0 <= b.y_0 and a.y_1 >= b.y_0) or (a.y_0 <= b.y_1 and a.y_1 >= b.y_1)))
+        SCEdge.LEFT :(lambda a, b: ((a.y_0 <= b.y_0 and a.y_1 >= b.y_0) or (a.y_0 <= b.y_1 and a.y_1 >= b.y_1)))
         # Same as right
         }
 
@@ -141,10 +194,10 @@ class Segment():
 
     # Join a.<label> with b reciprocally
     seg_join = {
-        'above':lambda a, b: [a.above.add(b), b.below.add(a)], 
-        'right':lambda a, b: [a.right.add(b), b.left.add(a)],
-        'below':lambda a, b: [a.below.add(b), b.above.add(a)],
-        'left' :lambda a, b: [a.left.add(b),  b.right.add(a)]
+        SCEdge.ABOVE:lambda a, b: [a.above.add(b), b.below.add(a)], 
+        SCEdge.RIGHT:lambda a, b: [a.right.add(b), b.left.add(a)],
+        SCEdge.BELOW:lambda a, b: [a.below.add(b), b.above.add(a)],
+        SCEdge.LEFT :lambda a, b: [a.left.add(b),  b.right.add(a)]
         } 
 
     # TODO Pls no properties
@@ -180,6 +233,7 @@ class Segment():
     def get_slot_name(self):
         return self.state.get_slot_name()
 
+
     def get_n_slots(self):
         # How many distinct elements are in this patch
         if self.get_state() == SCPatch.EXTERN:
@@ -206,10 +260,10 @@ class Segment():
         if labels is None:
             labels = self.edge_labels
         edge_dict = {
-            'above':self.above,
-            'right':self.right,
-            'below': self.below,
-            'left': self.left}
+            SCEdge.ABOVE:self.above,
+            SCEdge.RIGHT:self.right,
+            SCEdge.BELOW: self.below,
+            SCEdge.LEFT: self.left}
         return {label:edge_dict[label] for label in labels}
 
     def __repr__(self):
@@ -229,8 +283,6 @@ class Segment():
         chunks[0].allocated = True
 
         return chunks, confirm
-
-
 
     def split(self, x: int, y: int, width: int, height: int) -> \
         'Tuple[None, None]|Tuple[List[Segment], Callable[[Set[Segment]],]]':
@@ -268,10 +320,10 @@ class Segment():
         for x_start, x_end in zip(positions_x_start, positions_x_end):
             for y_start, y_end in zip(positions_y_start, positions_y_end):
                 segment = Segment(x_start, y_start, x_end, y_end)
-                segment.right = self._filter_mutual_neighbours(segment, 'right')
-                segment.left = self._filter_mutual_neighbours(segment, 'left')
-                segment.above = self._filter_mutual_neighbours(segment, 'above')
-                segment.below = self._filter_mutual_neighbours(segment, 'below')
+                segment.right = self._filter_mutual_neighbours(segment, SCEdge.RIGHT)
+                segment.left = self._filter_mutual_neighbours(segment, SCEdge.LEFT)
+                segment.above = self._filter_mutual_neighbours(segment, SCEdge.ABOVE)
+                segment.below = self._filter_mutual_neighbours(segment, SCEdge.BELOW)
                 segments.append(segment)
 
         # Link the edges
@@ -409,10 +461,10 @@ class Segment():
     # Get nodes that are neighbours in the relation node.<label>(self)
     def _inverse(self, label: str):
         r = {
-            'left': self.right,
-            'right': self.left,
-            'above': self.below,
-            'below': self.above,
+            SCEdge.LEFT: self.right,
+            SCEdge.RIGHT: self.left,
+            SCEdge.ABOVE: self.below,
+            SCEdge.BELOW: self.above,
         }
         return r[label]
 
@@ -449,14 +501,14 @@ class Segment():
                     above_seg = Segment(edge.x_0, edge.y_0, edge.x_1, self.y_0-1)
                     above_seg.above = edge.above # Fine since edge is destroyed
                     above_seg.below = set()
-                    above_seg.right = edge._filter_mutual_neighbours(above_seg, 'right')
-                    above_seg.left = edge._filter_mutual_neighbours(above_seg, 'left')
+                    above_seg.right = edge._filter_mutual_neighbours(above_seg, SCEdge.RIGHT)
+                    above_seg.left = edge._filter_mutual_neighbours(above_seg, SCEdge.LEFT)
                 if self.y_1 < edge.y_1:
                     below_seg = Segment(edge.x_0, self.y_1+1, edge.x_1, edge.y_1)
                     below_seg.above = set()
                     below_seg.below = edge.below # Fine since edge is destroyed
-                    below_seg.right = edge._filter_mutual_neighbours(below_seg, 'right')
-                    below_seg.left = edge._filter_mutual_neighbours(below_seg, 'left')
+                    below_seg.right = edge._filter_mutual_neighbours(below_seg, SCEdge.RIGHT)
+                    below_seg.left = edge._filter_mutual_neighbours(below_seg, SCEdge.LEFT)
 
         splits = sorted(splits)
         segments = []
@@ -464,8 +516,8 @@ class Segment():
         # Process all internal blocks
         for y_start, y_end in zip(splits[:-1], map(lambda h: h-1, splits[1:])):
             segment = Segment(self.x_0, y_start, self.x_1, y_end)
-            segment.left = self._filter_mutual_neighbours(segment, 'left')
-            segment.right = self._filter_mutual_neighbours(segment, 'right')
+            segment.left = self._filter_mutual_neighbours(segment, SCEdge.LEFT)
+            segment.right = self._filter_mutual_neighbours(segment, SCEdge.RIGHT)
             segments.append(segment)
 
         # Generate above and below for top and bottom segments        
@@ -495,10 +547,10 @@ class Segment():
                 continue
             right = segment.right.pop()
             segment.x_1 = right.x_1
-            segment.right = right._filter_mutual_neighbours(segment, 'right')
+            segment.right = right._filter_mutual_neighbours(segment, SCEdge.RIGHT)
             # We need to discard destroyed segments as they are subsumed into these splits 
-            segment.above.update(right._filter_mutual_neighbours(segment, 'above').difference(merged_segments))
-            segment.below.update(right._filter_mutual_neighbours(segment, 'below').difference(merged_segments))
+            segment.above.update(right._filter_mutual_neighbours(segment, SCEdge.ABOVE).difference(merged_segments))
+            segment.below.update(right._filter_mutual_neighbours(segment, SCEdge.BELOW).difference(merged_segments))
         
         # Add above and below segments into output list
         if above_seg:
@@ -556,14 +608,14 @@ class Segment():
                     left_seg = Segment(edge.x_0, edge.y_0, self.x_0 - 1, edge.y_1)
                     left_seg.left = edge.left # Fine since edge is destroyed
                     left_seg.right = set()
-                    left_seg.below = edge._filter_mutual_neighbours(left_seg, 'below')
-                    left_seg.above = edge._filter_mutual_neighbours(left_seg, 'above')
+                    left_seg.below = edge._filter_mutual_neighbours(left_seg, SCEdge.BELOW)
+                    left_seg.above = edge._filter_mutual_neighbours(left_seg, SCEdge.ABOVE)
                 if self.x_1 < edge.x_1:
                     right_seg = Segment(self.x_1 + 1, edge.y_0, edge.x_1, edge.y_1)
                     right_seg.left = set()
                     right_seg.right = edge.right # Fine since edge is destroyed
-                    right_seg.below = edge._filter_mutual_neighbours(right_seg, 'below')
-                    right_seg.above = edge._filter_mutual_neighbours(right_seg, 'above')
+                    right_seg.below = edge._filter_mutual_neighbours(right_seg, SCEdge.BELOW)
+                    right_seg.above = edge._filter_mutual_neighbours(right_seg, SCEdge.ABOVE)
 
         splits = sorted(splits)
         segments = []
@@ -571,8 +623,8 @@ class Segment():
         # Process all internal blocks
         for x_start, x_end in zip(splits[:-1], map(lambda x: x-1, splits[1:])):
             segment = Segment(x_start, self.y_0, x_end, self.y_1)
-            segment.above = self._filter_mutual_neighbours(segment, 'above')
-            segment.below = self._filter_mutual_neighbours(segment, 'below')
+            segment.above = self._filter_mutual_neighbours(segment, SCEdge.ABOVE)
+            segment.below = self._filter_mutual_neighbours(segment, SCEdge.BELOW)
             segments.append(segment)
 
         # Generate left and right for left and right segments        
@@ -600,10 +652,10 @@ class Segment():
                 continue
             below = segment.below.pop()
             segment.y_1 = below.y_1
-            segment.below = below._filter_mutual_neighbours(segment, 'below')
+            segment.below = below._filter_mutual_neighbours(segment, SCEdge.BELOW)
             # We need to discard destroyed segments as they are subsumed into these splits 
-            segment.left.update(below._filter_mutual_neighbours(segment, 'left').difference(merged_segments))
-            segment.right.update(below._filter_mutual_neighbours(segment, 'right').difference(merged_segments))
+            segment.left.update(below._filter_mutual_neighbours(segment, SCEdge.LEFT).difference(merged_segments))
+            segment.right.update(below._filter_mutual_neighbours(segment, SCEdge.RIGHT).difference(merged_segments))
         
         # Add left and right segments into output list
         if left_seg:
@@ -632,10 +684,10 @@ class Segment():
 
     def _filter_mutual_neighbours(self, other: 'Segment', label: str):
         edge_dict = {
-            'above':self.above,
-            'right':self.right,
-            'below': self.below,
-            'left': self.left
+            SCEdge.ABOVE:self.above,
+            SCEdge.RIGHT:self.right,
+            SCEdge.BELOW: self.below,
+            SCEdge.LEFT: self.left
         }
         return set(e for e in edge_dict[label] if self.seg_adjacent(other, e, label))
 

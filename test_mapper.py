@@ -44,8 +44,6 @@ class MapperTest(unittest.TestCase):
 
         qcb_base = QCB(15, 10, dag)
         allocator = Allocator(qcb_base, factory_impl)
-        allocator.allocate()
-        allocator.optimise()
 
         graph = QCBGraph(qcb_base)
         tree = QCBTree(graph)
@@ -53,7 +51,13 @@ class MapperTest(unittest.TestCase):
         mapper = QCBMapper(dag, tree)
 
         for dag_node in dag.gates:
-            assert len(mapper[dag_node]) > 0
+            coordinates = mapper[dag_node]
+            assert len(coordinates) > 0
+            assert all(
+                    map(lambda x: (type(x) is tuple 
+                      and all(map(lambda y: type(y) is int, x))),
+                    coordinates)
+                    )
 
 if __name__ == '__main__':
     unittest.main()

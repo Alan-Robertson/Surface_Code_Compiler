@@ -27,5 +27,18 @@ class QCBMapper():
     def dag_node_to_segments(self, dag_node):
         return [self.dag_symbol_to_segment(symbol) for symbol in dag_node.symbol.io.keys()]
 
+    def dag_node_to_coordinates(self, dag_node):
+        segments = self.dag_node_to_segments(dag_node)
+        coordinates = []
+        for node, segment in zip(dag_node.scope, segments):
+            if segment.state is not SCPatch.EXTERN:
+                coordinates.append((segment.x_0, segment.y_0)) 
+            elif node.io_element is not None:
+                offset = segment.get_slot().io[node.io_element]
+                coordinates.append((segment.x_0 + offset, segment.y_1))
+            else:
+                coordinates.append((segment.x_0, segement.y_1))
+        return coordinates 
+
     def __getitem__(self, dag_node):
-        return self.dag_node_to_segments(dag_node)
+        return self.dag_node_to_coordinates(dag_node)

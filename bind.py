@@ -176,3 +176,24 @@ def RouteBind(Bind):
     def __init__(self, bound_gate, addresses):
         self.addresses = addresses
         super().__init__(bound_gate.obj)
+
+
+class AddrBind():
+    '''
+        Wrapper that promotes comparisons to addresses
+    '''
+    def __init__(self, obj):
+        self.obj = obj
+
+    def __eq__(self, other):
+        if isinstance(other, AddrBind):
+            return other.obj is self.obj
+        else:
+            return other is self.obj
+    
+    def __hash__(self):
+        return self.obj.__hash__()
+
+    def __repr__(self):
+        return self.obj.__repr__()
+

@@ -1,4 +1,4 @@
-from dag2 import DAG
+from dag import DAG
 from qcb import QCB
 from symbol import Symbol, ExternSymbol, symbol_map
 
@@ -38,8 +38,6 @@ factory_impl = QCB(3, 5, DAG(symbol=sym, scope={sym:sym}))
 
 qcb_base = QCB(15, 10, g)
 allocator = Allocator(qcb_base, factory_impl)
-allocator.allocate()
-allocator.optimise()
 
 
 prune = QCBPrune(qcb_base.segments)

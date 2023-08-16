@@ -20,8 +20,9 @@ class Allocator:
         # optimise variables
         self.msfs = []
         self.n_channels = 1
-
         self.test = 0
+        self.allocate()
+        self.optimise()
 
     def reg_to_route(self, keep: Set[Tuple[int, int]]):
         

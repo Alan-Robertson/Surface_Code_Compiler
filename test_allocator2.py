@@ -1,4 +1,4 @@
-from dag2 import DAG
+from dag import DAG
 from qcb import QCB
 from symbol import Symbol, ExternSymbol, symbol_map
 
@@ -43,17 +43,3 @@ from qcb import QCB
 qcb_base = QCB(15, 10, g)
 
 allocator = Allocator(qcb_base, factory_impl)
-
-print()
-
-
-allocator.allocate()
-
-print()
-
-allocator.optimise()
-
-print()
-
-from test_tikz_helper2 import *
-#print(allocator.msfs)

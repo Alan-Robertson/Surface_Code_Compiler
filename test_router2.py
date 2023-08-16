@@ -58,7 +58,7 @@ mapper.map_all(g)
 
 
 
-from router2 import QCBRouter
+from router import QCBRouter
 
 router = QCBRouter(qcb_base, g, mapper, allocator)
 
