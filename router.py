@@ -1,26 +1,27 @@
 from qcb import Segment, SCPatch, QCB
 from typing import *
-from circuit_model import Graph, GraphNode, ANC
+from circuit_model import PatchGraph, PatchGraphNode 
 from dag import DAG, DAGNode
 from queue import PriorityQueue
 from utils import log
 from mapper import QCBMapper
 from instructions import INIT_SYMBOL, RESET_SYMBOL
-from bind import Bind, ExternBind
+from bind import RouteBind
 from symbol import ExternSymbol
 from itertools import chain
-
+from utils import consume
 
 class QCBRouter:
-    def __init__(self, qcb:QCB, dag:DAG, mapper:QCBMapper):
+    def __init__(self, qcb:QCB, dag:DAG, mapper:QCBMapper, auto_route=True):
         '''
             Initialise the router
         '''
-        self.graph = Graph(shape=(qcb.width, qcb.height))
+        self.graph = PatchGraph(shape=(qcb.width, qcb.height), environment=self)
         self.dag = dag
         self.qcb = qcb
-        self.mapping = mapper
+        self.mapper = mapper
 
+        self.routes = dict()
         self.active_gates = set()
 
         for segment in qcb.segments:
@@ -41,39 +42,43 @@ class QCBRouter:
 
         self.physical_layers: list[list[DAGNode]] = []
 
+        if auto_route:
+            self.route()
+
     def route(self):
         self.active_gates = set()
-        waiting = self.dag.layers[0]
+        waiting = list(map(lambda x: RouteBind(x, self.mapper[x]), self.dag.layers[0]))
         resolved = set()
       
         layers = []
 
-        while len(waiting) > 0 and len(self.active_gates) > 0:
+        while len(waiting) > 0 or len(self.active_gates) > 0:
             layers.append(list())
             # Initially active gates
             for gate in waiting:
                 
                 addresses = self.mapper[gate]
                 # Check that all addresses are free
-                if not all(self.attempt_gate(address) for address in addresses):
+                if not all(self.attempt_gate(gate, address) for address in addresses):
                     # Not all addresses are currently free, keep waiting
                     continue
 
                 # Attempt to route between the gates
                 route_exists = True
                 if gate.non_local():
-                    route_exists, route_addresses = self.find_route(addresses)
-                    self.addresses += route_addresses
+                    route_exists, route_addresses = self.find_route(gate, addresses)
+                    if route_exists:
+                        addresses += route_addresses
 
                 # Route exists, all nodes are free
                 if route_exists:
-                    for address in addresses:
-                        self.graph[address].lock(gate)
-                    self.active_gate.add(RouteBind(gate, addresses))
+                    self.routes[gate] = addresses 
+                    self.active_gates.add(gate)
 
             recently_resolved = list(filter(lambda x: x.resolved(), self.active_gates))
             self.active_gates = set(filter(lambda x: not x.resolved(), self.active_gates))
-
+            waiting = list(filter(lambda x: x not in self.active_gates, waiting))
+    
             for gate in recently_resolved:
                 resolved.add(gate)            
 
@@ -81,209 +86,30 @@ class QCBRouter:
                 for antecedent in gate.antecedents():
                     all_resolved = True
                     for predicate in antecedent.predicates:
-                        if predicate not in resolved:
+                        if RouteBind(predicate, None) not in resolved:
                             all_resolved = False
                             break
                     if all_resolved:
-                        waiting.append(Bind(antecedent))
+                        waiting.append(RouteBind(antecedent, addresses))
                    
-            for gate in self.active_gates():
+            for gate in self.active_gates:
                 gate.cycle()
                 layers[-1].append(gate)
             waiting.sort()
         return layers
 
+    def attempt_gate(self, dag_node, address):
+        return self.graph[address].lock(dag_node)
 
-
-
-    def preprocess_externs(self, layered_ordering):
-        ordering = [g.obj.obj for g in chain.from_iterable(layered_ordering) if g.is_extern()]
-        extern_schedule = {phys_extern : [] for phys_extern in self.dag.physical_externs}
-        for extern in ordering:
-            phys_extern = self.dag.scope[extern.symbol]
-            extern_schedule[phys_extern].append(extern)
-        return extern_schedule
-
-    def route_all(self):
-        self.extern_schedule = self.preprocess_externs(self.qcb.compiled_layers)
-
-        for phys_extern in self.extern_schedule:
-            self.phys_externs[phys_extern] = [ExternBind(phys_extern), 'IDLE']
-
-
-        inits: list[DAGNode] = [g for g in self.dag.layers[0]]
-        self.waiting = inits
-        # self.process_waiting()
-
-        while self.waiting or not self.active.empty():
-            log(f"{self.waiting=} {self.active.queue=}")
-            self.advance()
-        
-        print(self.waiting, self.active.queue)
-
-    def process_waiting(self):
-        new_waiting = []
-        for inst in self.waiting:
-            success = self.route_inst(inst)
-            if not success:
-                new_waiting.append(inst)
+    def find_route(self, gate, addresses):
+        paths = []
+        graph_nodes = list(map(lambda address: self.graph[address], addresses))
+        for start, end in zip(graph_nodes, graph_nodes[1:]):
+            path = self.graph.route(start, end, gate)
+            if path is not PatchGraph.NO_PATH_FOUND:
+                paths += path
             else:
-                self.active.put((self.anc[inst].expiry, id(inst), inst))
-        self.waiting = new_waiting
-    
-    def route_inst(self, inst: DAGNode) -> bool:
-        if inst.is_extern():
-            success = self.route_extern(inst)
-        elif len(inst.symbol) == 1:
-            success = self.route_single(inst.symbol[0], inst)
-        elif len(inst.symbol) == 2:
-            # if isinstance(inst.targs[1], int):
-                success = self.route_double(inst.symbol[0], inst.symbol[1], inst)
-            # else:
-            #     success = self.route_msf(inst.targs[0], inst.targs[1], inst)
-        else:
-            raise Exception("invalid in advance:", inst)
-        return success
-        
+                return False, PatchGraph.NO_PATH_FOUND
 
-    def advance(self):
-        self.process_waiting()
-        time = self.graph.time
-        completed = self.graph.advance()
-        dtime = self.graph.time - time
-        self.physical_layers += [list(self.active.queue)] * (dtime) 
-        log(f"{completed=}")
-
-        while not self.active.empty() and self.anc.get(self.active.queue[0][2], None) in completed:
-            inst = self.active.get()[2]
-        for anc in completed:
-            self.process_completion(anc.inst)
-            self.finished.append(anc.inst)
-        
-    def predicates_resolved(self, inst):
-        return all(
-                (pre in self.resolved)
-                for pre in inst.predicates
-                # if not pre.magic_state
-                )
-
-
-    def process_completion(self, inst: DAGNode):
-        if inst.symbol == RESET_SYMBOL:
-            self.reset_extern(inst)
-
-        self.resolved.add(inst)
-        for ant in inst.antecedents:
-            # print('debug ant', ant, ant.predicates)
-            if ant not in self.resolved and self.predicates_resolved(ant):
-                self.waiting.append(ant)
-                self.resolved.add(ant)
-            
-    def get_coord(self, symbol):
-        if symbol in self.mapping:
-            return self.mapping[symbol]
-        elif symbol.get_symbol() in self.mapping:
-            return self.mapping[symbol.get_symbol()]
-        elif symbol in self.dag.scope:
-            return self.get_coord(self.dag.scope[symbol])
-        elif symbol.parent is not symbol:
-            offset = symbol.parent(symbol)
-            x, y = self.get_coord(symbol.parent)
-            return (x, y) # TODO rejig for extern offsets
-
-
-
-    def route_single(self, q, inst: DAGNode):
-        q_node = self.graph[self.get_coord(q)]
-        if q_node.in_use():
-            return False
-        else:
-            self.anc[inst] = self.graph.lock([q_node], inst.n_cycles(), inst)
-            inst.start = self.graph.time
-            inst.end = inst.start + inst.n_cycles()
-            return True
-            
-    def route_double(self, q1, q2, inst: DAGNode):
-        q1_node = self.graph[self.get_coord(q1)]
-        q2_node = self.graph[self.get_coord(q2)]
-        route = self.graph.path(q1_node, q2_node)
-
-        if not route:
-            return False
-        else:
-            assert inst not in self.anc
-            self.anc[inst] = self.graph.lock(route, inst.n_cycles(), inst)
-            # inst.start = self.graph.time
-            # inst.end = inst.start + inst.n_cycles()
-            return True
-
-    def reset_extern(self, inst):
-        phys_extern_impl = self.dag.scope[inst.symbol[0]]
-        phys_extern_binding, phys_extern_state = self.phys_externs[phys_extern_impl]
-        assert self.phys_externs[phys_extern_impl][1] == 'ACTIVE'
-        self.phys_externs[phys_extern_impl][1] = 'IDLE'
-
-    def route_extern(self, inst):
-        if not self.predicates_resolved(inst):
-            return False
-
-        phys_extern_impl = self.dag.scope[inst.symbol]
-        phys_extern_binding, phys_extern_state = self.phys_externs[phys_extern_impl]
-        if phys_extern_state == 'IDLE':
-            self.phys_externs[phys_extern_impl][1] = 'ACTIVE'
-            dur = phys_extern_binding.n_cycles() - phys_extern_binding.get_cycles_completed()
-            self.anc[inst] = self.graph.lock([self.graph[self.get_coord(phys_extern_impl)]], dur, inst)
-            # inst.start = self.graph.time
-            # inst.end = inst.start + dur
-            return True
-        return False
-        # return self.route_double(q1, extern, inst)
-    
-    
-
-        q1_node = self.graph[self.mapping[q1]]
-        msf_nodes = [(self.graph[pos], seg) for pos, seg in self.mapping[msf].items() if not self.graph[pos].in_use()]
-        if not msf_nodes:
-            return False
-        else:
-            # msf priority
-            msf_nodes.sort(key=lambda n: abs(q1_node.x - n[0].x) + abs(q1_node.y - n[0].y))
-            for node, seg in msf_nodes:
-                route = self.graph.path(q1_node, node)
-                if route: 
-                    dur = max(inst.cycles, seg.state.msf.cycles)
-                    assert inst not in self.anc
-                    self.anc[inst] = self.graph.lock(route, dur, inst)
-                    # inst.start = self.graph.time
-                    # inst.end = inst.start + dur
-                    return True
-            else:
-                return False
-
-    def __tikz__(self):
-        from test_tikz_helper2 import tikz_header, tikz_footer, new_frame, make_bg, animate_header, animate_footer
-        output = animate_header()
-
-        for layer in self.physical_layers:
-            output += tikz_header(scale=1.5)
-            output += make_bg(self.qcb.segments)
-            for _, _, inst in layer:
-                nodes = self.anc[inst].nodes
-                # offset = 0.03 * inst.start
-                offset = 0
-                if len(nodes) > 1:
-                    x, y = nodes[0].x+0.5+offset, -nodes[0].y-0.5-offset
-                    output += f"\\draw ({x}, {y}) "
-                    for node in nodes[1:]:
-                        x, y = node.x+0.5+offset, -node.y-0.5-offset
-                        output += f"-- ({x}, {y}) "
-                    output += ";\n"
-                x, y = nodes[0].x+0.5+offset, -nodes[0].y-0.5-offset
-                output += f"\\node[shape=circle,draw=black] at ({x}, {y}) {{}};\n"
-                x, y = nodes[-1].x+0.5+offset, -nodes[-1].y-0.5-offset
-                output += f"\\node[shape=circle,draw=black] at ({x}, {y}) {{}};\n"
-
-            output += tikz_footer()
-            output += new_frame()
-        output += animate_footer()
-        return output
+        consume(map(lambda x: x.lock(gate), paths))
+        return True, paths

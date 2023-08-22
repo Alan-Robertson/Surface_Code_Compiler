@@ -106,3 +106,21 @@ class ExternInterface():
     def get_obj(self):
         return self
 
+
+class QCBInterface():
+    def __init__(self, width, height, *segments):
+        self.width = width
+        self.height = height
+        self.segments = segments
+
+class QCBSegmentInterface():
+    def __init__(self, x_0, y_0, x_1, y_1, slot):
+        self.x_0 = x_0
+        self.y_0 = y_0
+        self.x_1 = x_1
+        self.y_1 = y_1
+        self.slot = slot
+
+    def get_slot(self):
+        return self.slot
+

@@ -2,7 +2,7 @@ import numpy as np
 import queue
 from qcb import SCPatch
 from typing import *
-from utils import log
+from utils import log, consume
 
 class PatchGraphNode():
 
@@ -13,13 +13,13 @@ class PatchGraphNode():
         self.x = i
         self.y = j
         self.state = None
-        self.lock = self.INITIAL_LOCK_STATE
+        self.lock_state = self.INITIAL_LOCK_STATE
     
     def set_underlying(self, state):
         self.state = state
 
-    def adjacent(self):
-        return self.graph.adjacent(self.x, self.y)
+    def adjacent(self, gate):
+        return self.graph.adjacent(self.x, self.y, gate)
 
     def __gt__(self, *args):
         return 1
@@ -39,62 +39,37 @@ class PatchGraphNode():
     def valid_edge(self, other_patch, edge):
         return self.state.valid_edge(other_patch.state, edge)
 
-    def lock(self, dag):
+    def probe(self, lock_request):
+        if self.lock_state is lock_request:
+            return True
         # Gate has completed and is no longer active
-        if self.locking_dag not in self.active_gates():
-            self.locking_dag = dag
+        if self.lock_state not in self.active_gates():
             return True
-
-        if self.locking_dag is dag:
-            return True
-
         return False 
 
+    def lock(self, dag_node):
+        if probe := self.probe(dag_node):
+            self.lock_state = dag_node
+        return probe
+
 class PatchGraph():
+
+    NO_PATH_FOUND = object()
+
     def __init__(self, shape, environment):
         self.graph = np.array([[PatchGraphNode(self, j, i) for i in range(shape[1])] for j in range(shape[0])])
         self.shape = shape
-        self.time = 0
-        self.locks: Dict[int, Set[ANC]] = {}
         self.environment = environment
 
-    def __getitem__(self, *args) -> GraphNode:
-        return self.graph.__getitem__(*args)
-
-    def lock(self, nodes: List[GraphNode], duration: int, inst):
-        anc = ANC(nodes, self.time + duration, inst)
-        anc.start()
-        self.locks[anc.expiry] = self.locks.get(anc.expiry, set()) | {anc}
-        log(f"lock {anc=}")
-        return anc
+    def __getitem__(self, coords):
+        return self.graph.__getitem__(tuple(coords))
 
     def active_gates(self):
         return self.environment.active_gates
 
-    
-    def advance(self):
-        if not self.locks:
-            raise Exception('Routing failed, no available gates to route')
-        time_next = min(self.locks)
-        self.time = time_next
-        completed = self.locks[self.time]
-        for anc in completed:
-            anc.end()
-        del self.locks[self.time]
-        return completed
-    
-    def step(self, inc=1):
-        self.time += inc
-        completed = set()
-        while self.locks and min(self.locks) < self.time:
-            completed.update(self.locks[self.time])
-            for anc in self.locks[self.time]:
-                anc.end()
-            del self.locks[self.time]
-        return completed
-
-    def adjacent(self, i, j):
+    def adjacent(self, i, j, gate):
         opt = []
+
         if i + 1 < self.shape[0]:
             opt.append([i + 1, j])
 
@@ -108,13 +83,13 @@ class PatchGraph():
             opt.append([i, j - 1]) 
 
         for i in opt:
-            if not self[tuple(i)].in_use():
+            if self[tuple(i)].probe(gate):
                 yield self[tuple(i)]
         return
    
-    def path(self, start, end, heuristic=None):
-        if start.in_use() or end.in_use():
-            return []
+    def route(self, start, end, gate, heuristic=None):
+       # if not(start.probe(gate) or end.probe(gate)):
+       #     return []
         
         if heuristic is None:
             heuristic = self.heuristic
@@ -129,11 +104,9 @@ class PatchGraph():
 
         while not frontier.empty():
             current = frontier.get()[1]
-
             if current == end:
                 break
-
-            for i in current.adjacent():
+            for i in current.adjacent(gate):
                 if (i == end and current != start) or i.state == SCPatch.ROUTE:
                     cost = path_cost[current] + i.cost()
                     if i not in path_cost or cost < path_cost[i]:
@@ -141,14 +114,15 @@ class PatchGraph():
                         frontier.put((cost + heuristic(i, end), i))
                         path[i] = current
         else:
-            return []
+            return self.NO_PATH_FOUND
 
         def traverse(path, end):
             next_end = path[end]
             if next_end is not None:
                 return [next_end] + traverse(path, next_end)
             return []
-        return traverse(path, end)[::-1] + [end]
+        final_route = traverse(path, end)[::-1] + [end]
+        return final_route 
 
     @staticmethod
     def heuristic(a, b):

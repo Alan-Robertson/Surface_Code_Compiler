@@ -2,9 +2,7 @@ from functools import reduce
 from utils import consume
 from qcb import SCPatch
 import unittest
-
 from mapper import QCBMapper
-from test_utils import TreeNodeInterface, GraphNodeInterface 
 
 
 class MapperTest(unittest.TestCase):

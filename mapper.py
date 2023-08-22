@@ -25,7 +25,7 @@ class QCBMapper():
         return self.map[symbol] 
 
     def dag_node_to_segments(self, dag_node):
-        return [self.dag_symbol_to_segment(symbol) for symbol in dag_node.symbol.io.keys()]
+        return [self.dag_symbol_to_segment(symbol) for symbol in dag_node.get_symbol().io.keys()]
 
     def dag_node_to_coordinates(self, dag_node):
         segments = self.dag_node_to_segments(dag_node)
@@ -42,3 +42,6 @@ class QCBMapper():
 
     def __getitem__(self, dag_node):
         return self.dag_node_to_coordinates(dag_node)
+
+    def __call__(self, dag_node):
+        return self.__getitem__(dag_node)

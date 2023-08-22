@@ -1,4 +1,3 @@
-
 class Bind():
     def __init__(self, obj):
         self.obj = obj
@@ -13,9 +12,6 @@ class Bind():
 
     def reset_cycles_completed(self):
         self.cycles_completed = 0
-
-    def cycle(self):
-        self.cycles_completed += 1
 
     def __repr__(self):
         return f"{repr(self.obj)} {hex(id(self.obj.symbol))}: {self.curr_cycle()} {self.n_cycles()}"
@@ -74,6 +70,25 @@ class Bind():
 
     def __le__(self, other):
         return False
+
+class AddrBind():
+    '''
+        Wrapper that promotes comparisons to addresses
+    '''
+    def __init__(self, obj):
+        self.obj = obj
+
+    def __eq__(self, other):
+        if isinstance(other, AddrBind):
+            return other.obj is self.obj
+        else:
+            return other is self.obj
+    
+    def __hash__(self):
+        return self.obj.__hash__()
+
+    def __repr__(self):
+        return self.obj.__repr__()
 
     
 class ExternBind(Bind):
@@ -172,21 +187,14 @@ class DAGBind(Bind):
     def is_extern(self):
         return False
 
-def RouteBind(Bind):
-    def __init__(self, bound_gate, addresses):
+class RouteBind(Bind):
+    def __init__(self, gate, addresses):
         self.addresses = addresses
-        super().__init__(bound_gate.obj)
-
-
-class AddrBind():
-    '''
-        Wrapper that promotes comparisons to addresses
-    '''
-    def __init__(self, obj):
-        self.obj = obj
+        self.scope = gate.scope
+        super().__init__(gate)
 
     def __eq__(self, other):
-        if isinstance(other, AddrBind):
+        if isinstance(other, RouteBind):
             return other.obj is self.obj
         else:
             return other is self.obj
@@ -196,4 +204,5 @@ class AddrBind():
 
     def __repr__(self):
         return self.obj.__repr__()
+
 

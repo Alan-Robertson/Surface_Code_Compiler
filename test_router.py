@@ -1,45 +1,200 @@
 from dag import DAG
-from qcb import QCB
-from symbol import Symbol, ExternSymbol, symbol_map
-
 from instructions import INIT, CNOT, T, Toffoli
-from scope import Scope
-from extern_interface import ExternInterface
+from symbol import Symbol, ExternSymbol
 
-from pprint import pprint
-from allocator import Allocator
-from qcb import QCB
-from graph_prune import QCBPrune
-from test_tikz_helper2 import *
+from qcb import SCPatch
 
-g = DAG(Symbol('tst'))
-g.add_gate(INIT('a', 'b', 'c', 'd'))
-g.add_gate(CNOT('a', 'b'))
-g.add_gate(CNOT('c', 'd'))
-g.add_gate(T('a'))
-g.add_gate(CNOT('a', 'b'))
-g.add_gate(Toffoli('a', 'b', 'c'))
-g.add_gate(T('a'))
-g.add_gate(T('a'))
-g.add_gate(T('c'))
-g.add_gate(T('d'))
-g.add_gate(CNOT('c', 'd'))
-g.add_gate(CNOT('c', 'a'))
-g.add_gate(CNOT('b', 'd'))
-g.add_gate(T('a'))
-g.add_gate(T('c'))
-g.add_gate(Toffoli('a', 'b', 'c'))
-g.add_gate(CNOT('c', 'd'))
-g.add_gate(CNOT('c', 'a'))
-g.add_gate(CNOT('b', 'd'))
+from router import QCBRouter
 
-sym = ExternSymbol('T_Factory')
-factory_impl = QCB(3, 5, DAG(symbol=sym, scope={sym:sym}))
+import unittest
 
-qcb_base = QCB(15, 10, g)
-allocator = Allocator(qcb_base, factory_impl)
+from test_utils import QCBInterface, QCBSegmentInterface 
+
+class RouterTest(unittest.TestCase):
+
+    def test_simple_route(self):
+        dag = DAG(Symbol('Test'))
+        dag.add_gate(INIT('a', 'b', 'c', 'd'))
+        dag.add_gate(CNOT('a', 'b'))
+
+        mapper = {Symbol('a'):(0, 0),
+                  Symbol('b'):(0, 2)}
+
+        qcb = QCBInterface(
+            1, 3,
+            QCBSegmentInterface(0, 0, 0, 0, SCPatch.REG),
+            QCBSegmentInterface(0, 1, 0, 1, SCPatch.ROUTE),
+            QCBSegmentInterface(0, 2, 0, 2, SCPatch.REG)
+            )
+
+        router = QCBRouter(qcb, dag, mapper, auto_route=False)
+
+        route_found, route = router.find_route(Symbol('gate'), [[0, 0], [0, 2]])
+        assert route_found
+        assert route == [router.graph[0, 0], router.graph[0, 1], router.graph[0, 2]]
+
+    def test_two_routes(self):
+        dag = DAG(Symbol('Test'))
+        dag.add_gate(INIT('a', 'b', 'c', 'd'))
+        dag.add_gate(CNOT('a', 'b'))
+
+        mapper = {Symbol('a'):(0, 0),
+                  Symbol('b'):(0, 2),
+                  Symbol('c'):(0, 0),
+                  Symbol('d'):(0, 0)
+                  }
+                 
+        qcb = QCBInterface(
+            2, 3,
+            QCBSegmentInterface(0, 0, 0, 0, SCPatch.REG),
+            QCBSegmentInterface(0, 1, 0, 1, SCPatch.ROUTE),
+            QCBSegmentInterface(0, 2, 0, 2, SCPatch.REG), 
+            QCBSegmentInterface(1, 1, 1, 1, SCPatch.REG),
+            QCBSegmentInterface(1, 1, 1, 1, SCPatch.ROUTE),
+            QCBSegmentInterface(1, 2, 1, 2, SCPatch.REG)
+            )
+
+        router = QCBRouter(qcb, dag, mapper, auto_route=False)
+
+        gate_a = Symbol('gate_a')
+        route_found, route = router.find_route(gate_a, [[0, 0], [0, 2]])
+        assert route_found
+        assert route == [router.graph[0, 0], router.graph[0, 1], router.graph[0, 2]]
+        router.active_gates.add(gate_a)
+
+        gate_b = Symbol('gate_b')
+        route_found, route = router.find_route(gate_b, [[1, 0], [1, 2]])
+        assert route_found
+        assert route == [router.graph[1, 0], router.graph[1, 1], router.graph[1, 2]]
+
+    def test_lock_unlock(self):
+        dag = DAG(Symbol('Test'))
+        dag.add_gate(INIT('a', 'b', 'c', 'd'))
+
+        mapper = {Symbol('a'):(1, 0),
+                  Symbol('b'):(1, 2),
+                  Symbol('c'):(0, 1),
+                  Symbol('d'):(2, 1)
+                  }
+                 
+        qcb = QCBInterface(
+            3, 3,
+            QCBSegmentInterface(1, 0, 1, 0, SCPatch.REG),
+            QCBSegmentInterface(1, 1, 1, 1, SCPatch.ROUTE),
+            QCBSegmentInterface(1, 2, 1, 2, SCPatch.REG), 
+            QCBSegmentInterface(0, 1, 0, 1, SCPatch.REG),
+            QCBSegmentInterface(2, 1, 2, 1, SCPatch.REG)
+            )
+
+        router = QCBRouter(qcb, dag, mapper, auto_route=False)
+
+        gate_a = Symbol('gate_a')
+        route_found, route = router.find_route(gate_a, [[1, 0], [1, 2]])
+        assert route_found
+        assert route == [router.graph[1, 0], router.graph[1, 1], router.graph[1, 2]]
+        router.active_gates.add(gate_a)
+
+        gate_b = Symbol('gate_b')
+        route_found, route = router.find_route(gate_b, [[0, 1], [2, 1]])
+        assert not route_found
+        
+        # Unlock
+        router.active_gates.remove(gate_a)
+
+        gate_b = Symbol('gate_b')
+        route_found, route = router.find_route(gate_b, [[0, 1], [2, 1]])
+        assert route_found
+        assert route == [router.graph[0, 1], router.graph[1, 1], router.graph[2, 1]]
+
+    def test_from_dag(self):
+        from mapper import QCBMapper
+        from qcb_graph import QCBGraph
+        from qcb_tree import QCBTree
+        from allocator import Allocator
+        from qcb import QCB
+
+        dag = DAG(Symbol('Test'))
+        dag.add_gate(INIT('a', 'b'))
+        dag.add_gate(CNOT('a', 'b'))
+
+        qcb = QCB(4, 4, dag)
+        allocator = Allocator(qcb)
+
+        graph = QCBGraph(qcb)
+        tree = QCBTree(graph)
+
+        mapper = QCBMapper(dag, tree)
+ 
+        router = QCBRouter(qcb, dag, mapper)
+
+    def test_larger_dag(self):
+        from mapper import QCBMapper
+        from qcb_graph import QCBGraph
+        from qcb_tree import QCBTree
+        from allocator import Allocator
+        from qcb import QCB
+
+        dag = DAG(Symbol('Test'))
+        dag.add_gate(INIT('a', 'b', 'c', 'd'))
+        dag.add_gate(CNOT('a', 'b'))
+        dag.add_gate(CNOT('c', 'd'))
+        dag.add_gate(CNOT('a', 'd'))
+        dag.add_gate(CNOT('b', 'c'))
+        dag.add_gate(CNOT('d', 'b'))
+        dag.add_gate(CNOT('c', 'a'))
+
+        qcb = QCB(4, 4, dag)
+        allocator = Allocator(qcb)
+
+        graph = QCBGraph(qcb)
+        tree = QCBTree(graph)
+
+        mapper = QCBMapper(dag, tree)
+ 
+        router = QCBRouter(qcb, dag, mapper)
 
 
-prune = QCBPrune(qcb_base.segments)
 
-print_connectivity_graph(prune.grid_segments, 'pruned_graph.tex')
+
+    def test_complex_qcb(self):
+        from mapper import QCBMapper
+        from qcb_graph import QCBGraph
+        from qcb_tree import QCBTree
+        from allocator import Allocator
+        from qcb import QCB
+        
+        dag = DAG(Symbol('Test'))
+        dag.add_gate(INIT('a', 'b', 'c', 'd'))
+        dag.add_gate(CNOT('a', 'b'))
+        dag.add_gate(CNOT('c', 'd'))
+        dag.add_gate(T('a'))
+        dag.add_gate(CNOT('a', 'b'))
+        dag.add_gate(Toffoli('a', 'b', 'c'))
+        dag.add_gate(T('a'))
+        dag.add_gate(T('a'))
+        dag.add_gate(T('c'))
+        dag.add_gate(T('d'))
+        dag.add_gate(CNOT('c', 'd'))
+        dag.add_gate(CNOT('c', 'a'))
+        dag.add_gate(CNOT('b', 'd'))
+        dag.add_gate(T('a'))
+        dag.add_gate(T('c'))
+        dag.add_gate(Toffoli('a', 'b', 'c'))
+        dag.add_gate(CNOT('c', 'd'))
+        dag.add_gate(CNOT('c', 'a'))
+        dag.add_gate(CNOT('b', 'd'))
+
+        sym = ExternSymbol('T_Factory')
+        factory_impl = QCB(3, 5, DAG(symbol=sym, scope={sym:sym}))
+
+        qcb_base = QCB(15, 10, dag)
+        allocator = Allocator(qcb_base, factory_impl)
+
+        graph = QCBGraph(qcb_base)
+        tree = QCBTree(graph)
+
+        mapper = QCBMapper(dag, tree)
+    
+
+if __name__ == '__main__':
+    unittest.main()
