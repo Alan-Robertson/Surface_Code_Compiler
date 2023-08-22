@@ -7,6 +7,34 @@ from mapper import QCBMapper
 
 class MapperTest(unittest.TestCase):
 
+
+  
+    def test_extern_qcb(self):
+        from instructions import INIT, T
+        from dag import DAG
+        from symbol import Symbol, ExternSymbol
+        from mapper import QCBMapper
+        from qcb_graph import QCBGraph
+        from qcb_tree import QCBTree
+        from allocator import Allocator
+        from qcb import QCB
+        
+        dag = DAG(Symbol('Test'))
+        dag.add_gate(INIT('a', 'b', 'c', 'd'))
+        dag.add_gate(T('a'))
+
+        sym = ExternSymbol('T_Factory')
+        factory_impl = QCB(3, 5, DAG(symbol=sym, scope={sym:sym}))
+
+        qcb_base = QCB(15, 10, dag)
+        allocator = Allocator(qcb_base, factory_impl)
+        graph = QCBGraph(qcb_base)
+        tree = QCBTree(graph)
+        mapper = QCBMapper(dag, tree)
+
+
+ 
+
     def test_reg_mapping(self):
         from qcb_graph import QCBGraph
         from qcb_tree import QCBTree

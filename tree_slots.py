@@ -60,9 +60,9 @@ class TreeSlot():
     def distribute(self, child):
         if child not in self.children:
             self.children.add(child)
-            bisect.insort(self.ordering, child, key = lambda x: x.get_weight(self.symbol))
+            bisect.insort(self.ordering, child, key=lambda x: x.get_weight(self.symbol))
         else:
-            self.ordering.sort()
+            self.ordering.sort(key=lambda x: x.get_weight(self.symbol))
         self.last_weight = self.ordering[-1].get_weight(self.symbol)
 
     def get_weight(self):

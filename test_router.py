@@ -106,27 +106,6 @@ class RouterTest(unittest.TestCase):
         assert route_found
         assert route == [router.graph[0, 1], router.graph[1, 1], router.graph[2, 1]]
 
-    def test_from_dag(self):
-        from mapper import QCBMapper
-        from qcb_graph import QCBGraph
-        from qcb_tree import QCBTree
-        from allocator import Allocator
-        from qcb import QCB
-
-        dag = DAG(Symbol('Test'))
-        dag.add_gate(INIT('a', 'b'))
-        dag.add_gate(CNOT('a', 'b'))
-
-        qcb = QCB(4, 4, dag)
-        allocator = Allocator(qcb)
-
-        graph = QCBGraph(qcb)
-        tree = QCBTree(graph)
-
-        mapper = QCBMapper(dag, tree)
- 
-        router = QCBRouter(qcb, dag, mapper)
-
     def test_larger_dag(self):
         from mapper import QCBMapper
         from qcb_graph import QCBGraph
@@ -152,6 +131,58 @@ class RouterTest(unittest.TestCase):
         mapper = QCBMapper(dag, tree)
  
         router = QCBRouter(qcb, dag, mapper)
+
+
+    def test_extern_qcb(self):
+        from mapper import QCBMapper
+        from qcb_graph import QCBGraph
+        from qcb_tree import QCBTree
+        from allocator import Allocator
+        from qcb import QCB
+        
+        dag = DAG(Symbol('Test'))
+        dag.add_gate(INIT('a', 'b', 'c', 'd'))
+        dag.add_gate(T('a'))
+        dag.add_gate(CNOT('a', 'b'))
+
+        sym = ExternSymbol('T_Factory')
+        factory_impl = QCB(3, 5, DAG(symbol=sym, scope={sym:sym}))
+
+        qcb_base = QCB(15, 10, dag)
+        allocator = Allocator(qcb_base, factory_impl)
+
+        graph = QCBGraph(qcb_base)
+        tree = QCBTree(graph)
+
+        mapper = QCBMapper(dag, tree)
+        router = QCBRouter(qcb_base, dag, mapper, auto_route=False)
+
+
+
+    def test_complex_no_extern(self):
+        from mapper import QCBMapper
+        from qcb_graph import QCBGraph
+        from qcb_tree import QCBTree
+        from allocator import Allocator
+        from qcb import QCB
+        
+        dag = DAG(Symbol('Test'))
+        dag.add_gate(INIT('a', 'b', 'c', 'd'))
+        dag.add_gate(CNOT('a', 'b'))
+        dag.add_gate(CNOT('c', 'd'))
+        dag.add_gate(CNOT('a', 'b'))
+        dag.add_gate(CNOT('c', 'd'))
+        dag.add_gate(CNOT('c', 'a'))
+        dag.add_gate(CNOT('b', 'd'))
+        dag.add_gate(CNOT('c', 'd'))
+        dag.add_gate(CNOT('c', 'a'))
+        dag.add_gate(CNOT('b', 'd'))
+
+        qcb_base = QCB(15, 15, dag)
+        allocator = Allocator(qcb_base)
+
+        graph = QCBGraph(qcb_base)
+        tree = QCBTree(graph)
 
 
 
@@ -194,7 +225,7 @@ class RouterTest(unittest.TestCase):
         tree = QCBTree(graph)
 
         mapper = QCBMapper(dag, tree)
-    
+        router = QCBRouter(qcb_base, dag, mapper)
 
 if __name__ == '__main__':
     unittest.main()
