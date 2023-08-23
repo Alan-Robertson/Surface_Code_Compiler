@@ -4,7 +4,6 @@ from qcb import SCPatch
 import unittest
 from mapper import QCBMapper
 
-
 class MapperTest(unittest.TestCase):
 
 

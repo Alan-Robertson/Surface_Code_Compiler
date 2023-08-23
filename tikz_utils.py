@@ -31,7 +31,6 @@ def tikz(obj):
 def tex(obj, *args, **kwargs):
     return tex_file(obj.__tikz__, *args, **kwargs)
 
-
 def dag_colour_map(node):
     if node.is_extern():
         return COLOUR_EXTERN
@@ -89,7 +88,7 @@ def tex_file(fn, *args, **kwargs):
 
 
 def tikz_header(*args, **kwargs):
-    return f"\\begin{{tikzpicture}}[{tikz_argparse(*args, **kwargs)}]\n"
+    return f"\\begin{{tikzpicture}}[scale=5,{tikz_argparse(*args, **kwargs)}]\n"
 
 def tikz_footer():
     return "\n \\end{tikzpicture} \n"""
@@ -153,25 +152,27 @@ def tikz_dag_edge(node_start, node_end):
 
 ### QCB Segments ###
 @tikz_str
-def tikz_qcb(qcb):    
+def tikz_qcb(qcb, seg_label_fn=lambda seg: f"{seg}{seg.get_symbol()}"):    
     tikz_str = ""
     for segment in qcb.segments:
-        tikz_str += tikz_qcb_segement(segment)    
+        tikz_str += tikz_qcb_segement(segment, seg_label_fn=seg_label_fn)    
     return tikz_str
 
 @tikz_str
-def tikz_pruned_qcb(pruned_qcb):    
+def tikz_pruned_qcb(*args, **kwargs):    
+    return tikz_pruned_qcb_no_header(*args, **kwargs)
+
+def tikz_pruned_qcb_no_header(pruned_qcb, seg_label_fn=lambda seg: f"{seg}{seg.get_symbol()}"):    
     tikz_str = ""
     # Draw segments
     for vertex in pruned_qcb.graph:
-        tikz_str += tikz_qcb_segement(vertex.get_segment())
+        tikz_str += tikz_qcb_segement(vertex.get_segment(), seg_label_fn=seg_label_fn)
     return tikz_str
 
-def tikz_qcb_segement(segment):
+def tikz_qcb_segement(segment, seg_label_fn=lambda seg: f"{seg}{seg.get_symbol()}"):
     colour = colour_map[segment.get_state()]
     segment_str = tikz_segment_rectangle(segment, colour)
-    sym = segment.get_symbol()
-    segment_str += tikz_node(segment.x_0 + 0.5, segment.y_0 + 0.5, f"{segment}{sym}")
+    segment_str += tikz_node(segment.x_0 + 0.5, segment.y_0 + 0.5, seg_label_fn(segment))
     return segment_str
 
 def tikz_segment_rectangle(segment, colour, *args):
@@ -183,18 +184,52 @@ def tikz_segment_rectangle(segment, colour, *args):
             f"fill={colour}",
             "opacity=0.5")
 
+### TIKZ GRAPH ###
+
+def tikz_graph_qcb(graph_qcb):
+    tikz_str = tikz_header()
+    # Draw segments
+    for vertex in graph_qcb:
+        tikz_str += tikz_segment_graph_node(vertex.segment)
+
+    # Draw edges
+    for vertex in graph_qcb:
+        for neighbour in vertex.get_adjacent():
+            tikz_str += tikz_graph_edge(vertex.segment, neighbour.segment)
+
+    tikz_str += tikz_footer()
+    return tikz_str
+
+
+def tikz_graph_edge(node_start, node_end):
+    return tikz_path(hex(id(node_start)), hex(id(node_end)))
+
+def tikz_segment_graph_node(segment, *args, **kwargs):
+    colour = colour_map.get(segment.get_symbol(), colour_map[SCPatch.EXTERN])
+    return tikz_circle(segment.x_0, segment.y_0, hex(id(segment)), f"{segment.x_0}, {segment.y_0}", fill=colour, draw=colour)
+
+
 ### TIKZ TREE ###
 @tikz_str
-def tikz_qcb_tree(tree, 
+def tikz_qcb_tree(*args, **kwargs):
+    return tikz_qcb_tree_no_header(*args, **kwargs) 
+
+
+def tikz_qcb_tree_no_header(tree, 
                   node_draw_fn=lambda node: str(node.get_slot()),
                   leaf_draw_fn=lambda node: str(node.get_slot())):
     tikz_str, _, _ = tikz_tree_nodes(tree.root, 
                                      node_draw_fn=node_draw_fn, 
                                      leaf_draw_fn=leaf_draw_fn)
 
-    for node in tree.nodes:
-        if node.parent is not node:
-            tikz_str += tikz_tree_edge(node, node.parent) 
+    curr_nodes = tree.leaves
+    while len(curr_nodes) > 0: 
+        next_layer = set()
+        for node in curr_nodes:
+            if node.parent is not node:
+                tikz_str += tikz_tree_edge(node, node.parent) 
+                next_layer.add(node.parent)
+        curr_nodes = next_layer
     return tikz_str
 
 
@@ -227,13 +262,18 @@ def tikz_tree_nodes(element,
         return tikz_str, x, y
     else: # Leaf Node
         leaf_tikz_str, x, y = tikz_tree_leaf(element, 
-                                             colour=tikz_obj_to_colour(element.get_parent()),
+                                             colour=colour_map[element.get_state()],
                                              leaf_draw_fn=leaf_draw_fn)
         tikz_str += leaf_tikz_str
         return tikz_str, x, y
 
 def tikz_tree_node(node, x, y, node_draw_fn=lambda node: str(node.get_slot())):
-    return tikz_circle(x, y, hex(id(node)), node_draw_fn(node), draw=tikz_obj_to_colour(node.get_parent())), x, y 
+    return tikz_circle(
+            x, 
+            y, 
+            hex(id(node)), 
+            node_draw_fn(node), 
+            draw=tikz_obj_to_colour(node.get_parent())), x, y 
 
 def tikz_tree_parent_edge(node):
     if node is not node.parent:
@@ -256,31 +296,27 @@ def tikz_tree_leaf(node, colour=None, leaf_draw_fn = lambda node: str(node.get_s
 def tikz_tree_edge(parent, child):
     return tikz_path(hex(id(parent)), hex(id(child)))
 
+### TIKZ MAPPER ###
 
+@tikz_str
+def tikz_mapper(mapper):
+    tikz_str = tikz_qcb_tree_no_header(mapper.mapping_tree, 
+                         node_draw_fn = lambda x: "", 
+                         leaf_draw_fn = lambda x: "") 
 
-### TIKZ GRAPH ###
-
-def tikz_graph_qcb(graph_qcb):
-    tikz_str = tikz_header()
-    # Draw segments
-    for vertex in graph_qcb:
-        tikz_str += tikz_segment_graph_node(vertex.segment)
-
-    # Draw edges
-    for vertex in graph_qcb:
-        for neighbour in vertex.get_adjacent():
-            tikz_str += tikz_graph_edge(vertex.segment, neighbour.segment)
-
-    tikz_str += tikz_footer()
+    for symbol, segment in mapper.map.items():
+        tikz_str += tikz_mapper_label(segment, str(symbol))
     return tikz_str
 
-
-def tikz_graph_edge(node_start, node_end):
-    return tikz_path(hex(id(node_start)), hex(id(node_end)))
-
-def tikz_segment_graph_node(segment, *args, **kwargs):
-    colour = colour_map.get(segment.get_symbol(), colour_map[SCPatch.EXTERN])
-    return tikz_circle(segment.x_0, segment.y_0, hex(id(segment)), f"{segment.x_0}, {segment.y_0}", fill=colour, draw=colour)
+def tikz_mapper_label(segment, label):
+    colour = colour_map[segment.get_state()]
+    return tikz_node(segment.x_0 + 0.5, segment.y_0 + 0.5, label)
 
 
+#def tikz_router(router):
+
+
+
+#@tikz_str
+#def tikz_route_layer(layer, route_dict):
 

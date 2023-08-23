@@ -1,5 +1,6 @@
 from qcb import SCPatch
 from tree_slots import TreeSlots
+from tikz_utils import tikz_mapper
 
 class QCBMapper():
 
@@ -45,3 +46,6 @@ class QCBMapper():
 
     def __call__(self, dag_node):
         return self.__getitem__(dag_node)
+
+    def __tikz__(self):
+        return tikz_mapper(self)
