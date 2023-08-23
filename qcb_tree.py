@@ -81,7 +81,7 @@ class QCBTree():
             parents = set(map(lambda x : x.parent, fringe))
             consume(map(lambda x: x.bind(), parents)) 
 
-        self.root = next(iter(self.nodes)).get_parent()
+        self.root = next(iter(self.leaves)).get_parent()
         return
 
     def alloc(self, *args, **kwargs):

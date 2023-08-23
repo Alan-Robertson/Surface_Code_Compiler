@@ -31,16 +31,13 @@ class QCBMapper():
         segments = self.dag_node_to_segments(dag_node)
         coordinates = []
         for node, segment in zip(dag_node.scope, segments):
-            print(node, segment, segment.state)
             if segment.get_state() != SCPatch.EXTERN:
                 coordinates.append((segment.x_0, segment.y_0)) 
             elif node.io_element is not None:
-                print("IO:", node.io_element)
                 offset = segment.get_slot().io[node.io_element]
                 coordinates.append((segment.x_0 + offset, segment.y_1))
             else:
                 coordinates.append((segment.x_0, segment.y_1))
-        print(dag_node, coordinates)
         return coordinates 
 
     def __getitem__(self, dag_node):
