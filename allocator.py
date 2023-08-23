@@ -72,6 +72,8 @@ class Allocator:
                         and s.y_0 != 0
                         and s.y_1 != self.height - 1]
 
+        if len(affected_regs) == 0:
+            return False # Noop is a failure
 
         new_req = self.reg_allocated - self.reg_quota - len(affected_regs)
         while new_req < 0:
