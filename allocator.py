@@ -389,6 +389,9 @@ class Allocator:
     
 
     def route_msf_to_io(self):
+        if len(self.qcb.io) == 0:
+            return
+        
         # Find bottommost route segment connected to left edge of board
         bottom_route = max((s for s in self.qcb.segments 
                            if s.state.state == SCPatch.ROUTE
