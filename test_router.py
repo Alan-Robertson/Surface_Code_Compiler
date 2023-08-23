@@ -145,7 +145,7 @@ class RouterTest(unittest.TestCase):
         dag.add_gate(T('a'))
         dag.add_gate(CNOT('a', 'b'))
 
-        sym = ExternSymbol('T_Factory')
+        sym = ExternSymbol('T_Factory', 'factory_out')
         factory_impl = QCB(3, 5, DAG(symbol=sym, scope={sym:sym}))
 
         qcb_base = QCB(15, 10, dag)
@@ -215,7 +215,7 @@ class RouterTest(unittest.TestCase):
         dag.add_gate(CNOT('c', 'a'))
         dag.add_gate(CNOT('b', 'd'))
 
-        sym = ExternSymbol('T_Factory')
+        sym = ExternSymbol('T_Factory', 'factory_out')
         factory_impl = QCB(3, 5, DAG(symbol=sym, scope={sym:sym}))
 
         qcb_base = QCB(15, 10, dag)

@@ -42,7 +42,8 @@ class QCB():
         self.prewarm = 0
 
         if io is None:
-            self.io = dict()
+            # Placeholder
+            self.io = {key.io_element:index for index, key in enumerate(self.symbol.io)}
         else:
             self.io = io
 

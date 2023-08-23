@@ -23,7 +23,7 @@ class MapperTest(unittest.TestCase):
         dag.add_gate(INIT('a', 'b', 'c', 'd'))
         dag.add_gate(T('a'))
 
-        sym = ExternSymbol('T_Factory')
+        sym = ExternSymbol('T_Factory', 'factory_out')
         factory_impl = QCB(3, 5, DAG(symbol=sym, scope={sym:sym}))
 
         qcb_base = QCB(15, 10, dag)
@@ -31,9 +31,16 @@ class MapperTest(unittest.TestCase):
         graph = QCBGraph(qcb_base)
         tree = QCBTree(graph)
         mapper = QCBMapper(dag, tree)
-
-
  
+        gate = dag.gates[-2]
+        args = gate.get_symbol()
+       
+        assert mapper.dag_symbol_to_segment(args[0]).get_symbol().predicate == Symbol('T_Factory')
+        assert mapper.dag_symbol_to_segment(args[1]).get_symbol() == SCPatch.REG 
+        mapper.dag_node_to_segments(gate)
+        mapper.node_to_segments(
+
+
 
     def test_reg_mapping(self):
         from qcb_graph import QCBGraph
