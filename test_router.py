@@ -158,7 +158,6 @@ class RouterTest(unittest.TestCase):
         router = QCBRouter(qcb_base, dag, mapper, auto_route=False)
 
 
-
     def test_complex_no_extern(self):
         from mapper import QCBMapper
         from qcb_graph import QCBGraph
@@ -183,9 +182,6 @@ class RouterTest(unittest.TestCase):
 
         graph = QCBGraph(qcb_base)
         tree = QCBTree(graph)
-
-
-
 
     def test_complex_qcb(self):
         from mapper import QCBMapper

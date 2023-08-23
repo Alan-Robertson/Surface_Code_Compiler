@@ -457,5 +457,5 @@ from symbol import Symbol
 from scope import Scope
 from instructions import INIT, RESET_SYMBOL
 from bind import DAGBind, ExternBind
-from test_tikz_helper2 import tikz_dag
+from tikz_utils import tikz_dag
 import copy

@@ -5,7 +5,7 @@ from collections import deque as consume
 from itertools import chain
 from functools import reduce
 
-from test_tikz_helper2 import tikz_header, tikz_footer
+from tikz_utils import tikz_qcb_tree
 
 class QCBTree():
     def __init__(self, qcb_graph):
@@ -46,10 +46,7 @@ class QCBTree():
             return RouteNode 
         return TreeNode # IO Nodes
 
-    def construct_spanning_tree(self, tikz=False):
-
-        if tikz:
-            tikz_str = ""
+    def construct_spanning_tree(self):
 
         fringe = self.leaves
         parents = fringe
@@ -93,6 +90,9 @@ class QCBTree():
             consume(map(lambda x: x.distribute_slots(), fringe))
             fringe = {node.parent for node in fringe}
         return 
+
+    def __tikz__(self):
+        return tikz_qcb_tree(self)
 
 
 class TreeNode():
@@ -388,4 +388,3 @@ class IntermediateRegNode(RegNode):
         '''
         return leaf in self.children or any(map(lambda x: x.contains_leaf(leaf), self.children))
 
-from test_tikz_helper2 import tikz_partial_tree

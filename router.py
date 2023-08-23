@@ -6,7 +6,7 @@ from queue import PriorityQueue
 from utils import log
 from mapper import QCBMapper
 from instructions import INIT_SYMBOL, RESET_SYMBOL
-from bind import RouteBind
+from bind import RouteBind, AddrBind
 from symbol import ExternSymbol
 from itertools import chain
 from utils import consume
@@ -40,10 +40,8 @@ class QCBRouter:
 
         self.resolved: set[DAGNode] = set()
 
-        self.physical_layers: list[list[DAGNode]] = []
-
         if auto_route:
-            self.route()
+            self.layers = self.route()
 
     def route(self):
         self.active_gates = set()
@@ -56,7 +54,6 @@ class QCBRouter:
             layers.append(list())
             # Initially active gates
             for gate in waiting:
-                
                 addresses = self.mapper[gate]
                 # Check that all addresses are free
                 if not all(self.attempt_gate(gate, address) for address in addresses):
@@ -72,7 +69,7 @@ class QCBRouter:
 
                 # Route exists, all nodes are free
                 if route_exists:
-                    self.routes[gate] = addresses 
+                    self.routes[AddrBind(gate)] = addresses 
                     self.active_gates.add(gate)
 
             recently_resolved = list(filter(lambda x: x.resolved(), self.active_gates))
@@ -95,6 +92,11 @@ class QCBRouter:
             for gate in self.active_gates:
                 gate.cycle()
                 layers[-1].append(gate)
+
+            # Not the most elegant approach, could reorder some things
+            if len(layers[-1]) == 0:
+                layers.pop()
+
             waiting.sort()
         return layers
 

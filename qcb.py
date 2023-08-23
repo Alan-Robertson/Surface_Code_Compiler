@@ -85,7 +85,7 @@ class QCB():
         return self.symbol.is_extern()
 
     def __tikz__(self):
-        return test_tikz_helper2.tikz_qcb(self)
+        return tikz_utils.tikz_qcb(self)
 
     def get_slot_name(self):
         return self.symbol.predicate
@@ -252,7 +252,7 @@ class Segment():
         return self.above | self.below | self.left | self.right
 
     def __tikz__(self):
-        return test_tikz_helper2.tikz_qcb_segment(self)
+        return tikz_utils.tikz_qcb_segment(self)
 
     def y_position(self):
         return (self.y_0, self.x_0)
@@ -692,7 +692,7 @@ class Segment():
         }
         return set(e for e in edge_dict[label] if self.seg_adjacent(other, e, label))
 
-import test_tikz_helper2
+import tikz_utils
 
 import copy
 from typing import *

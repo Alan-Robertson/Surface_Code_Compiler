@@ -2,7 +2,7 @@ from qcb import Segment, SCPatch
 from typing import *
 import copy
 
-from test_tikz_helper2 import tikz_pruned_qcb, tikz_graph_qcb
+from tikz_utils import tikz_pruned_qcb, tikz_graph_qcb
 
 
 class GraphNode:
