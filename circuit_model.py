@@ -2,7 +2,7 @@ import numpy as np
 import queue
 from qcb import SCPatch
 from typing import *
-from utils import log, consume
+from tikz_utils import tikz_patch_graph 
 
 class PatchGraphNode():
 
@@ -127,3 +127,6 @@ class PatchGraph():
     @staticmethod
     def heuristic(a, b):
         return abs(a.x - b.x) + 1.01 * abs(a.y - b.y)
+
+    def __tikz__(self):
+        return tikz_patch_graph(self)

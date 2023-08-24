@@ -11,6 +11,8 @@ from symbol import ExternSymbol
 from itertools import chain
 from utils import consume
 
+from tikz_utils import tikz_router
+
 class QCBRouter:
     def __init__(self, qcb:QCB, dag:DAG, mapper:QCBMapper, auto_route=True):
         '''
@@ -115,3 +117,6 @@ class QCBRouter:
 
         consume(map(lambda x: x.lock(gate), paths))
         return True, paths
+
+    def __tikz__(self):
+        return tikz_router(self) 

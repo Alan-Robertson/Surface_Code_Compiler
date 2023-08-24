@@ -44,7 +44,10 @@ def tikz_argparse(*args, **kwargs):
     kwarg_str = ','.join(map(lambda item: f"{tikz_sanitise(item[0])}={tikz_sanitise(item[1])}", kwargs.items()))
     if len(kwarg_str) == 0:
         return arg_str
-    return f"{arg_str},{kwarg_str}"
+    args_str = f"{arg_str},{kwarg_str}"
+    if args_str[0] == ',':
+        args_str = args_str[1:]
+    return args_str
 
 def tex_header(*tiksargs):
     return r"""
@@ -68,9 +71,6 @@ def tex_header(*tiksargs):
 \usetikzlibrary{patterns, backgrounds, arrows.meta}
 \usepackage[export]{animate}
 
-
-\pagecolor{white}
-
 \setlength{\parindent}{0cm}
 \setlength{\parskip}{1em}
 
@@ -86,16 +86,18 @@ def tex_file(fn, *args, **kwargs):
     tex_file += tex_footer()
     return tex_file
 
-
 def tikz_header(*args, **kwargs):
-    return f"\\begin{{tikzpicture}}[scale=5,{tikz_argparse(*args, **kwargs)}]\n"
+    return f"\\begin{{tikzpicture}}[{tikz_argparse(*args, **kwargs)}]\n"
 
 def tikz_footer():
     return "\n \\end{tikzpicture} \n"""
 
-def tikz_rectangle(x_0, y_0, x_1, y_1, *args, **kwargs):
-    return f"\\draw[{tikz_argparse(*args, **kwargs)}] \
+def tikz_rectangle(x_0, y_0, x_1, y_1, *args, key=None, **kwargs):
+    tikz_str = f"\\draw[{tikz_argparse(*args, **kwargs)}] \
 ({x_0},-{y_0}) -- ({x_0},-{y_1}) -- ({x_1},-{y_1}) -- ({x_1},-{y_0}) -- cycle;\n"
+    if key is not None:
+        tikz_str += f"\\node ({key}) at ({0.5 * (x_0 + x_1)}, -{0.5 * (y_0 + y_1)}) {{}};\n"
+    return tikz_str
 
 def tikz_node(x, y, label):
     return f"\\node at ({x},-{y}) {{{tikz_sanitise(label)}}};\n"
@@ -105,11 +107,11 @@ def tikz_circle(x, y, key, label, *args, **kwargs):
 {tikz_argparse(*args, **kwargs)}] \
 ({key}) at ({x}, -{y}) {{{tikz_sanitise(label)}}};\n"
 
-def tikz_path(start, end):
+def tikz_edge(start, end):
     return f"\\path[->] ({start}) edge ({end});\n"
 
-
-
+def tikz_path(start, end):
+    return f"\\path ({start}) edge ({end});\n"
 
 def tikz_obj_to_colour(obj):
     obj_id = id(obj)
@@ -118,15 +120,11 @@ def tikz_obj_to_colour(obj):
     blue = (obj_id % (255 ** 3)) // (255 ** 2)
     return f"{{rgb:red,{red};green,{green};blue,{blue}}}"
 
-
-def animate_header():
-    return "\\begin{animateinline}[]{1}\n"
-
-def animate_footer():
-    return "\\end{animateinline}\n"
-
 def new_frame():
     return "\n \\newframe \n"
+
+def new_page():
+    return "\n \\newpage \n"
 
 
 ### TIKZ DAG ###
@@ -202,7 +200,7 @@ def tikz_graph_qcb(graph_qcb):
 
 
 def tikz_graph_edge(node_start, node_end):
-    return tikz_path(hex(id(node_start)), hex(id(node_end)))
+    return tikz_edge(hex(id(node_start)), hex(id(node_end)))
 
 def tikz_segment_graph_node(segment, *args, **kwargs):
     colour = colour_map.get(segment.get_symbol(), colour_map[SCPatch.EXTERN])
@@ -277,7 +275,7 @@ def tikz_tree_node(node, x, y, node_draw_fn=lambda node: str(node.get_slot())):
 
 def tikz_tree_parent_edge(node):
     if node is not node.parent:
-        return tikz_path(hex(id(node)), hex(id(node.parent)))
+        return tikz_edge(hex(id(node)), hex(id(node.parent)))
     return ""
 
 def tikz_tree_leaf(node, colour=None, leaf_draw_fn = lambda node: str(node.get_slot())):
@@ -294,7 +292,7 @@ def tikz_tree_leaf(node, colour=None, leaf_draw_fn = lambda node: str(node.get_s
     node.get_segment().y_0)
 
 def tikz_tree_edge(parent, child):
-    return tikz_path(hex(id(parent)), hex(id(child)))
+    return tikz_edge(hex(id(parent)), hex(id(child)))
 
 ### TIKZ MAPPER ###
 
@@ -312,11 +310,57 @@ def tikz_mapper_label(segment, label):
     colour = colour_map[segment.get_state()]
     return tikz_node(segment.x_0 + 0.5, segment.y_0 + 0.5, label)
 
+### TIKZ CIRCUIT MODEL ###
+@tikz_str
+def tikz_patch_graph(graph):
+    return tikz_patch_graph_no_header(graph) 
 
-#def tikz_router(router):
+def tikz_patch_graph_no_header(graph):
+    tikz_str = ""
+    for row in graph.graph:
+        for element in row:
+            tikz_str += tikz_patch_node(element)
+    return tikz_str
+
+def tikz_patch_node(element, delta = 0.05):
+    colour = colour_map[element.state]
+    return tikz_rectangle(element.x + 0.05,
+                          element.y + 0.05,
+                          element.x + 0.95,
+                          element.y + 0.95,
+                          fill=colour, key = hex(id(element))) 
+
+### TIKZ ROUTER ###
+def tikz_router(router):
+    tikz_str = ""
+    for layer in router.layers:
+        tikz_str += tikz_route_layer(router, layer)
+        tikz_str += new_page()
+    return tikz_str
 
 
+@tikz_str
+def tikz_route_layer(router, layer):
+    tikz_str = tikz_patch_graph_no_header(router.graph)
+    for gate in layer:
+        route = router.routes[gate]
+        tikz_str += tikz_route(route, router)
+    return tikz_str
 
-#@tikz_str
-#def tikz_route_layer(layer, route_dict):
+def tikz_route(route, router):
+    STOP_ITERATION = object()
+    tikz_str = ""
+    element_iter = iter(route)
+    # Resources
+    while (element := next(element_iter, STOP_ITERATION)) is not STOP_ITERATION:
+        if isinstance(element, tuple):
+            tikz_str += tikz_circle(*element, hex(id(element)), "") 
+        else:
+            curr_node = element
+            break
+    # Routes
+    while (element := next(element_iter, STOP_ITERATION)) is not STOP_ITERATION:
+        tikz_str += tikz_path(hex(id(curr_node)), hex(id(element)))
+        curr_node = element
+    return tikz_str
 
