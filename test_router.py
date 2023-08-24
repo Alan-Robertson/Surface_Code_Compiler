@@ -8,7 +8,7 @@ from router import QCBRouter
 
 import unittest
 
-from test_utils import QCBInterface, QCBSegmentInterface 
+from test_utils import QCBInterface, QCBSegmentInterface, MapperInterface
 
 class RouterTest(unittest.TestCase):
 
@@ -17,14 +17,20 @@ class RouterTest(unittest.TestCase):
         dag.add_gate(INIT('a', 'b', 'c', 'd'))
         dag.add_gate(CNOT('a', 'b'))
 
-        mapper = {Symbol('a'):(0, 0),
-                  Symbol('b'):(0, 2)}
-
-        qcb = QCBInterface(
-            1, 3,
+        segments = [
             QCBSegmentInterface(0, 0, 0, 0, SCPatch.REG),
             QCBSegmentInterface(0, 1, 0, 1, SCPatch.ROUTE),
             QCBSegmentInterface(0, 2, 0, 2, SCPatch.REG)
+            ]
+
+        mapper = MapperInterface(
+                {Symbol('a'):segments[0],
+                  Symbol('b'):segments[1]}
+                )
+
+        qcb = QCBInterface(
+            1, 3,
+            *segments
             )
 
         router = QCBRouter(qcb, dag, mapper, auto_route=False)
@@ -38,21 +44,22 @@ class RouterTest(unittest.TestCase):
         dag.add_gate(INIT('a', 'b', 'c', 'd'))
         dag.add_gate(CNOT('a', 'b'))
 
-        mapper = {Symbol('a'):(0, 0),
-                  Symbol('b'):(0, 2),
-                  Symbol('c'):(0, 0),
-                  Symbol('d'):(0, 0)
-                  }
+        segments = [
+                QCBSegmentInterface(0, 0, 0, 0, SCPatch.REG),
+                QCBSegmentInterface(0, 1, 0, 1, SCPatch.ROUTE),
+                QCBSegmentInterface(0, 2, 0, 2, SCPatch.REG), 
+                QCBSegmentInterface(1, 0, 1, 0, SCPatch.REG),
+                QCBSegmentInterface(1, 1, 1, 1, SCPatch.ROUTE),
+                QCBSegmentInterface(1, 2, 1, 2, SCPatch.REG)
+                ]
+
+        mapper = MapperInterface({Symbol('a'):segments[0],
+                  Symbol('b'):segments[2],
+                  Symbol('c'):segments[3],
+                  Symbol('d'):segments[5]
+                  })
                  
-        qcb = QCBInterface(
-            2, 3,
-            QCBSegmentInterface(0, 0, 0, 0, SCPatch.REG),
-            QCBSegmentInterface(0, 1, 0, 1, SCPatch.ROUTE),
-            QCBSegmentInterface(0, 2, 0, 2, SCPatch.REG), 
-            QCBSegmentInterface(1, 1, 1, 1, SCPatch.REG),
-            QCBSegmentInterface(1, 1, 1, 1, SCPatch.ROUTE),
-            QCBSegmentInterface(1, 2, 1, 2, SCPatch.REG)
-            )
+        qcb = QCBInterface(2, 3, *segments)
 
         router = QCBRouter(qcb, dag, mapper, auto_route=False)
 
@@ -71,20 +78,21 @@ class RouterTest(unittest.TestCase):
         dag = DAG(Symbol('Test'))
         dag.add_gate(INIT('a', 'b', 'c', 'd'))
 
-        mapper = {Symbol('a'):(1, 0),
-                  Symbol('b'):(1, 2),
-                  Symbol('c'):(0, 1),
-                  Symbol('d'):(2, 1)
-                  }
-                 
-        qcb = QCBInterface(
-            3, 3,
-            QCBSegmentInterface(1, 0, 1, 0, SCPatch.REG),
+        segments = [
             QCBSegmentInterface(1, 1, 1, 1, SCPatch.ROUTE),
+            QCBSegmentInterface(1, 0, 1, 0, SCPatch.REG),
             QCBSegmentInterface(1, 2, 1, 2, SCPatch.REG), 
             QCBSegmentInterface(0, 1, 0, 1, SCPatch.REG),
             QCBSegmentInterface(2, 1, 2, 1, SCPatch.REG)
-            )
+            ]
+
+        mapper = MapperInterface({Symbol('a'):segments[1],
+                  Symbol('b'):segments[2],
+                  Symbol('c'):segments[3],
+                  Symbol('d'):segments[4]
+                  })
+                 
+        qcb = QCBInterface(3, 3, *segments)
 
         router = QCBRouter(qcb, dag, mapper, auto_route=False)
 
@@ -182,6 +190,8 @@ class RouterTest(unittest.TestCase):
 
         graph = QCBGraph(qcb_base)
         tree = QCBTree(graph)
+        mapper = QCBMapper(dag, tree)
+        router = QCBRouter(qcb_base, dag, mapper)
 
     def test_complex_qcb(self):
         from mapper import QCBMapper

@@ -5,8 +5,6 @@ import unittest
 from mapper import QCBMapper
 
 class MapperTest(unittest.TestCase):
-
-
   
     def test_extern_qcb(self):
         from instructions import INIT, T

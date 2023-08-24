@@ -692,9 +692,10 @@ class Segment():
         }
         return set(e for e in edge_dict[label] if self.seg_adjacent(other, e, label))
 
-import tikz_utils
 
 import copy
 from typing import *
 from dag import DAG
 from bind import Bind, ExternBind
+
+import tikz_utils

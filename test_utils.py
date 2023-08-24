@@ -124,3 +124,10 @@ class QCBSegmentInterface():
     def get_slot(self):
         return self.slot
 
+
+class MapperInterface():
+    def __init__(self, mapping_dict):
+        self.map = mapping_dict
+
+    def __getitem__(self, key):
+        return self.map[key]

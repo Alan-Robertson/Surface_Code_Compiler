@@ -12,7 +12,7 @@ class PatchGraphNode():
         self.graph = graph
         self.x = i
         self.y = j
-        self.state = None
+        self.state = SCPatch.ROUTE
         self.lock_state = self.INITIAL_LOCK_STATE
     
     def set_underlying(self, state):

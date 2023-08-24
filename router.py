@@ -24,7 +24,7 @@ class QCBRouter:
         self.routes = dict()
         self.active_gates = set()
 
-        for segment in qcb.segments:
+        for segment in self.mapper.map.values():#qcb.segments:
             for x in range(segment.x_0, segment.x_1 + 1):
                 for y in range(segment.y_0, segment.y_1 + 1):
                     self.graph[(x, y)].set_underlying(segment.get_slot())
