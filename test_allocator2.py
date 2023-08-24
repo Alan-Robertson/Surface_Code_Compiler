@@ -91,6 +91,31 @@ class AllocatorTest(unittest.TestCase):
 
         allocator = Allocator(qcb_base, factory_impl)
 
+    def test_io_extern_collision(self):
+
+        from dag import DAG
+        from qcb import QCB
+        from symbol import Symbol, ExternSymbol, symbol_map
+
+        from instructions import INIT, CNOT, T, Toffoli
+        from scope import Scope
+        from extern_interface import ExternInterface
+
+        # factory = ExternInterface(ExternSymbol('T_Factory'), 17)
+
+        dag_symbol = ExternSymbol('tst', 'out')
+        g = DAG(dag_symbol, scope={dag_symbol:dag_symbol})
+        g.add_gate(ExternInjector('A'))
+        
+        sym = ExternSymbol('A', 'out')
+        factory_impl = QCB(1, 2, DAG(symbol=sym, scope={sym:sym}))
+
+        from allocator import Allocator
+        from qcb import QCB
+        qcb_base = QCB(3, 3, g)
+
+        allocator = Allocator(qcb_base, factory_impl)
+        print(tex(qcb_base), file=open("test.tex", "w"))
     
     def test_only_extern(self):
 
@@ -113,15 +138,11 @@ class AllocatorTest(unittest.TestCase):
         syms = [ExternSymbol(c, 'out') for c in 'ABC']
         factory_impls = [QCB(1, i+1, DAG(symbol=s, scope={s:s})) for i, s in enumerate(syms)]
 
-
-
-
         from allocator import Allocator
         from qcb import QCB
         qcb_base = QCB(3, 4, g)
 
-        allocator = Allocator(qcb_base, *factory_impls)
-        print(tex(qcb_base), file=open("test.tex", "w"))
+        allocator = Allocator(qcb_base, *(factory_impls))
 
     def test_3x2(self):
 

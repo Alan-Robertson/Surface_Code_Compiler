@@ -9,7 +9,9 @@ class Allocator:
     def __init__(self, qcb: QCB, *extern_templates):
         self.qcb = qcb
 
-        self.msfs_templates = extern_templates
+        self.msfs_templates = sorted(extern_templates, 
+                                     key=lambda extern: (extern.width, extern.height),
+                                     reverse=True)
         self.height = qcb.height
         self.width = qcb.width
         
@@ -243,50 +245,57 @@ class Allocator:
         route.state = SCPatch(SCPatch.ROUTE)
         confirm(self.qcb.segments)
 
+        if io.width < self.width:
+            self.global_top_merge()
+            self.global_left_merge()
+            right_block = next(iter(io.right))
+            (route, *_), confirm = right_block.alloc(1, 2)
+            route.state = SCPatch(SCPatch.ROUTE)
+            confirm(self.qcb.segments)
 
     def get_free_segments(self, qcb: QCB):
         return sorted((s for s in qcb.segments if not s.allocated), key=Segment.y_position)
 
 
-    def place_first_extern(self, extern):
-        # Merge sequence
-        _, confirm = self.get_free_segments(self.qcb)[0].top_merge()
-        confirm(self.qcb.segments)
-        _, confirm = self.get_free_segments(self.qcb)[0].left_merge()
-        confirm(self.qcb.segments)
+    # def place_first_extern(self, extern):
+    #     # Merge sequence
+    #     _, confirm = self.get_free_segments(self.qcb)[0].top_merge()
+    #     confirm(self.qcb.segments)
+    #     _, confirm = self.get_free_segments(self.qcb)[0].left_merge()
+    #     confirm(self.qcb.segments)
 
-        # Attempt 1
-        segs, confirm = self.get_free_segments(self.qcb)[0].alloc(extern.width, extern.height + 1)
-        if not confirm:
-            # Try to merge again
-            _, confirm = self.get_free_segments(self.qcb)[0].top_merge()
-            confirm(self.qcb.segments)
+    #     # Attempt 1
+    #     segs, confirm = self.get_free_segments(self.qcb)[0].alloc(extern.width, extern.height + 1)
+    #     if not confirm:
+    #         # Try to merge again
+    #         _, confirm = self.get_free_segments(self.qcb)[0].top_merge()
+    #         confirm(self.qcb.segments)
 
-            # Attempt 2
-            segs, confirm = self.get_free_segments(self.qcb)[0].alloc(extern.width, extern.height + 1)
-            if not confirm:
-                raise AllocatorError("First MSF placement failed")
+    #         # Attempt 2
+    #         segs, confirm = self.get_free_segments(self.qcb)[0].alloc(extern.width, extern.height + 1)
+    #         if not confirm:
+    #             raise AllocatorError("First MSF placement failed")
         
-        confirm(self.qcb.segments)
+    #     confirm(self.qcb.segments)
 
-        extern_block, *others = segs
-        extern_block.allocated = False
+    #     extern_block, *others = segs
+    #     extern_block.allocated = False
 
-        # Split block into MSF and routing
-        (extern_seg, route_seg), confirm = extern_block.alloc(extern.width, extern.height)
-        confirm(self.qcb.segments)
+    #     # Split block into MSF and routing
+    #     (extern_seg, route_seg), confirm = extern_block.alloc(extern.width, extern.height)
+    #     confirm(self.qcb.segments)
 
-        extern_seg.allocated = True
-        extern_seg.state = SCPatch(extern)
-        route_seg.allocated = True
-        route_seg.state = SCPatch(SCPatch.ROUTE)
+    #     extern_seg.allocated = True
+    #     extern_seg.state = SCPatch(extern)
+    #     route_seg.allocated = True
+    #     route_seg.state = SCPatch(SCPatch.ROUTE)
 
     def try_place_msf(self, msf, fringe: Tuple[int, int]) \
             -> Tuple[bool, Tuple[int, int]]:
         
         first = next((s for s in self.get_free_segments(self.qcb) if s.y_position() > fringe), None)
         if not first:
-            raise AllocatorError("MSF placement failed: all blocks exhausted")
+            raise AllocatorError(f"MSF placement failed: all blocks exhausted for {msf}")
         
         # Merge sequence
         segs, confirm = first.top_merge()
@@ -297,10 +306,10 @@ class Allocator:
         first = segs[0] if segs[0].y_position() == first.y_position() else segs[1]
 
         # Check top drop
-        if first.x_0 == 0:
+        if first.x_0 == 0 and first.y_0 != 0: # Connect to msf routing net in row above
             bounds = (msf.width + 1, msf.height + 1)
         else:
-            bounds = (msf.width, msf.height + 1)
+            bounds = (msf.width, msf.height + 1) # No connection needed
 
         # Attempt 1
         segs, confirm = first.alloc(*bounds)
@@ -321,8 +330,8 @@ class Allocator:
         msf_block, *others = segs
         msf_block.allocated = False
 
-        # Do right drop for leftmost MSF
-        if msf_block.x_0 == 0:
+        # Do right drop for leftmost MSF (connection to routing net in row above)
+        if msf_block.x_0 == 0 and msf_block.y_0 != 0:
             (msf_block, right_drop), confirm = msf_block.alloc(msf.width, msf.height + 1)
             confirm(self.qcb.segments)
 
@@ -400,7 +409,10 @@ class Allocator:
                            and s.x_0 == 0
                            and s.y_0 != self.height - 2
                            ), 
-                           key = Segment.y_position)
+                           key = Segment.y_position, default=None)
+        
+        if bottom_route is None:
+            return
         
 
         # Always valid because we perform a global top merge before
@@ -677,7 +689,8 @@ class Allocator:
 
         externs = self.msfs_templates
         if len(externs) > 0:
-            self.place_first_extern(externs[0])
+            # self.place_first_extern(externs[0])
+            self.place_msf(externs[0])
             self.msfs.append(externs[0])
             self.global_merge_lt()
 
