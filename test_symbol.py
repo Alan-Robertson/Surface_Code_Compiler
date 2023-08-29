@@ -44,7 +44,13 @@ class SymbolTest(unittest.TestCase):
         assert(factory.satisfies(sym_3))
         assert(factory.satisfies(another_factory))
         
-        
+    def test_promote_extern(self):
+        matching_symbol = ExternSymbol('x', 'y')
+        sym = Symbol('x', 'y')
+        esym = sym.extern()
+        assert(isinstance(esym, ExternSymbol))
+        assert esym.io_element == Symbol('y')
+        assert esym.satisfies(matching_symbol)
 
         
 

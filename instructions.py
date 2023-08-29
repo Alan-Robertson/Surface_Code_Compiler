@@ -3,6 +3,55 @@ from symbol import Symbol, ExternSymbol, symbol_map, symbol_resolve
 from scope import Scope
 from dag import DAG, DAGNode
 
+
+def in_place_factory(fn, n_cycles=1, n_ancillae=0):
+    '''
+    Factory method for generating in place gates
+    '''
+    def instruction(targ):
+        targ = Symbol(targ)
+        sym = Symbol(fn, 'targ')
+        scope = Scope({sym('targ'):targ})
+        dag = DAG(sym, scope=scope)
+        dag.add_node(sym, n_cycles=n_cycles)
+        return dag
+    return instruction
+
+def non_local_factory(fn, n_cycles=1, n_ancillae=0):
+    '''
+    Factory method for generating non-local gates
+    '''
+    def instruction(*args):
+        args = tuple(map(symbol_resolve, args))
+        sym = Symbol(fn, args)
+
+        # Scope injection passes variables from a higher scope
+        scope = Scope({sym(arg):arg for arg in args})
+        
+        dag = DAG(sym, scope=scope)
+
+        # This object is jointly initialised
+        dag.add_node(sym, n_cycles=n_cycles)
+        return dag
+    return instruction
+
+
+INIT_SYMBOL = Symbol('INIT')
+def INIT(*symbol_constructors):
+    sym = Symbol('INIT', symbol_constructors)
+    
+    # Breaks recursive expansion
+    scope = Scope({i:i for i in sym.io})
+
+    dag = DAG(sym, scope=scope)
+
+    # Initialise each object independently
+    # This will be unrolled when injected into the DAG
+    for obj in sym.io:
+        dag.add_node(Symbol("INIT", obj), n_cycles=1)
+    return dag
+
+
 INIT_SYMBOL = Symbol('INIT')
 def INIT(*symbol_constructors):
     sym = Symbol('INIT', symbol_constructors)
@@ -30,21 +79,6 @@ def RESET(*symbol_constructors):
         dag.add_node(Symbol("RESET", obj), n_cycles=1)
     return dag
 
-def CNOT(ctrl, targ):
-    ctrl, targ = symbol_map(ctrl, targ)
-    sym = Symbol('CNOT', 'ctrl', 'targ')
-
-    # Scope injection passes variables from a higher scope
-    scope = Scope({sym('ctrl'):ctrl, sym('targ'):targ})
-    
-    dag = DAG(sym, scope=scope)
-
-    # This object is jointly initialised
-    dag.add_node(sym, n_cycles=3)
-    return dag
-
-
-
 def T(targ):
     targ = symbol_resolve(targ)
     sym = Symbol('T', 'targ')
@@ -58,13 +92,14 @@ def T(targ):
     dag.add_gate(RESET(factory))
     return dag
 
-def Hadamard(targ):
-    targ = Symbol(targ)
-    sym = Symbol('H', 'targ')
-    scope = Scope({sym('targ'):targ})
-    dag = DAG(sym, scope=scope)
-    dag.add_node(sym, n_cycles=1)
-    return dag
+
+Hadamard = in_place_factory('H')
+Phase = in_place_factory('P')
+X = in_place_factory('X')
+Y = in_place_factory('Y')
+Z = in_place_factory('Z')
+
+CNOT = non_local_factory('CNOT', n_cycles=3)
 
 
 def Toffoli(ctrl_a, ctrl_b, targ):

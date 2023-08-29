@@ -29,7 +29,8 @@ class Symbol(object):
         self.io = {j:i for i, j in enumerate(self.io_in)}
         self.io |= {j:len(self.io_in) + i for i, j in enumerate(self.io_out - self.io_in)}
         self.io_rev = dict(((j, i) for i, j in self.io.items()))
-           
+        self.io_element = None
+
     def format(self, io:'object|Sequence'):
         '''
             Basically overloads our constructor
@@ -113,6 +114,13 @@ class Symbol(object):
 
     def get_symbol(self):
         return self
+
+    def extern(self):
+        predicate = Symbol(self.symbol)
+        io = tuple(self.io.keys())
+        if len(io) == 1:
+            io = io[0]
+        return ExternSymbol(predicate, io)
 
 class ExternSymbol(Symbol):
     singleton = object()

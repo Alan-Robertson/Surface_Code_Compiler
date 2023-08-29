@@ -3,7 +3,6 @@ from typing import *
 from circuit_model import PatchGraph, PatchGraphNode 
 from dag import DAG, DAGNode
 from queue import PriorityQueue
-from utils import log
 from mapper import QCBMapper
 from instructions import INIT_SYMBOL, RESET_SYMBOL
 from bind import RouteBind, AddrBind
