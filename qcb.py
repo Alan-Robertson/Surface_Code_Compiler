@@ -43,7 +43,7 @@ class QCB():
 
         if io is None:
             # Placeholder
-            self.io = {key.io_element:index for index, key in enumerate(self.symbol.io)}
+            self.io = {key.io_element:index for index, key in enumerate(self.operations.io())}
         else:
             self.io = io
 

@@ -4,6 +4,11 @@ from heapq import heappush
 from itertools import chain
 from functools import reduce
 
+import sys
+
+# This gets triggered by deep copy in some areas
+sys.setrecursionlimit(10000)
+
 class DAGNode():
     def __init__(self, symbol, *args, scope=None, externs=None, n_cycles=1):
         if not isinstance(symbol, Symbol):
@@ -42,7 +47,6 @@ class DAGNode():
         if scope is not None:
             self.inject(scope)
         return self
-
 
     def inject(self, scope):
         if not isinstance(scope, Scope):
@@ -100,8 +104,9 @@ class DAG(DAGNode):
 
         # Catches any undeclared externs in the scope
         for sym in self.scope.values():
-            if sym.is_extern():
-                self.externs[sym] = None
+            if sym is not None:
+                if sym.is_extern():
+                    self.externs[sym] = None
 
         self.layers = []
         self.layer = 0
@@ -115,6 +120,11 @@ class DAG(DAGNode):
                 self.update_layer(init_gate)
                 self.update_dependencies(init_gate)
 
+    def extern(self):
+        return self.symbol.extern() 
+
+    def io(self):
+        return self.symbol.io
 
     def __getitem__(self, index):
         return self.scope(index)
@@ -448,10 +458,8 @@ class DAG(DAGNode):
     
         return n_cycles, layers
 
-
     def __tikz__(self):
         return tikz_dag(self)
-           
 
 from symbol import Symbol
 from scope import Scope

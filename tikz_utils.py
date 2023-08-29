@@ -103,7 +103,7 @@ def tikz_node(x, y, label):
     return f"\\node at ({x},-{y}) {{{tikz_sanitise(label)}}};\n"
 
 def tikz_circle(x, y, key, label, *args, **kwargs):
-    return f"\\node[shape=circle \
+    return f"\\node[shape=circle, \
 {tikz_argparse(*args, **kwargs)}] \
 ({key}) at ({x}, -{y}) {{{tikz_sanitise(label)}}};\n"
 
