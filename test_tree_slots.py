@@ -311,5 +311,56 @@ class SlotTest(unittest.TestCase):
             assert tree.alloc(sym.predicate) is not TreeSlots.NO_CHILDREN_ERROR
         assert tree.alloc(sym.predicate) is TreeSlots.NO_CHILDREN_ERROR
 
+    def test_io(self):
+        from qcb_graph import QCBGraph
+        from qcb_tree import QCBTree
+        from allocator import Allocator
+        from qcb import QCB
+        from dag import DAG
+        from instructions import INIT, CNOT, T, Toffoli
+        from symbol import Symbol, ExternSymbol
+
+        g = DAG(Symbol('Test', 'in', 'out'))
+        g.add_gate(INIT('a'))
+        g.add_gate(CNOT('in', 'a'))
+        g.add_gate(CNOT('a', 'out'))
+        g.add_gate(CNOT('in', 'a'))
+
+        qcb_base = QCB(4, 4, g)
+        allocator = Allocator(qcb_base) 
+
+        graph = QCBGraph(qcb_base)
+        tree = QCBTree(graph)
+
+        
+
+        assert(len(tree.root.slots.slots) > 0)
+        N_IO = 2
+        N_REGISTERS = 1
+        for i in range(N_REGISTERS):
+            assert tree.alloc(SCPatch.REG) is not TreeSlots.NO_CHILDREN_ERROR
+#        assert tree.alloc(SCPatch.REG) is TreeSlots.NO_CHILDREN_ERROR
+        for i in range(N_IO):
+            assert tree.alloc(SCPatch.IO) is not TreeSlots.NO_CHILDREN_ERROR
+
+    def test_io_simple(self):
+        from dag import DAG
+        from instructions import INIT, CNOT, T, Toffoli
+        from qcb import QCB
+        from allocator import Allocator
+        from qcb_graph import QCBGraph
+        from qcb_tree import QCBTree
+
+        # Dummy T Factory
+        dag = DAG(Symbol('T_Factory', 'factory_out'))
+        dag.add_gate(INIT('a', 'b', 'c', 'd'))
+
+        qcb = QCB(4, 4, dag)
+        allocator = Allocator(qcb)
+
+        graph = QCBGraph(qcb)
+        tree = QCBTree(graph)
+
+
 if __name__ == '__main__':
     unittest.main()

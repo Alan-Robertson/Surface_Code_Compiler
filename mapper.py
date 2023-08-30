@@ -15,7 +15,10 @@ class QCBMapper():
             if symbol.is_extern():
                 leaf = self.mapping_tree.alloc(symbol.predicate)
             else:
-                leaf = self.mapping_tree.alloc(SCPatch.REG)
+                if symbol in self.dag.io():
+                    leaf = self.mapping_tree.alloc(SCPatch.IO)
+                else:
+                    leaf = self.mapping_tree.alloc(SCPatch.REG)
             if leaf == TreeSlots.NO_CHILDREN_ERROR:
                 raise Exception(f"Could not allocate {symbol}")
             self.map[symbol] = leaf.get_segment()

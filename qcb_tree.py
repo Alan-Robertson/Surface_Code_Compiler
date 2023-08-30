@@ -8,7 +8,7 @@ from functools import reduce
 from tikz_utils import tikz_qcb_tree
 
 class QCBTree():
-    def __init__(self, qcb_graph):
+    def __init__(self, qcb_graph, construct=True, distribute=True):
         self.root = None
         self.graph_to_tree = dict()
         self.tree_to_graph = dict()
@@ -34,8 +34,10 @@ class QCBTree():
         # Reconstruct adjacency
         for tree_node in self.nodes:
             tree_node.neighbours = set(map(self.graph_to_tree.__getitem__, tree_node.vertex.get_adjacent()))
-        self.construct_spanning_tree()
-        self.distribute_slots()
+        if construct:
+           self.construct_spanning_tree()
+        if distribute:
+           self.distribute_slots()
 
     def selector(self, vertex):
         if vertex.is_extern():
@@ -44,7 +46,8 @@ class QCBTree():
             return RegNode
         if vertex.get_slot() == SCPatch.ROUTE:
             return RouteNode 
-        return TreeNode # IO Nodes
+        if vertex.get_slot() == SCPatch.IO:
+            return RegNode 
 
     def construct_spanning_tree(self):
 
@@ -52,7 +55,6 @@ class QCBTree():
         parents = fringe
 
         while len(parents) > 1: 
-
             joint_nodes = set()
             starter = fringe
             fringe = reduce(lambda a, b: a | b, 
@@ -62,14 +64,16 @@ class QCBTree():
                        )
  
             for node in starter:
-                 for adjacent_node in node.get_adjacent():
-                     parent = node.get_parent()
-                     adj_parent = adjacent_node.get_parent()
-                     if parent in joint_nodes:
-                         joint_nodes.remove(parent)
-                     if adj_parent in joint_nodes:
-                         joint_nodes.remove(adj_parent)
-                     joint_nodes.add(adj_parent.merge(parent))
+
+                print(hex(id(node)))
+                for adjacent_node in node.get_adjacent():
+                    parent = node.get_parent()
+                    adj_parent = adjacent_node.get_parent()
+                    if parent in joint_nodes:
+                        joint_nodes.remove(parent)
+                    if adj_parent in joint_nodes:
+                        joint_nodes.remove(adj_parent)
+                    joint_nodes.add(adj_parent.merge(parent))
 
             consume(map(lambda x: x.distribute(), fringe))
             consume(map(lambda x: x.bind(), joint_nodes))
@@ -77,7 +81,7 @@ class QCBTree():
 
             parents = set(map(lambda x : x.parent, fringe))
             consume(map(lambda x: x.bind(), parents)) 
-
+            print(parents)
         self.root = next(iter(self.leaves)).get_parent()
         return
 
@@ -221,7 +225,7 @@ class RouteNode(TreeNode):
         return self.slots.alloc(slot)
 
 class RegNode(TreeNode):
-    def __init__(self, vertex):
+    def __init__(self, vertex, slot_type=SCPatch.REG):
         super().__init__(vertex)
         self.weight = 0
         self.slots = SegmentSlot(self)

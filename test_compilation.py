@@ -8,6 +8,8 @@ from mapper import QCBMapper
 from qcb_graph import QCBGraph
 from qcb_tree import QCBTree
 
+from compiled_qcb import CompiledQCB
+
 from router import QCBRouter
 import unittest
 
@@ -25,7 +27,6 @@ class CompilerTests(unittest.TestCase):
 
         mapper = QCBMapper(dag, tree)
         router = QCBRouter(qcb_base, dag, mapper)
-
 
         sym = ExternSymbol('T_Factory', 'factory_out')
         factory_impl = QCB(3, 5, DAG(symbol=sym, scope={sym:sym}))
@@ -56,6 +57,36 @@ class CompilerTests(unittest.TestCase):
         dag_b = DAG(Symbol('Test 2'))
         dag_b.add_gate(INIT('x', 'y', 'z'))
         dag_b.add_gate(T('x'))
+
+
+    def test_compiled_qcb(self):
+        # Dummy T Factory
+        dag = DAG(Symbol('T_Factory', 'factory_out'))
+        dag.add_gate(INIT('a', 'b', 'c', 'd'))
+
+        qcb = QCB(4, 4, dag)
+        allocator = Allocator(qcb)
+
+        graph = QCBGraph(qcb)
+        tree = QCBTree(graph)
+
+        mapper = QCBMapper(dag, tree)
+        router = QCBRouter(qcb, dag, mapper)
+
+        t_factory = CompiledQCB(qcb, router, dag)
+        
+        dag = DAG(Symbol('Test'))
+        dag.add_gate(INIT('a'))
+        dag.add_gate(T('a'))
+
+        qcb_base = QCB(6, 6, dag)  
+        allocator = Allocator(qcb_base, t_factory)
+
+        graph = QCBGraph(qcb_base)
+        tree = QCBTree(graph)
+
+        mapper = QCBMapper(dag, tree)
+        router = QCBRouter(qcb_base, dag, mapper)
 
 
 if __name__ == '__main__':
