@@ -355,7 +355,7 @@ class SlotTest(unittest.TestCase):
         dag = DAG(Symbol('T_Factory', 'factory_out'))
         dag.add_gate(INIT('a', 'b', 'c', 'd'))
 
-        qcb = QCB(4, 4, dag)
+        qcb = QCB(4, 5, dag)
         allocator = Allocator(qcb)
 
         graph = QCBGraph(qcb)

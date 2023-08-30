@@ -233,5 +233,28 @@ class RouterTest(unittest.TestCase):
         mapper = QCBMapper(dag, tree)
         router = QCBRouter(qcb_base, dag, mapper)
 
+    def test_io_simple(self):
+        from dag import DAG
+        from instructions import INIT, CNOT, T, Toffoli
+        from qcb import QCB
+        from allocator import Allocator
+        from qcb_graph import QCBGraph
+        from qcb_tree import QCBTree
+        from symbol import Symbol
+
+        # Dummy T Factory
+        dag = DAG(Symbol('T_Factory', 'factory_out'))
+        dag.add_gate(INIT('a', 'b', 'c', 'd'))
+
+        qcb = QCB(4, 5, dag)
+        allocator = Allocator(qcb)
+
+        graph = QCBGraph(qcb)
+        tree = QCBTree(graph)
+
+        mapper = QCBMapper(dag, tree)
+        router = QCBRouter(qcb, dag, mapper)
+
+
 if __name__ == '__main__':
     unittest.main()

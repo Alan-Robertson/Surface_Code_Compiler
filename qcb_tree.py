@@ -65,7 +65,6 @@ class QCBTree():
  
             for node in starter:
 
-                print(hex(id(node)))
                 for adjacent_node in node.get_adjacent():
                     parent = node.get_parent()
                     adj_parent = adjacent_node.get_parent()
@@ -81,7 +80,6 @@ class QCBTree():
 
             parents = set(map(lambda x : x.parent, fringe))
             consume(map(lambda x: x.bind(), parents)) 
-            print(parents)
         self.root = next(iter(self.leaves)).get_parent()
         return
 

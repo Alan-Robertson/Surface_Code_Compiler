@@ -66,7 +66,7 @@ class MapperTest(unittest.TestCase):
         dag.add_gate(CNOT('b', 'd'))
 
         sym = ExternSymbol('T_Factory', 'factory_out')
-        factory_impl = QCB(3, 5, DAG(symbol=sym, scope={sym:sym}))
+        factory_impl = QCB(3, 5, DAG(symbol=sym, scope={sym:sym}), io={sym('factory_out'):0})
 
         qcb_base = QCB(15, 10, dag)
         allocator = Allocator(qcb_base, factory_impl)
@@ -74,6 +74,36 @@ class MapperTest(unittest.TestCase):
         graph = QCBGraph(qcb_base)
         tree = QCBTree(graph)
     
+        mapper = QCBMapper(dag, tree)
+
+#        for dag_node in dag.gates:
+#            coordinates = mapper[dag_node]
+#            assert len(coordinates) > 0
+#            assert all(
+#                    map(lambda x: (type(x) is tuple 
+#                      and all(map(lambda y: type(y) is int, x))),
+#                    coordinates)
+#                    )
+#
+    def test_io_simple(self):
+        from dag import DAG
+        from instructions import INIT, CNOT, T, Toffoli
+        from qcb import QCB
+        from allocator import Allocator
+        from qcb_graph import QCBGraph
+        from qcb_tree import QCBTree
+        from symbol import Symbol
+
+        # Dummy T Factory
+        dag = DAG(Symbol('T_Factory', 'factory_out'))
+        dag.add_gate(INIT('a', 'b', 'c', 'd'))
+
+        qcb = QCB(4, 5, dag)
+        allocator = Allocator(qcb)
+
+        graph = QCBGraph(qcb)
+        tree = QCBTree(graph)
+
         mapper = QCBMapper(dag, tree)
 
         for dag_node in dag.gates:
@@ -84,6 +114,7 @@ class MapperTest(unittest.TestCase):
                       and all(map(lambda y: type(y) is int, x))),
                     coordinates)
                     )
+
 
 if __name__ == '__main__':
     unittest.main()
