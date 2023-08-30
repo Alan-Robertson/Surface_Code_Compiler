@@ -116,6 +116,28 @@ class AllocatorTest(unittest.TestCase):
 
         allocator = Allocator(qcb_base, factory_impl)
 
+    def test_io_reg_collision(self):
+
+        from dag import DAG
+        from qcb import QCB
+        from symbol import Symbol, ExternSymbol, symbol_map
+
+        from instructions import INIT, CNOT, T, Toffoli
+        from scope import Scope
+        from extern_interface import ExternInterface
+
+        # factory = ExternInterface(ExternSymbol('T_Factory'), 17)
+
+        g = DAG(Symbol('tst', 'out'))
+        g.add_gate(INIT('a', 'b', 'c', 'd'))
+
+
+        from allocator import Allocator
+        from qcb import QCB
+        qcb_base = QCB(4, 4, g)
+
+        allocator = Allocator(qcb_base)
+
     def test_io_extern_collision_fail(self):
         from dag import DAG
         from qcb import QCB
@@ -179,7 +201,6 @@ class AllocatorTest(unittest.TestCase):
         try:
             allocator = Allocator(qcb_base, factory_a, factory_b)
         except AssertionError as e:
-            print(tex(qcb_base), file=open("test.tex", "w"))
             raise e
         
   

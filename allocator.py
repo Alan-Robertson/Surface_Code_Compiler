@@ -631,7 +631,7 @@ class Allocator:
             return self.place_reg_top_routable(seg)
         elif seg.height >= 2:
             return self.place_reg_route_below(seg)
-        elif all(s.state.state == SCPatch.ROUTE for s in seg.below):
+        elif seg.below and all(s.state.state == SCPatch.ROUTE for s in seg.below):
             # We use this here because its the same case, but with no below_seg in top_routable
             return self.place_reg_top_routable(seg)
         else:            
