@@ -115,8 +115,75 @@ class AllocatorTest(unittest.TestCase):
         qcb_base = QCB(3, 3, g)
 
         allocator = Allocator(qcb_base, factory_impl)
-        print(tex(qcb_base), file=open("test.tex", "w"))
-    
+
+    def test_io_extern_collision_fail(self):
+        from dag import DAG
+        from qcb import QCB
+        from symbol import Symbol, ExternSymbol, symbol_map
+
+        from instructions import INIT, CNOT, T, Toffoli
+        from scope import Scope
+        from extern_interface import ExternInterface
+
+        # factory = ExternInterface(ExternSymbol('T_Factory'), 17)
+
+        dag_symbol = ExternSymbol('tst', 'out')
+        g = DAG(dag_symbol, scope={dag_symbol:dag_symbol})
+        g.add_gate(ExternInjector('A'))
+
+        
+        sym = ExternSymbol('A', 'out')
+        factory_impl = QCB(1, 2, DAG(symbol=sym, scope={sym:sym}))
+
+        from allocator import Allocator
+        from qcb import QCB
+        qcb_base = QCB(3, 3, g)
+
+        try:
+            allocator = Allocator(qcb_base, factory_impl)
+        except:
+            return
+
+        assert False, "This should fail."
+
+
+    def test_extern_io_conflict_drop(self):
+
+        from dag import DAG
+        from qcb import QCB
+        from symbol import Symbol, ExternSymbol, symbol_map
+
+        from instructions import INIT, CNOT, T, Toffoli
+        from scope import Scope
+        from extern_interface import ExternInterface
+
+        # factory = ExternInterface(ExternSymbol('T_Factory'), 17)
+
+        dag_symbol = ExternSymbol('tst', 'out')
+        g = DAG(dag_symbol, scope={dag_symbol:dag_symbol})
+        g.add_gate(INIT('a', 'b'))
+        g.add_gate(ExternInjector('A'))
+        g.add_gate(ExternInjector('B'))
+
+        
+        sym_a = ExternSymbol('A', 'out')
+        factory_a = QCB(2, 4, DAG(symbol=sym_a, scope={sym_a:sym_a}))
+
+        sym_b = ExternSymbol('B', 'out')
+        factory_b = QCB(1, 1, DAG(symbol=sym_b, scope={sym_b:sym_b}))
+
+        from allocator import Allocator
+        from qcb import QCB
+        qcb_base = QCB(4, 5, g)
+
+        try:
+            allocator = Allocator(qcb_base, factory_a, factory_b)
+        except AssertionError as e:
+            print(tex(qcb_base), file=open("test.tex", "w"))
+            raise e
+        
+  
+
     def test_only_extern(self):
 
         from dag import DAG
