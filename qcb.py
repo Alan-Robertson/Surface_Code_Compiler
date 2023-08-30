@@ -99,10 +99,13 @@ class SCPatch():
     ROUTE = Symbol('ROUTE')
     IO = Symbol('IO')
     INTERMEDIARY = Symbol('INTERMEDIARY')
-    NONE = None
+    NONE = Symbol('NONE')
 
     def __init__(self, qcb: 'None|QCB' = None):
-        if qcb is not None and qcb.is_extern(): # not in [self.REG, self.ROUTE, self.IO, self.NONE]:
+        if qcb is None:
+            self.state = self.NONE
+            qcb = self.NONE
+        elif qcb is not None and qcb.is_extern(): # not in [self.REG, self.ROUTE, self.IO, self.NONE]:
             self.state = self.EXTERN    
         else:
             self.state = qcb
