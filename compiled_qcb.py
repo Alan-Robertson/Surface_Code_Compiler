@@ -15,7 +15,7 @@ class CompiledQCB:
         return True
 
     def instantiate(self):
-        return CompiledQCB(self.qcb.instantiate(), self.router, self.dag) 
+        return CompiledQCB(self.qcb, self.router, self.dag) 
 
     def satisfies(self, other):
         return self.symbol.satisfies(other)

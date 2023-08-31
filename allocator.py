@@ -6,7 +6,7 @@ class AllocatorError(Exception):
     pass
 
 class Allocator:
-    def __init__(self, qcb: QCB, *extern_templates):
+    def __init__(self, qcb: QCB, *extern_templates, optimise=True):
         self.qcb = qcb
 
         self.msfs_templates = sorted(extern_templates, 
@@ -24,7 +24,8 @@ class Allocator:
         self.n_channels = 1
         self.test = 0
         self.allocate()
-        self.optimise()
+        if optimise:
+           self.optimise()
 
     def reg_to_route(self, keep: Set[Tuple[int, int]]):
         

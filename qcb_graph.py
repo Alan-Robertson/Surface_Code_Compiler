@@ -43,7 +43,8 @@ class QCBGraph:
         self.graph_to_segments = dict()
         self.segments_to_graph = dict()
 
-        self.pruned_graph = QCBPrune(copy.deepcopy(qcb.segments))
+        self.pruned_graph = QCBPrune(qcb.segments)
+        #QCBPrune(copy.deepcopy(qcb.segments))
         self.construct_graph(self.pruned_graph.segments)
 
     def __tikz__(self):
@@ -66,7 +67,7 @@ class QCBGraph:
 class QCBPrune:
     def __init__(self, segments) -> None:
         # reducing variables
-        self.segments: 'Set[Segment]' = copy.deepcopy(segments)
+        self.segments: 'Set[Segment]' = segments #copy.deepcopy(segments)
         self.map_to_grid()
 
     def __tikz__(self):
