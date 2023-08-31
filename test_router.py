@@ -1,10 +1,17 @@
 from dag import DAG
 from instructions import INIT, CNOT, T, Toffoli
 from symbol import Symbol, ExternSymbol
+from dag import DAG
+
+from qcb import QCB
+from allocator import Allocator
+from qcb_graph import QCBGraph
+from qcb_tree import QCBTree
+from router import QCBRouter
+from mapper import QCBMapper
 
 from qcb import SCPatch
 
-from router import QCBRouter
 
 import unittest
 
@@ -234,14 +241,6 @@ class RouterTest(unittest.TestCase):
         router = QCBRouter(qcb_base, dag, mapper)
 
     def test_io_simple(self):
-        from dag import DAG
-        from instructions import INIT, CNOT, T, Toffoli
-        from qcb import QCB
-        from allocator import Allocator
-        from qcb_graph import QCBGraph
-        from qcb_tree import QCBTree
-        from symbol import Symbol
-
         # Dummy T Factory
         dag = DAG(Symbol('T_Factory', 'factory_out'))
         dag.add_gate(INIT('a', 'b', 'c', 'd'))

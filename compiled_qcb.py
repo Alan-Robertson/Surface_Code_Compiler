@@ -5,8 +5,23 @@ class CompiledQCB:
         self.qcb = qcb
 
         self.symbol = qcb.symbol.extern()
-        self.cycles = len(router.layers)
+        self.n_cycles = lambda : len(router.layers)
+        self.n_pre_warm_cycles = lambda : 0
         self.width = qcb.width
         self.height = qcb.height
         self.externs = qcb.externs
+    
+    def is_extern(self):
+        return True
 
+    def instantiate(self):
+        return CompiledQCB(self.qcb.instantiate(), self.router, self.dag) 
+
+    def satisfies(self, other):
+        return self.symbol.satisfies(other)
+
+    def get_symbol(self):
+        return self.symbol
+
+    def get_obj(self):
+        return self

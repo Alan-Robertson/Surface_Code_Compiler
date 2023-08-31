@@ -17,6 +17,28 @@ def in_place_factory(fn, n_cycles=1, n_ancillae=0):
         return dag
     return instruction
 
+def in_place_factory_mult(fn, n_cycles=1, n_ancillae=0, singular_instruction=None):
+    '''
+    Factory method for generating in place gates
+    '''
+    if singular_instruction is None:
+        singular_instruction =  in_place_factory(fn, n_cycles=n_cycles)
+    
+    def instruction(*args):
+        args = tuple(map(symbol_resolve, args))
+        sym = Symbol(fn, args)
+
+        # Scope injection passes variables from a higher scope
+        scope = Scope({sym(arg):arg for arg in args})
+        
+        dag = DAG(sym, scope=scope)
+        
+        for arg in args:
+            dag.add_gate(singular_instruction(arg))
+        
+        return dag
+    return instruction
+
 def non_local_factory(fn, n_cycles=1, n_ancillae=0):
     '''
     Factory method for generating non-local gates
@@ -93,6 +115,7 @@ def T(targ):
     return dag
 
 
+PREP = in_place_factory_mult('PREP')
 Hadamard = in_place_factory('H')
 Phase = in_place_factory('P')
 X = in_place_factory('X')
@@ -100,7 +123,7 @@ Y = in_place_factory('Y')
 Z = in_place_factory('Z')
 
 CNOT = non_local_factory('CNOT', n_cycles=3)
-
+MEAS = non_local_factory('MEAS', n_cycles=1)
 
 def Toffoli(ctrl_a, ctrl_b, targ):
     ctrl_a, ctrl_b, targ = map(Symbol, (ctrl_a, ctrl_b, targ))
