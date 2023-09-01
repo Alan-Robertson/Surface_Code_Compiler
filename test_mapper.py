@@ -4,6 +4,9 @@ from qcb import SCPatch
 import unittest
 from mapper import QCBMapper
 
+from lib_instructions import T_Factory
+
+
 class MapperTest(unittest.TestCase):
   
     def test_extern_qcb(self):
@@ -20,11 +23,8 @@ class MapperTest(unittest.TestCase):
         dag.add_gate(INIT('a', 'b', 'c', 'd'))
         dag.add_gate(T('a'))
 
-        sym = ExternSymbol('T_Factory', 'factory_out')
-        factory_impl = QCB(3, 5, DAG(symbol=sym, scope={sym:sym}))
-
         qcb_base = QCB(15, 10, dag)
-        allocator = Allocator(qcb_base, factory_impl)
+        allocator = Allocator(qcb_base, T_Factory())
         graph = QCBGraph(qcb_base)
         tree = QCBTree(graph)
         mapper = QCBMapper(dag, tree)

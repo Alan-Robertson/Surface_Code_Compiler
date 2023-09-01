@@ -10,6 +10,7 @@ class CompiledQCB:
         self.width = qcb.width
         self.height = qcb.height
         self.externs = qcb.externs
+        self.predicate = qcb.symbol
     
     def is_extern(self):
         return True
@@ -25,3 +26,4 @@ class CompiledQCB:
 
     def get_obj(self):
         return self
+

@@ -32,17 +32,16 @@ class CompilerTests(unittest.TestCase):
             'factory_out'))
         dag.add_gate(X('factory_out'))
 
-        qcb_base = QCB(5, 9, dag)
-        allocator = Allocator(qcb_base)
+        qcb = QCB(5, 9, dag)
+        allocator = Allocator(qcb)
 
-        graph = QCBGraph(qcb_base)
+        graph = QCBGraph(qcb)
         tree = QCBTree(graph)
 
         mapper = QCBMapper(dag, tree)
-        router = QCBRouter(qcb_base, dag, mapper)
+        router = QCBRouter(qcb, dag, mapper)
 
-
-
+        compiled_t_factory = CompiledQCB(qcb, router, dag) 
 
 
     def test_single_dag(self):
