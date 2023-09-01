@@ -53,7 +53,23 @@ class Symbol(object):
 
     def __iter__(self):
         return iter(self.io)
-       
+      
+    def ordered_io(self):
+        for i in range(len(self.io)):
+            yield self[i]
+        return
+
+    def ordered_io_in(self):
+        for i in range(len(self.io_in)):
+            yield self[i]
+        return
+
+    def ordered_io_out(self):
+        for i in range(len(self.io_out)):
+            yield self[i]
+        return
+
+
     def __contains__(self, other):
         if isinstance(other, Symbol):
             return other in self.io

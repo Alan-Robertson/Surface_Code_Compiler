@@ -15,7 +15,6 @@ import unittest
 
 class CompilerTests(unittest.TestCase):
      
-
     def test_t_factory(self):
         dag = DAG(Symbol('T_Factory', 'factory_out'))
         dag.add_gate(INIT(*['q_{i}'.format(i=i) for i in range(4)]))

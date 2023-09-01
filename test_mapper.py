@@ -22,6 +22,7 @@ class MapperTest(unittest.TestCase):
         dag = DAG(Symbol('Test'))
         dag.add_gate(INIT('a', 'b', 'c', 'd'))
         dag.add_gate(T('a'))
+        dag.add_gate(CNOT('a', 'b', 'c', 'd'))
 
         qcb_base = QCB(15, 10, dag)
         allocator = Allocator(qcb_base, T_Factory())

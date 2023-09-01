@@ -39,6 +39,26 @@ def in_place_factory_mult(fn, n_cycles=1, n_ancillae=0, singular_instruction=Non
         return dag
     return instruction
 
+
+def factory_factory(fn, n_cycles=1):
+    def instruction(targ):
+        targ = symbol_resolve(targ)
+        sym = Symbol(fn, 'targ')
+
+        factory = ExternSymbol(fn)
+        scope = Scope({factory:factory, sym('targ'):targ})
+
+        dag = DAG(sym, scope=scope)
+        dag.add_node(factory, n_cycles=n_cycles)
+        dag.add_gate(CNOT(factory('factory_out'), targ))
+        dag.add_gate(RESET(factory))
+        return dag
+
+
+
+
+
+
 def non_local_factory(fn, n_cycles=1, n_ancillae=0):
     '''
     Factory method for generating non-local gates
@@ -113,6 +133,7 @@ def T(targ):
     dag.add_gate(CNOT(factory('factory_out'), targ))
     dag.add_gate(RESET(factory))
     return dag
+
 
 
 PREP = in_place_factory_mult('PREP')
