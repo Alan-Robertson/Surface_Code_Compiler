@@ -129,7 +129,7 @@ def T(targ):
     scope = Scope({factory:factory, sym('targ'):targ})
 
     dag = DAG(sym, scope=scope)
-    dag.add_node(factory, n_cycles=17)
+    dag.add_node(factory, n_cycles=20)
     dag.add_gate(CNOT(factory('factory_out'), targ))
     dag.add_gate(RESET(factory))
     return dag

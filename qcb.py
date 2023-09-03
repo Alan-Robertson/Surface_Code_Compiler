@@ -36,7 +36,7 @@ class QCB():
         self.segments: Set[Segment] = {Segment(0, 0, width-1, height-1)}
         self.mappable_segments = set()
         self.operations = operations
-        self.cycles = 17
+        self.cycles = 69 
         self.symbol = operations.get_symbol()
         self.predicate = self.symbol.predicate
         self.prewarm = 0

@@ -1,4 +1,4 @@
-from functools import partial
+from functools import partial, cache
 from symbol import Symbol, ExternSymbol, symbol_map, symbol_resolve
 from scope import Scope
 from dag import DAG, DAGNode
@@ -11,13 +11,13 @@ from router import QCBRouter
 from allocator import Allocator
 from compiled_qcb import CompiledQCB
 
-
 from instructions import INIT, RESET, CNOT, Hadamard, T, Toffoli, Phase, in_place_factory, non_local_factory, PREP, MEAS, X
 
 local_Tdag = in_place_factory('T_dag') 
 
+@cache
 def T_Factory(height=5, width=9):
-        dag = DAG(Symbol('T_Factory', 'factory_out'))
+        dag = DAG(Symbol('T_Factory', (), 'factory_out'))
         dag.add_gate(INIT(*['q_{i}'.format(i=i) for i in range(4)]))
         dag.add_gate(INIT(*['a_{i}'.format(i=i) for i in range(11)]))
         dag.add_gate(PREP('factory_out'))
@@ -43,6 +43,7 @@ def T_Factory(height=5, width=9):
 
         return CompiledQCB(qcb, router, dag) 
 
+@cache
 def MAJ():
     dag = DAG(Symbol('MAJ', ('a', 'b', 'c')))
     dag.add_gate(CNOT('c', 'b'))

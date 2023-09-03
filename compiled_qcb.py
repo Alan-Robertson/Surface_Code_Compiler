@@ -1,4 +1,8 @@
 import copy
+from symbol import symbol_resolve
+from scope import Scope
+from dag import DAG
+from instructions import RESET, CNOT
 
 class CompiledQCB:
     def __init__(self, qcb, router, dag):
@@ -29,26 +33,29 @@ class CompiledQCB:
     def get_obj(self):
         return self
     
-    def __call__(self, args, targs):
-        pass
+    def __call__(self, *args):
+        return self.instruction(*args)
+
+    def __repr__(self):
+        return self.symbol.__repr__()
 
     def instruction(self, args, targs):
         args = tuple(map(symbol_resolve, args))
         targs = tuple(map(symbol_resolve, targs))
 
-        sym = self.predicate 
-        fn = copy.deepcopy(self.symbol)
+        sym = symbol_resolve(f'CALL {self.predicate.symbol}') 
+        fn = self.predicate.extern()
         scope = Scope({fn:fn})
 
         dag = DAG(sym, scope=scope)
-        for arg, fn_arg in zip(args, sym.ordered_io_in()):
-            dag.add_node(CNOT(factory(arg, fn(fn_arg))))
         
-        dag.add_node(factory, n_cycles=self.n_cycles)
+        for arg, fn_arg in zip(args, self.predicate.ordered_io_in()):
+            dag.add_node(CNOT(arg, fn(fn_arg)))
+        
+        dag.add_node(fn, n_cycles=self.n_cycles())
 
-        for targ, fn_arg in zip(args, sym.ordered_io_out()):
-            dag.add_node(CNOT(factory(arg, fn(fn_arg))))
+        for targ, fn_arg in zip(targs, self.predicate.ordered_io_out()):
+            dag.add_node(CNOT(fn(fn_arg), targ))
 
-        dag.add_gate(CNOT(factory('factory_out'), targ))
-        dag.add_gate(RESET(factory))
+        dag.add_gate(RESET(fn))
         return dag

@@ -11,8 +11,7 @@ sys.setrecursionlimit(10000)
 
 class DAGNode():
     def __init__(self, symbol, *args, scope=None, externs=None, n_cycles=1):
-        if not isinstance(symbol, Symbol):
-            symbol = Symbol(symbol)
+        symbol = symbol_resolve(symbol)
 
         if externs is None:
             externs = dict()
@@ -81,8 +80,7 @@ class DAGNode():
 class DAG(DAGNode):
     def __init__(self, symbol, scope=None):
 
-        if not isinstance(symbol, Symbol):
-            symbol = Symbol(symbol)
+        symbol = symbol_resolve(symbol)
         self.symbol = symbol
 
         if scope is None:
@@ -139,10 +137,11 @@ class DAG(DAGNode):
         operands = gate.symbol.io
         if len(gate.externs) > 0:
             self.externs |= gate.externs
-        
-        for operand in operands:
-            if gate.scope[operand] is operand:
-                self.scope[operand] = None
+       
+        print(dag, self.scope)
+#        for operand in operands:
+#            if gate.scope[operand] is operand:
+#                self.scope[operand] = None
 
         if gate.unrollable():
             self.unroll_gate(gate)
@@ -158,7 +157,8 @@ class DAG(DAGNode):
         if len(gate.externs) > 0:
             self.externs |= gate.externs
         self.gates.append(gate)
-        self.merge_scopes(gate)
+        if not self.is_extern():
+            self.merge_scopes(gate)
         self.update_dependencies(gate)
         return gate
                     
@@ -268,14 +268,14 @@ class DAG(DAGNode):
 
     def lookup(self):
         initial_list = list(self.internal_scope().keys()) + self.physical_externs
-        register = Symbol('REG')
+        register = symbol_resolve('REG')
         lookup_list = list()
         for element in initial_list:
             if element.get_symbol().is_extern():
                 lookup_list.append(element.get_symbol())
                 
             else:
-                sym = Symbol(element)
+                sym = symbol_resolve(element)
                 sym.predicate = register
                 lookup_list.append(sym)
         return lookup_list
@@ -461,7 +461,7 @@ class DAG(DAGNode):
     def __tikz__(self):
         return tikz_dag(self)
 
-from symbol import Symbol
+from symbol import symbol_resolve, Symbol
 from scope import Scope
 from instructions import INIT, RESET_SYMBOL
 from bind import DAGBind, ExternBind
