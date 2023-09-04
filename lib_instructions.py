@@ -17,7 +17,7 @@ local_Tdag = in_place_factory('T_dag')
 
 @cache
 def T_Factory(height=5, width=9):
-        dag = DAG(Symbol('T_Factory', (), 'factory_out'))
+        dag = DAG(Symbol('T_Factory', 'factory_out'))
         dag.add_gate(INIT(*['q_{i}'.format(i=i) for i in range(4)]))
         dag.add_gate(INIT(*['a_{i}'.format(i=i) for i in range(11)]))
         dag.add_gate(PREP('factory_out'))
@@ -40,6 +40,9 @@ def T_Factory(height=5, width=9):
 
         mapper = QCBMapper(dag, tree)
         router = QCBRouter(qcb, dag, mapper)
+
+        compiled_t_factory = CompiledQCB(qcb, router, dag) 
+
 
         return CompiledQCB(qcb, router, dag) 
 

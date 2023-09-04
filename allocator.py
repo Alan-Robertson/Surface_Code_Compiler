@@ -83,9 +83,9 @@ class Allocator:
             try:
                 self.place_reg()
             except AllocatorError as e:
-                import traceback
-                traceback.print_exc()
-                print("Opt channel failed, bailing...")
+                #import traceback
+                #traceback.print_exc()
+                #print("Opt channel failed, bailing...")
                 return False
             new_req = self.reg_allocated - self.reg_quota - len(affected_regs)
 

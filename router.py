@@ -65,8 +65,8 @@ class QCBRouter:
                 route_exists = True
                 if gate.non_local():
                     route_exists, route_addresses = self.find_route(gate, addresses)
-                    if route_exists:
-                        addresses += route_addresses
+                    #if route_exists:
+                    addresses = route_addresses
 
                 # Route exists, all nodes are free
                 if route_exists:
@@ -107,7 +107,7 @@ class QCBRouter:
     def find_route(self, gate, addresses):
         paths = []
         graph_nodes = list(map(lambda address: self.graph[address], addresses))
-        for start, end in zip(graph_nodes, graph_nodes[1:]):
+        for end, start in zip(graph_nodes, graph_nodes[1:]):
             path = self.graph.route(start, end, gate)
             if path is not PatchGraph.NO_PATH_FOUND:
                 paths += path

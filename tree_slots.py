@@ -100,6 +100,8 @@ class SegmentSlot():
         self.symbol = leaf.get_slot_name()
         self.n_slots = leaf.get_segment().get_n_slots()
         self.tree_node = leaf
+        self.slot_alloc = dict()
+        self.alloced_symbols = list()
     
     def get_weight(self, symbol):
         return self.tree_node.get_weight()

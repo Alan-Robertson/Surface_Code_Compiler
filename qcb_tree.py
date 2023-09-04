@@ -179,7 +179,7 @@ class TreeNode():
     
     def contains_leaf(self, leaf):
         return self is leaf
-        
+
 
 class RouteNode(TreeNode):
     def __init__(self, vertex):

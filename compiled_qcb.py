@@ -17,6 +17,7 @@ class CompiledQCB:
         self.height = qcb.height
         self.externs = qcb.externs
         self.predicate = qcb.symbol
+        self.io = qcb.symbol.io
     
     def is_extern(self):
         return True
