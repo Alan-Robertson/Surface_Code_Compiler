@@ -12,7 +12,6 @@ sys.setrecursionlimit(10000)
 class DAGNode():
     def __init__(self, symbol, *args, scope=None, externs=None, n_cycles=1):
         symbol = symbol_resolve(symbol)
-
         if externs is None:
             externs = dict()
         if isinstance(externs, Symbol):
@@ -138,7 +137,6 @@ class DAG(DAGNode):
         if len(gate.externs) > 0:
             self.externs |= gate.externs
        
-        print(dag, self.scope)
 #        for operand in operands:
 #            if gate.scope[operand] is operand:
 #                self.scope[operand] = None

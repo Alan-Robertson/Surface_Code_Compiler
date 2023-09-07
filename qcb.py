@@ -40,6 +40,7 @@ class QCB():
         self.symbol = operations.get_symbol()
         self.predicate = self.symbol.predicate
         self.prewarm = 0
+        self.extern_templates = dict()
 
         if io is None:
             # Placeholder
@@ -238,6 +239,10 @@ class Segment():
     def get_slot_name(self):
         return self.state.get_slot_name()
 
+    def range(self):
+        for x in range(self.x_0, self.x_1 + 1):
+            for y in range(self.y_0, self.y_1 + 1):
+                yield x, y
 
     def get_n_slots(self):
         # How many distinct elements are in this patch

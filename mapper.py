@@ -4,47 +4,72 @@ from tree_slots import TreeSlots
 from tikz_utils import tikz_mapper
 
 class QCBMapper():
-
     def __init__(self, dag, mapping_tree):
         self.dag = dag
-        self.map = {symbol:None for symbol in dag.lookup()}
         self.mapping_tree = mapping_tree
-        self.construct_map()
+        
+        self.map = dict()
+        self.segment_maps = dict()
+        
+        for symbol in dag.lookup():
+            if not symbol.is_extern():
+                self.map[symbol] = None
 
+        self.construct_map()
+           
     def construct_map(self):
+
         for symbol in self.map:
-            if symbol.is_extern():
-                leaf = self.mapping_tree.alloc(symbol.predicate)
+            if symbol in self.dag.io():
+                leaf = self.mapping_tree.alloc(SCPatch.IO)
+                self.map[symbol] = IOSegmentMap(self.dag.symbol, leaf.get_segment())
             else:
-                if symbol in self.dag.io():
-                    leaf = self.mapping_tree.alloc(SCPatch.IO)
-                else:
-                    leaf = self.mapping_tree.alloc(SCPatch.REG)
+                leaf = self.mapping_tree.alloc(SCPatch.REG)
+                segment = leaf.get_segment()
+                if (segment_map := self.segment_maps.get(segment, False)) is False:
+                   segment_map = RegSegmentMap(segment) 
+                   self.segment_maps[segment] = segment_map
+                segment_map.alloc(symbol)
+
+                self.map[symbol] = segment_map
+
             if leaf == TreeSlots.NO_CHILDREN_ERROR:
                 raise Exception(f"Could not allocate {symbol}")
-            self.map[symbol] = leaf.get_segment()
+
+        # Handle Externs
+        for extern in self.dag.physical_externs: 
+            self.segment_maps[extern.symbol.predicate] = ExternSegmentMap(extern) 
+
+        for symbol, extern in self.dag.externs.items():
+            segment_map = self.segment_maps[symbol.predicate]
+            if extern not in segment_map.segments:
+                leaf = self.mapping_tree.alloc(symbol.predicate)
+                segment = leaf.get_segment
+                segment_map.alloc(extern, leaf.get_segment())
+                segment_map.alloc(symbol, leaf.get_segment())
+            else:
+                segment_map.alloc(symbol, segment_map.segments[extern])
+            self.map[symbol] = segment_map 
+
 
     def dag_symbol_to_segment(self, symbol):
-        if symbol.is_extern():
-           symbol = self.dag.scope[symbol.get_parent()].symbol.get_parent() 
-        return self.map[symbol] 
-
-    def dag_node_to_segments(self, dag_node):
-        return [self.dag_symbol_to_segment(symbol) for symbol in dag_node.get_symbol().io.keys()]
+        return self.map[symbol].get_segment()
 
     def dag_node_to_coordinates(self, dag_node):
-        segments = self.dag_node_to_segments(dag_node)
         coordinates = []
-        for node, segment in zip(dag_node.scope, segments):
-            if segment.get_state() != SCPatch.EXTERN:
-                coordinates.append((segment.x_0, segment.y_0)) 
-            elif node.io_element is not None:
+        for symbol in dag_node.scope:
+            segment_map = self.map[symbol]
+            if segment_map.get_state() == SCPatch.EXTERN:
+                #offset = segment_map[symbol.io_element]
+                #segment = segment_map.segments[segment]
+                coordinates.append(segment_map[symbol]) 
+            elif symbol.io_element is not None:
                 offset = segment.get_slot().io[node.io_element]
                 coordinates.append((segment.x_0 + offset, segment.y_1))
             else:
-                coordinates.append((segment.x_0, segment.y_1))
+                coordinates.append(segment_map[symbol]) 
         return coordinates 
-
+            
     def __getitem__(self, dag_node):
         return self.dag_node_to_coordinates(dag_node)
 
@@ -55,7 +80,10 @@ class QCBMapper():
         return tikz_mapper(self)
 
 
-class SegmentMap():
+class RegSegmentMap():
+    '''
+        This handles placement within registers
+    '''
     ALLOC_FAILED = object()
     def __init__(self, segment):
         self.segment = segment
@@ -76,8 +104,18 @@ class SegmentMap():
         self.map_rev[index] = symbol
         self.n_slots_full += 1
 
+    def range(self):
+        for offset in self.map_rev:
+            yield self.segment.x_0 + offset, self.segment.y_1
+
+    def get_state(self):
+        return self.segment.get_state()
+
+    def get_slot(self):
+        return SCPatch.REG
+
     def __getitem__(self, symbol):
-        pass
+        return self.segment.x_0 + self.map[symbol], self.segment.y_1
 
     def __hash__(self):
         return self.segment.__hash__()
@@ -85,10 +123,13 @@ class SegmentMap():
     def __eq__(self, other):
         return self.segment == other.segment
 
+    def __repr__(self):
+        return self.map.__repr__()
+
     def placement_strategy(self):
         if self.n_slots <= 4:
             # A reasonable hash function for small segments
-            return int((self.n_slots_full * 7 + (n_slots % self.n_slots)) % self.n_slots)
+            return int((self.n_slots_full * 7 + self.n_slots) % self.n_slots)
         else:
             # A better hash function for larger placements
             index = self.ALLOC_FAILED
@@ -105,4 +146,72 @@ class SegmentMap():
                     index = position
             return index
 
+class IOSegmentMap():
+    '''
+        This handles placement within registers
+    '''
+    def __init__(self, symbol, segment):
+        self.segment = segment
+        self.map = symbol.io
 
+    def range(self):
+        for offset in self.map.values():
+            yield self.segment.x_0 + offset, self.segment.y_1
+
+    def get_state(self):
+        return self.segment.get_state()
+
+    def get_slot(self):
+        return SCPatch.IO
+
+    def __getitem__(self, symbol):
+        return self.segment.x_0 + self.map[symbol], self.segment.y_1
+
+    def __hash__(self):
+        return self.segment.__hash__()
+
+    def __eq__(self, other):
+        return self.segment == other.segment
+
+    def __repr__(self):
+        return self.map.__repr__()
+
+class ExternSegmentMap():
+    '''
+        This handles placement within registers
+    '''
+    def __init__(self, extern):
+        self.segments = dict()
+        self.map = extern.io
+
+    def alloc(self, symbol, segment):
+        if segment not in self.segments:
+            self.segments[symbol] = segment
+
+    def range(self):
+        for segment in segments:
+            for coordinate in segment.range():
+                yield coordinate
+
+    def get_state(self):
+        return SCPatch.EXTERN
+
+    def get_slot(self):
+        return SCPatch.EXTERN
+
+    def __getitem__(self, symbol):
+        segment = self.segments[symbol]
+        offset = self.map.get(symbol.io_element, 0)
+        return segment.x_0 + offset, segment.y_1
+
+    def __hash__(self):
+        return self.segment.__hash__()
+
+    def __eq__(self, other):
+        return self.segment == other.segment
+
+    def __repr__(self):
+        return self.map.__repr__()
+
+    def __in__(self, other):
+        return other in self.segments

@@ -44,11 +44,14 @@ class QCBGraph:
         self.segments_to_graph = dict()
 
         self.pruned_graph = QCBPrune(qcb.segments)
-        #QCBPrune(copy.deepcopy(qcb.segments))
         self.construct_graph(self.pruned_graph.segments)
+        self.qcb = qcb
 
     def __tikz__(self):
         return tikz_pruned_qcb(self)
+
+    def get_qcb(self):
+        return self.qcb
 
     def construct_graph(self, segments):
         for segment in segments:

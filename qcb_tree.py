@@ -14,6 +14,7 @@ class QCBTree():
         self.tree_to_graph = dict()
         self.leaves = set()
         self.nodes = set()
+        self.graph = qcb_graph
 
         # Create vertices for nodes in the tree
         for vertex in qcb_graph:
@@ -38,6 +39,9 @@ class QCBTree():
            self.construct_spanning_tree()
         if distribute:
            self.distribute_slots()
+
+    def get_qcb(self):
+        return self.graph.get_qcb()
 
     def selector(self, vertex):
         if vertex.is_extern():

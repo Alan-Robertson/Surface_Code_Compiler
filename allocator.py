@@ -9,9 +9,11 @@ class Allocator:
     def __init__(self, qcb: QCB, *extern_templates, optimise=True):
         self.qcb = qcb
 
-        self.msfs_templates = sorted(extern_templates, 
+        self.extern_templates = sorted(extern_templates, 
                                      key=lambda extern: (extern.width, extern.height),
                                      reverse=True)
+        self.qcb.extern_templates = {x.symbol:x for x in self.extern_templates}
+
         self.height = qcb.height
         self.width = qcb.width
         
@@ -136,7 +138,7 @@ class Allocator:
             else:
                 return (new_msf, dag.compile(self.n_channels + 1, *self.msfs)[0])
 
-        options = [new_msf.instantiate() for new_msf in self.msfs_templates]
+        options = [new_msf.instantiate() for new_msf in self.extern_templates]
         options.append(None)
         options = sorted(map(heuristic, options), key=lambda o:o[1])
 
@@ -688,7 +690,7 @@ class Allocator:
         '''
         self.place_io()
 
-        externs = self.msfs_templates
+        externs = self.extern_templates
         if len(externs) > 0:
             # self.place_first_extern(externs[0])
             self.place_msf(externs[0])

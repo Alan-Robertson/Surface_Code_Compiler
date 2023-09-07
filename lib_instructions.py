@@ -17,10 +17,9 @@ local_Tdag = in_place_factory('T_dag')
 
 @cache
 def T_Factory(height=5, width=9):
-        dag = DAG(Symbol('T_Factory', 'factory_out'))
+        dag = DAG(Symbol('T_Factory', (), 'factory_out'))
         dag.add_gate(INIT(*['q_{i}'.format(i=i) for i in range(4)]))
         dag.add_gate(INIT(*['a_{i}'.format(i=i) for i in range(11)]))
-        dag.add_gate(PREP('factory_out'))
         dag.add_gate(CNOT('q_3', *['a_{i}'.format(i=i) for i in range(1, 8)]))
         dag.add_gate(CNOT('q_2', *['a_{i}'.format(i=i) for i in (0, 2, 3, 4, 5, 8, 9)]))
         dag.add_gate(CNOT('q_1', *['a_{i}'.format(i=i) for i in (0, 1, 3, 4, 6, 8, 10)]))
@@ -43,7 +42,6 @@ def T_Factory(height=5, width=9):
 
         compiled_t_factory = CompiledQCB(qcb, router, dag) 
 
-
         return CompiledQCB(qcb, router, dag) 
 
 @cache
@@ -52,7 +50,4 @@ def MAJ():
     dag.add_gate(CNOT('c', 'b'))
     dag.add_gate(CNOT('c', 'a'))
     dag.add_gate(Toffoli('a', 'b', 'c'))
-
-    
-    
     

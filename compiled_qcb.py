@@ -51,12 +51,12 @@ class CompiledQCB:
         dag = DAG(sym, scope=scope)
         
         for arg, fn_arg in zip(args, self.predicate.ordered_io_in()):
-            dag.add_node(CNOT(arg, fn(fn_arg)))
+            dag.add_gate(CNOT(arg, fn(fn_arg)))
         
         dag.add_node(fn, n_cycles=self.n_cycles())
 
         for targ, fn_arg in zip(targs, self.predicate.ordered_io_out()):
-            dag.add_node(CNOT(fn(fn_arg), targ))
+            dag.add_gate(CNOT(fn(fn_arg), targ))
 
         dag.add_gate(RESET(fn))
         return dag
