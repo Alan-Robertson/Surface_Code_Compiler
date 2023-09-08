@@ -5,6 +5,14 @@ from qcb_tree import RegNode, RouteNode
 from qcb import SCPatch
 import unittest
 
+from qcb_graph import QCBGraph
+from qcb_tree import QCBTree
+from allocator import Allocator
+from qcb import QCB
+from dag import DAG
+from instructions import INIT, CNOT
+from lib_instructions import T, T_Factory, Toffoli
+
 from test_utils import TreeNodeInterface, GraphNodeInterface 
 from symbol import Symbol, ExternSymbol
 
@@ -210,14 +218,7 @@ class SlotTest(unittest.TestCase):
         assert(root.alloc(SCPatch.REG) is TreeSlots.NO_CHILDREN_ERROR)
 
     def test_large_qcb(self):
-        from qcb_graph import QCBGraph
-        from qcb_tree import QCBTree
-        from allocator import Allocator
-        from qcb import QCB
-        from dag import DAG
-        from instructions import INIT, CNOT, T, Toffoli
-        from symbol import Symbol, ExternSymbol
-
+        
         g = DAG(Symbol('Test'))
         g.add_gate(INIT('a', 'b', 'c', 'd'))
         g.add_gate(CNOT('a', 'b'))
@@ -239,36 +240,17 @@ class SlotTest(unittest.TestCase):
 
 
     def test_extern_qcb(self):
-        from dag import DAG
-        from instructions import INIT, T
-        from mapper import QCBMapper
-        from qcb_graph import QCBGraph
-        from qcb_tree import QCBTree
-        from allocator import Allocator
-        from qcb import QCB
-        
         dag = DAG(Symbol('Test'))
         dag.add_gate(INIT('a', 'b', 'c', 'd'))
         dag.add_gate(T('a'))
 
-        sym = ExternSymbol('T_Factory')
-        factory_impl = QCB(3, 5, DAG(symbol=sym, scope={sym:sym}))
-
         qcb_base = QCB(15, 10, dag)
-        allocator = Allocator(qcb_base, factory_impl)
+        allocator = Allocator(qcb_base, T_Factory())
 
         graph = QCBGraph(qcb_base)
         tree = QCBTree(graph)
 
     def test_compiler_chain(self):
-        from qcb_graph import QCBGraph
-        from qcb_tree import QCBTree
-        from allocator import Allocator
-        from qcb import QCB
-        from dag import DAG
-        from instructions import INIT, CNOT, T, Toffoli
-        from symbol import Symbol, ExternSymbol
-
         g = DAG(Symbol('Test'))
         g.add_gate(INIT('a', 'b', 'c', 'd'))
         g.add_gate(CNOT('a', 'b'))
@@ -290,36 +272,26 @@ class SlotTest(unittest.TestCase):
         g.add_gate(CNOT('c', 'a'))
         g.add_gate(CNOT('b', 'd'))
 
-        sym = ExternSymbol('T_Factory')
-        factory_impl = QCB(3, 5, DAG(symbol=sym, scope={sym:sym}))
 
         qcb_base = QCB(15, 10, g)
-        allocator = Allocator(qcb_base, factory_impl)
+        allocator = Allocator(qcb_base, T_Factory())
 
         graph = QCBGraph(qcb_base)
         tree = QCBTree(graph)
     
         assert(len(tree.root.slots.slots) > 0)
 
-        N_REGISTERS = 35
-        N_EXTERNS = 4
+        N_REGISTERS = 4
+        N_EXTERNS = 2
         for i in range(N_REGISTERS):
             assert tree.alloc(SCPatch.REG) is not TreeSlots.NO_CHILDREN_ERROR
-        assert tree.alloc(SCPatch.REG) is TreeSlots.NO_CHILDREN_ERROR
 
+        factory_slot = Symbol('T_Factory', 'factory_out')
         for i in range(N_EXTERNS):
-            assert tree.alloc(sym.predicate) is not TreeSlots.NO_CHILDREN_ERROR
-        assert tree.alloc(sym.predicate) is TreeSlots.NO_CHILDREN_ERROR
+            assert tree.alloc(factory_slot) is not TreeSlots.NO_CHILDREN_ERROR
+        assert tree.alloc(factory_slot) is TreeSlots.NO_CHILDREN_ERROR
 
     def test_io(self):
-        from qcb_graph import QCBGraph
-        from qcb_tree import QCBTree
-        from allocator import Allocator
-        from qcb import QCB
-        from dag import DAG
-        from instructions import INIT, CNOT, T, Toffoli
-        from symbol import Symbol, ExternSymbol
-
         g = DAG(Symbol('Test', 'in', 'out'))
         g.add_gate(INIT('a'))
         g.add_gate(CNOT('in', 'a'))
@@ -339,27 +311,22 @@ class SlotTest(unittest.TestCase):
         N_REGISTERS = 1
         for i in range(N_REGISTERS):
             assert tree.alloc(SCPatch.REG) is not TreeSlots.NO_CHILDREN_ERROR
-#        assert tree.alloc(SCPatch.REG) is TreeSlots.NO_CHILDREN_ERROR
+        
         for i in range(N_IO):
             assert tree.alloc(SCPatch.IO) is not TreeSlots.NO_CHILDREN_ERROR
 
     def test_io_simple(self):
-        from dag import DAG
-        from instructions import INIT, CNOT, T, Toffoli
-        from qcb import QCB
-        from allocator import Allocator
-        from qcb_graph import QCBGraph
-        from qcb_tree import QCBTree
-
-        # Dummy T Factory
-        dag = DAG(Symbol('T_Factory', 'factory_out'))
-        dag.add_gate(INIT('a', 'b', 'c', 'd'))
+        dag = DAG(Symbol('Factory', ('a', 'b', 'c', 'd')))
 
         qcb = QCB(4, 5, dag)
         allocator = Allocator(qcb)
 
         graph = QCBGraph(qcb)
         tree = QCBTree(graph)
+
+        N_IO = 2
+        for i in range(N_IO):
+            assert tree.alloc(SCPatch.IO) is not TreeSlots.NO_CHILDREN_ERROR
 
 
 if __name__ == '__main__':

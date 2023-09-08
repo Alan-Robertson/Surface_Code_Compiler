@@ -106,7 +106,7 @@ class QCBRouter:
     def find_route(self, gate, addresses):
         paths = []
         graph_nodes = list(map(lambda address: self.graph[address], addresses))
-        for end, start in zip(graph_nodes, graph_nodes[1:]):
+        for end, start in zip(graph_nodes[1:], graph_nodes):
             path = self.graph.route(start, end, gate)
             if path is not PatchGraph.NO_PATH_FOUND:
                 paths += path

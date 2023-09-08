@@ -121,19 +121,6 @@ def RESET(*symbol_constructors):
         dag.add_node(Symbol("RESET", obj), n_cycles=1)
     return dag
 
-def T(targ):
-    targ = symbol_resolve(targ)
-    sym = Symbol('T', 'targ')
-
-    factory = ExternSymbol('T_Factory')
-    scope = Scope({factory:factory, sym('targ'):targ})
-
-    dag = DAG(sym, scope=scope)
-    dag.add_node(factory, n_cycles=20)
-    dag.add_gate(CNOT(factory('factory_out'), targ))
-    dag.add_gate(RESET(factory))
-    return dag
-
 
 
 PREP = in_place_factory_mult('PREP')
@@ -145,26 +132,3 @@ Z = in_place_factory('Z')
 
 CNOT = non_local_factory('CNOT', n_cycles=3)
 MEAS = non_local_factory('MEAS', n_cycles=1)
-
-def Toffoli(ctrl_a, ctrl_b, targ):
-    ctrl_a, ctrl_b, targ = map(Symbol, (ctrl_a, ctrl_b, targ))
-    sym = Symbol('Toffoli', {'ctrl_a', 'ctrl_b', 'targ'})
-    scope = Scope({sym('ctrl_a'):ctrl_a, sym('ctrl_b'):ctrl_b, sym('targ'):targ})
-    dag = DAG(sym, scope=scope)
-
-    dag.add_gate(Hadamard(targ))
-    dag.add_gate(CNOT(ctrl_b, targ))
-    dag.add_gate(T(targ))
-    dag.add_gate(CNOT(ctrl_a, targ))
-    dag.add_gate(T(targ))
-    dag.add_gate(CNOT(ctrl_b, targ))
-    dag.add_gate(T(targ))
-    dag.add_gate(CNOT(ctrl_a, targ))
-    dag.add_gate(T(targ))
-    dag.add_gate(T(ctrl_b))
-    dag.add_gate(Hadamard(targ))
-    dag.add_gate(CNOT(ctrl_a, ctrl_b))
-    dag.add_gate(T(ctrl_a))
-    dag.add_gate(T(ctrl_b))
-    dag.add_gate(CNOT(ctrl_a, ctrl_b))
-    return dag

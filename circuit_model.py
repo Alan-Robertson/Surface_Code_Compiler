@@ -70,12 +70,15 @@ class PatchGraph():
     def adjacent(self, i, j, gate):
         opt = []
 
-        if i + 1 < self.shape[0]:
-            opt.append([i + 1, j])
+        if self.graph[i, j].state is SCPatch.ROUTE:
+            if i + 1 < self.shape[0]:
+                if (self.graph[i + 1, j].state is SCPatch.ROUTE):
+                    opt.append([i + 1, j])
 
-        if i - 1 >= 0:
-            opt.append([i - 1, j])
-        
+            if i - 1 >= 0:
+                if (self.graph[i - 1, j].state is SCPatch.ROUTE):
+                    opt.append([i - 1, j])
+           
         if j + 1 < self.shape[1]:
             opt.append([i, j + 1])
 
@@ -88,8 +91,6 @@ class PatchGraph():
         return
    
     def route(self, start, end, gate, heuristic=None):
-       # if not(start.probe(gate) or end.probe(gate)):
-       #     return []
         
         if heuristic is None:
             heuristic = self.heuristic

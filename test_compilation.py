@@ -67,7 +67,7 @@ class CompilerTests(unittest.TestCase):
             'factory_out'))
         dag.add_gate(X('factory_out'))
 
-        qcb = QCB(height, width, dag)
+        qcb = QCB(5, 9, dag)
         allocator = Allocator(qcb)
 
         graph = QCBGraph(qcb)
@@ -77,22 +77,6 @@ class CompilerTests(unittest.TestCase):
         router = QCBRouter(qcb, dag, mapper)
 
         compiled_t_factory = CompiledQCB(qcb, router, dag) 
-
-
-        mapper = QCBMapper(dag, tree)
-        router = QCBRouter(qcb_base, dag, mapper)
-
-        sym = ExternSymbol('T_Factory', 'factory_out')
-        factory_impl = QCB(3, 5, DAG(symbol=sym, scope={sym:sym}))
-
-        qcb_base = QCB(15, 10, dag)
-        allocator = Allocator(qcb_base, factory_impl)
-
-        graph = QCBGraph(qcb_base)
-        tree = QCBTree(graph)
-
-        mapper = QCBMapper(dag, tree)
-        router = QCBRouter(qcb_base, dag, mapper)
 
     def test_io(self):
         dag_a = DAG(Symbol('T_Factory', 'factory_out'))
@@ -141,7 +125,6 @@ class CompilerTests(unittest.TestCase):
 
         mapper = QCBMapper(dag, tree)
         router = QCBRouter(qcb_base, dag, mapper)
-
 
 if __name__ == '__main__':
     unittest.main()

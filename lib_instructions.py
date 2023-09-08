@@ -11,12 +11,12 @@ from router import QCBRouter
 from allocator import Allocator
 from compiled_qcb import CompiledQCB
 
-from instructions import INIT, RESET, CNOT, Hadamard, T, Toffoli, Phase, in_place_factory, non_local_factory, PREP, MEAS, X
+from instructions import INIT, RESET, CNOT, Hadamard, Phase, in_place_factory, non_local_factory, PREP, MEAS, X
 
 local_Tdag = in_place_factory('T_dag') 
 
 @cache
-def T_Factory(height=5, width=9):
+def T_Factory(height=5, width=6):
         dag = DAG(Symbol('T_Factory', (), 'factory_out'))
         dag.add_gate(INIT(*['q_{i}'.format(i=i) for i in range(4)]))
         dag.add_gate(INIT(*['a_{i}'.format(i=i) for i in range(11)]))
@@ -44,10 +44,39 @@ def T_Factory(height=5, width=9):
 
         return CompiledQCB(qcb, router, dag) 
 
+def T(targ, height=5, width=9):
+    factory = T_Factory(height=height, width=width)
+    dag = factory.instruction((), (targ,))
+    return dag
+
 @cache
 def MAJ():
     dag = DAG(Symbol('MAJ', ('a', 'b', 'c')))
     dag.add_gate(CNOT('c', 'b'))
     dag.add_gate(CNOT('c', 'a'))
     dag.add_gate(Toffoli('a', 'b', 'c'))
-    
+
+
+def Toffoli(ctrl_a, ctrl_b, targ):
+    ctrl_a, ctrl_b, targ = map(Symbol, (ctrl_a, ctrl_b, targ))
+    sym = Symbol('Toffoli', {'ctrl_a', 'ctrl_b', 'targ'})
+    scope = Scope({sym('ctrl_a'):ctrl_a, sym('ctrl_b'):ctrl_b, sym('targ'):targ})
+    dag = DAG(sym, scope=scope)
+
+    dag.add_gate(Hadamard(targ))
+    dag.add_gate(CNOT(ctrl_b, targ))
+    dag.add_gate(T(targ))
+    dag.add_gate(CNOT(ctrl_a, targ))
+    dag.add_gate(T(targ))
+    dag.add_gate(CNOT(ctrl_b, targ))
+    dag.add_gate(T(targ))
+    dag.add_gate(CNOT(ctrl_a, targ))
+    dag.add_gate(T(targ))
+    dag.add_gate(T(ctrl_b))
+    dag.add_gate(Hadamard(targ))
+    dag.add_gate(CNOT(ctrl_a, ctrl_b))
+    dag.add_gate(T(ctrl_a))
+    dag.add_gate(T(ctrl_b))
+    dag.add_gate(CNOT(ctrl_a, ctrl_b))
+    return dag
+

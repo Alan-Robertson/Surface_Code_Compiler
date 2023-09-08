@@ -18,6 +18,8 @@ class CompiledQCB:
         self.externs = qcb.externs
         self.predicate = qcb.symbol
         self.io = qcb.symbol.io
+        self.io_in = self.dag.symbol.io_in
+        self.io_out = self.dag.symbol.io_out
     
     def is_extern(self):
         return True
@@ -60,3 +62,4 @@ class CompiledQCB:
 
         dag.add_gate(RESET(fn))
         return dag
+

@@ -4,8 +4,8 @@ from qcb import SCPatch
 import unittest
 from mapper import QCBMapper
 
-from lib_instructions import T_Factory
-from instructions import INIT, T, CNOT, MEAS, X
+from lib_instructions import T_Factory, T, Toffoli
+from instructions import INIT, CNOT, MEAS, X
 from dag import DAG
 from symbol import Symbol, ExternSymbol
 from mapper import QCBMapper
@@ -69,7 +69,6 @@ class MapperTest(unittest.TestCase):
         from allocator import Allocator
         from qcb import QCB
         from dag import DAG
-        from instructions import INIT, CNOT, T, Toffoli
         from symbol import Symbol, ExternSymbol
 
         dag = DAG(Symbol('Test'))

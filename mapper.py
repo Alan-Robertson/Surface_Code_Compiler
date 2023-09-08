@@ -189,7 +189,7 @@ class ExternSegmentMap():
             self.segments[symbol] = segment
 
     def range(self):
-        for segment in segments:
+        for segment in self.segments.values():
             for coordinate in segment.range():
                 yield coordinate
 
