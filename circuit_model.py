@@ -125,6 +125,14 @@ class PatchGraph():
         final_route = traverse(path, end)[::-1] + [end]
         return final_route 
 
+    def ancillae(self, start, gate, n_ancillae):
+        # Currently only supports a single ancillae
+        potential_ancillae = start.adjacent()
+        for anc in potential_ancillae:
+            if self.graph[anc].lock_state is not gate:
+                return anc
+        return self.NO_PATH_FOUND
+
     @staticmethod
     def heuristic(a, b):
         return abs(a.x - b.x) + 1.01 * abs(a.y - b.y)

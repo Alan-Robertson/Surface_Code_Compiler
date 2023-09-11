@@ -205,4 +205,5 @@ class RouteBind(Bind):
     def __repr__(self):
         return self.obj.__repr__()
 
-
+    def n_ancillae(self):
+        return self.obj.n_ancillae

@@ -1,5 +1,5 @@
 from dag import DAG
-from instructions import INIT, CNOT, T, Toffoli, MEAS, X
+from instructions import INIT, CNOT, MEAS, X
 from symbol import Symbol, ExternSymbol
 from dag import DAG
 
@@ -11,7 +11,7 @@ from router import QCBRouter
 from mapper import QCBMapper
 
 from qcb import SCPatch
-from lib_instructions import T_Factory
+from lib_instructions import T_Factory, T, Toffoli
 
 import unittest
 
