@@ -10,7 +10,7 @@ import sys
 sys.setrecursionlimit(10000)
 
 class DAGNode():
-    def __init__(self, symbol, *args, scope=None, externs=None, n_cycles=1):
+    def __init__(self, symbol, *args, scope=None, externs=None, n_cycles=1, n_ancillae=0):
         symbol = symbol_resolve(symbol)
         if externs is None:
             externs = dict()
@@ -34,6 +34,7 @@ class DAGNode():
         self.externs = externs
 
         self.__n_cycles = n_cycles
+        self.n_ancillae = n_ancillae
         self.gates = [self]
         self.layers = [self]
         self.layer = 0
@@ -75,6 +76,7 @@ class DAGNode():
 
     def internal_scope(self):
         return Scope(dict((i, j) for i, j in self.scope.items() if not i.is_extern()))
+
 
 class DAG(DAGNode):
     def __init__(self, symbol, scope=None):

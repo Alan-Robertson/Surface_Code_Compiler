@@ -354,13 +354,15 @@ def tikz_route(route, router):
     # Resources
     while (element := next(element_iter, STOP_ITERATION)) is not STOP_ITERATION:
         if isinstance(element, tuple):
-            tikz_str += tikz_circle(*element, hex(id(element)), "") 
+            tikz_str += tikz_circle(*element, hex(id(element)), " ") 
         else:
             curr_node = element
             break
     # Routes
+    curr_node = None
     while (element := next(element_iter, STOP_ITERATION)) is not STOP_ITERATION:
-        tikz_str += tikz_path(hex(id(curr_node)), hex(id(element)))
+        if curr_node is not None:
+            tikz_str += tikz_path(hex(id(curr_node)), hex(id(element)))
         curr_node = element
     return tikz_str
 

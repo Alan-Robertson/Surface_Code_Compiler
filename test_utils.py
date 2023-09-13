@@ -124,6 +124,20 @@ class QCBSegmentInterface():
     def get_slot(self):
         return self.slot
 
+    def range(self):
+        for x in range(self.x_0, self.x_1):
+            for y in range(self.y_0, self.y_1):
+                yield x, y
+        
+
+class GateInterface():
+    def __init__(self, symbol, n_ancillae=0):
+        self.symbol = symbol
+        self.__n_ancillae = n_ancillae
+
+    def n_ancillae(self):
+        return self.__n_ancillae
+
 
 class MapperInterface():
     def __init__(self, mapping_dict):

@@ -105,7 +105,9 @@ class QCBRouter:
     def find_route(self, gate, addresses):
         paths = []
         graph_nodes = list(map(lambda address: self.graph[address], addresses))
-        for end, start in zip(graph_nodes[1:], graph_nodes):
+
+        # Find routes
+        for start, end in zip(graph_nodes, graph_nodes[1:]):
             path = self.graph.route(start, end, gate)
             if path is not PatchGraph.NO_PATH_FOUND:
                 paths += path
@@ -115,11 +117,13 @@ class QCBRouter:
         # Add any ancillae
         for graph_node in graph_nodes:
             ancillae, path = self.add_ancillae(gate, graph_node)
-            if ancillae:
-                paths += path
+            if ancillae is True:
+                if len(path) > 0:
+                    paths += path
             else:
                 return False, PatchGraph.NO_PATH_FOUND
 
+        # Apply locks
         consume(map(lambda x: x.lock(gate), paths))
         return True, paths
 
@@ -128,8 +132,9 @@ class QCBRouter:
             Ancillae are defined here as memory objects that last for
             a single operation and hence are unscoped
         '''
-        if gate.n_ancillae == 0:
-            return True, []
+        if gate.n_ancillae() == 0:
+            return True, list()
+
         # For the moment this only supports single ancillae gates
         ancillae = self.graph.ancillae(gate, graph_node, gate.n_ancillae)
         if ancillae is not PatchGraph.NO_PATH_FOUND:

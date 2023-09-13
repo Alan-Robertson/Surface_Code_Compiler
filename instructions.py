@@ -13,7 +13,7 @@ def in_place_factory(fn, n_cycles=1, n_ancillae=0):
         sym = Symbol(fn, 'targ')
         scope = Scope({sym('targ'):targ})
         dag = DAG(sym, scope=scope)
-        dag.add_node(sym, n_cycles=n_cycles)
+        dag.add_node(sym, n_cycles=n_cycles, n_ancillae=n_ancillae)
         return dag
     return instruction
 
@@ -22,7 +22,7 @@ def in_place_factory_mult(fn, n_cycles=1, n_ancillae=0, singular_instruction=Non
     Factory method for generating in place gates
     '''
     if singular_instruction is None:
-        singular_instruction =  in_place_factory(fn, n_cycles=n_cycles)
+        singular_instruction =  in_place_factory(fn, n_cycles=n_cycles, n_ancillae=n_ancillae)
     
     def instruction(*args):
         args = tuple(map(symbol_resolve, args))
@@ -124,7 +124,7 @@ def RESET(*symbol_constructors):
 
 
 PREP = in_place_factory_mult('PREP')
-Hadamard = in_place_factory('H')
+Hadamard = in_place_factory('H', n_ancillae=1)
 Phase = in_place_factory('P')
 X = in_place_factory('X')
 Y = in_place_factory('Y')
