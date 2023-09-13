@@ -113,16 +113,17 @@ class QCBRouter:
                 return False, PatchGraph.NO_PATH_FOUND
 
         # Add any ancillae
-        ancillae, path = self.add_ancillae(gate, addresses)
-        if ancillae:
-            paths += path
-        else:
-            return False, PatchGraph.NO_PATH_FOUND
+        for graph_node in graph_nodes:
+            ancillae, path = self.add_ancillae(gate, graph_node)
+            if ancillae:
+                paths += path
+            else:
+                return False, PatchGraph.NO_PATH_FOUND
 
         consume(map(lambda x: x.lock(gate), paths))
         return True, paths
 
-    def add_ancillae(self, gate, addresses):
+    def add_ancillae(self, gate, graph_node):
         '''
             Ancillae are defined here as memory objects that last for
             a single operation and hence are unscoped
@@ -130,10 +131,10 @@ class QCBRouter:
         if gate.n_ancillae == 0:
             return True, []
         # For the moment this only supports single ancillae gates
-        graph_nodes = map(lambda address: self.graph[address], addresses)
-        for graph_node in graph_nodes:
-            ancillae = self.graph.ancillae(gate, graph_node, gate.n_ancillae)
-        return True, ancillae
+        ancillae = self.graph.ancillae(gate, graph_node, gate.n_ancillae)
+        if ancillae is not PatchGraph.NO_PATH_FOUND:
+            return True, ancillae
+        return False, None
 
     def __tikz__(self):
         return tikz_router(self) 
