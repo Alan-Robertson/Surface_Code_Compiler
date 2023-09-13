@@ -62,7 +62,7 @@ class QCBRouter:
 
                 # Attempt to route between the gates
                 route_exists = True
-                if gate.non_local():
+                if gate.non_local() or gate.n_ancillae() > 0:
                     route_exists, route_addresses = self.find_route(gate, addresses)
                     addresses = route_addresses
 
@@ -116,10 +116,9 @@ class QCBRouter:
 
         # Add any ancillae
         for graph_node in graph_nodes:
-            ancillae, path = self.add_ancillae(gate, graph_node)
-            if ancillae is True:
-                if len(path) > 0:
-                    paths += path
+            path = self.add_ancillae(gate, graph_node)
+            if path is not PatchGraph.NO_PATH_FOUND:
+                paths += path
             else:
                 return False, PatchGraph.NO_PATH_FOUND
 
@@ -133,13 +132,12 @@ class QCBRouter:
             a single operation and hence are unscoped
         '''
         if gate.n_ancillae() == 0:
-            return True, list()
-
+            return list()
         # For the moment this only supports single ancillae gates
         ancillae = self.graph.ancillae(gate, graph_node, gate.n_ancillae)
         if ancillae is not PatchGraph.NO_PATH_FOUND:
-            return True, ancillae
-        return False, None
+            return [graph_node] + ancillae
+        return PatchGraph.NO_PATH_FOUND 
 
     def __tikz__(self):
         return tikz_router(self) 

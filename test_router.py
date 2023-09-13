@@ -1,5 +1,5 @@
 from dag import DAG
-from instructions import INIT, CNOT, MEAS, X
+from instructions import INIT, CNOT, MEAS, X, Hadamard
 from symbol import Symbol, ExternSymbol
 from dag import DAG
 
@@ -223,6 +223,25 @@ class RouterTest(unittest.TestCase):
         tree = QCBTree(graph)
         mapper = QCBMapper(dag, tree)
         router = QCBRouter(qcb_base, dag, mapper)
+
+    def test_ancillae(self):
+        dag = DAG(Symbol('Test'))
+        dag.add_gate(INIT('a', 'b', 'c', 'd'))
+        dag.add_gate(Hadamard('c'))
+        dag.add_gate(Hadamard('d'))
+        dag.add_gate(CNOT('a', 'b'))
+        dag.add_gate(Hadamard('a'))
+        dag.add_gate(Hadamard('b'))
+        dag.add_gate(CNOT('c', 'd'))
+
+        qcb_base = QCB(3, 4, dag)
+        allocator = Allocator(qcb_base)
+
+        graph = QCBGraph(qcb_base)
+        tree = QCBTree(graph)
+        mapper = QCBMapper(dag, tree)
+        router = QCBRouter(qcb_base, dag, mapper)
+
 
     def test_complex_qcb(self):
         from mapper import QCBMapper

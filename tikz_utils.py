@@ -359,10 +359,12 @@ def tikz_route(route, router):
             curr_node = element
             break
     # Routes
+    element_iter = iter(route)
     curr_node = None
     while (element := next(element_iter, STOP_ITERATION)) is not STOP_ITERATION:
         if curr_node is not None:
             tikz_str += tikz_path(hex(id(curr_node)), hex(id(element)))
         curr_node = element
+
     return tikz_str
 
