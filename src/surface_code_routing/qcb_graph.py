@@ -1,8 +1,8 @@
-from qcb import Segment, SCPatch
+from surface_code_routing.qcb import Segment, SCPatch
 from typing import *
 import copy
 
-from tikz_utils import tikz_pruned_qcb, tikz_graph_qcb
+from surface_code_routing.tikz_utils import tikz_pruned_qcb, tikz_graph_qcb
 
 
 class GraphNode:

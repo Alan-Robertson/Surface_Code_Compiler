@@ -108,4 +108,4 @@ class Scope():
             if not i.is_extern() and self.mapping[i] is None:
                 self.mapping[i] = self.mapping[i]
 
-from symbol import Symbol, ExternSymbol, symbol_resolve
+from surface_code_routing.symbol import Symbol, ExternSymbol, symbol_resolve

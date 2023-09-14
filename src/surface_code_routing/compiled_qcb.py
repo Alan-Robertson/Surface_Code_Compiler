@@ -1,8 +1,25 @@
 import copy
-from symbol import symbol_resolve
-from scope import Scope
-from dag import DAG
-from instructions import RESET, CNOT
+from surface_code_routing.symbol import symbol_resolve
+from surface_code_routing.scope import Scope
+from surface_code_routing.instructions import RESET, CNOT
+
+from surface_code_routing.dag import DAG
+from surface_code_routing.qcb import QCB, SCPatch
+from surface_code_routing.allocator import Allocator
+from surface_code_routing.qcb_graph import QCBGraph
+from surface_code_routing.qcb_tree import QCBTree
+from surface_code_routing.router import QCBRouter
+from surface_code_routing.mapper import QCBMapper
+
+def compile_qcb(dag, height, width, *externs):
+    qcb = QCB(height, width, dag)
+    allocator = Allocator(qcb, *externs)
+    graph = QCBGraph(qcb)
+    tree = QCBTree(graph)
+    mapper = QCBMapper(dag, tree)
+    router = QCBRouter(qcb, dag, mapper)
+    compiled_qcb = CompiledQCB(qcb, router, dag)
+    return compiled_qcb
 
 class CompiledQCB:
     def __init__(self, qcb, router, dag):
@@ -63,3 +80,6 @@ class CompiledQCB:
         dag.add_gate(RESET(fn))
         return dag
 
+
+    def __tikz__(self):
+        return self.router.__tikz__()

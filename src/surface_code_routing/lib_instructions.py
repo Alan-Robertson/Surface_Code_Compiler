@@ -1,17 +1,17 @@
 from functools import partial, cache
-from symbol import Symbol, ExternSymbol, symbol_map, symbol_resolve
-from scope import Scope
-from dag import DAG, DAGNode
+from surface_code_routing.symbol import Symbol, ExternSymbol, symbol_map, symbol_resolve
+from surface_code_routing.scope import Scope
+from surface_code_routing.dag import DAG, DAGNode
 
-from qcb import QCB
-from mapper import QCBMapper
-from qcb_graph import QCBGraph
-from qcb_tree import QCBTree
-from router import QCBRouter
-from allocator import Allocator
-from compiled_qcb import CompiledQCB
+from surface_code_routing.qcb import QCB
+from surface_code_routing.mapper import QCBMapper
+from surface_code_routing.qcb_graph import QCBGraph
+from surface_code_routing.qcb_tree import QCBTree
+from surface_code_routing.router import QCBRouter
+from surface_code_routing.allocator import Allocator
+from surface_code_routing.compiled_qcb import CompiledQCB
 
-from instructions import INIT, RESET, CNOT, Hadamard, Phase, in_place_factory, non_local_factory, PREP, MEAS, X
+from surface_code_routing.instructions import INIT, RESET, CNOT, Hadamard, Phase, in_place_factory, non_local_factory, PREP, MEAS, X
 
 local_Tdag = in_place_factory('T_dag') 
 

@@ -1,7 +1,7 @@
 import math as maths
-from qcb import SCPatch
-from tree_slots import TreeSlots
-from tikz_utils import tikz_mapper
+from surface_code_routing.qcb import SCPatch
+from surface_code_routing.tree_slots import TreeSlots
+from surface_code_routing.tikz_utils import tikz_mapper
 
 class QCBMapper():
     def __init__(self, dag, mapping_tree):

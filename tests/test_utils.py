@@ -1,5 +1,5 @@
-from tree_slots import TreeSlots, TreeSlot, SegmentSlot
-from symbol import symbol_resolve
+from surface_code_routing.tree_slots import TreeSlots, TreeSlot, SegmentSlot
+from surface_code_routing.symbol import symbol_resolve
 
 class TreeNodeInterface():
     def __init__(self, symbol, weight, slots, segment=None):

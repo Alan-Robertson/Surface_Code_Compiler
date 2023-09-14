@@ -200,4 +200,4 @@ class ExternSymbol(Symbol):
         return True
 
 
-from scope import Scope
+from surface_code_routing.scope import Scope

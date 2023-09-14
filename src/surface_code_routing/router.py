@@ -1,16 +1,15 @@
-from qcb import Segment, SCPatch, QCB
 from typing import *
-from circuit_model import PatchGraph, PatchGraphNode 
-from dag import DAG, DAGNode
 from queue import PriorityQueue
-from mapper import QCBMapper
-from instructions import INIT_SYMBOL, RESET_SYMBOL
-from bind import RouteBind, AddrBind
-from symbol import ExternSymbol
-from itertools import chain
-from utils import consume
 
-from tikz_utils import tikz_router
+from surface_code_routing.qcb import Segment, SCPatch, QCB
+from surface_code_routing.circuit_model import PatchGraph, PatchGraphNode 
+from surface_code_routing.dag import DAG, DAGNode
+from surface_code_routing.mapper import QCBMapper
+from surface_code_routing.bind import RouteBind, AddrBind
+from surface_code_routing.symbol import ExternSymbol
+
+from surface_code_routing.utils import consume
+from surface_code_routing.tikz_utils import tikz_router
 
 class QCBRouter:
     def __init__(self, qcb:QCB, dag:DAG, mapper:QCBMapper, auto_route=True):
@@ -25,7 +24,7 @@ class QCBRouter:
         self.routes = dict()
         self.active_gates = set()
 
-        for segment in self.mapper.map.values():#qcb.segments:
+        for segment in self.mapper.map.values():
             for coordinates in segment.range():
                 self.graph[coordinates].set_underlying(segment.get_slot())
 

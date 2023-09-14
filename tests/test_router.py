@@ -1,17 +1,15 @@
-from dag import DAG
-from instructions import INIT, CNOT, MEAS, X, Hadamard
-from symbol import Symbol, ExternSymbol
-from dag import DAG
+from surface_code_routing.dag import DAG
+from surface_code_routing.instructions import INIT, CNOT, MEAS, X, Hadamard
+from surface_code_routing.symbol import Symbol, ExternSymbol
 
-from qcb import QCB
-from allocator import Allocator
-from qcb_graph import QCBGraph
-from qcb_tree import QCBTree
-from router import QCBRouter
-from mapper import QCBMapper
+from surface_code_routing.qcb import QCB, SCPatch
+from surface_code_routing.allocator import Allocator
+from surface_code_routing.qcb_graph import QCBGraph
+from surface_code_routing.qcb_tree import QCBTree
+from surface_code_routing.router import QCBRouter
+from surface_code_routing.mapper import QCBMapper
 
-from qcb import SCPatch
-from lib_instructions import T_Factory, T, Toffoli
+from surface_code_routing.lib_instructions import T_Factory, T, Toffoli
 
 import unittest
 
@@ -149,12 +147,6 @@ class RouterTest(unittest.TestCase):
 
 
     def test_larger_dag(self):
-        from mapper import QCBMapper
-        from qcb_graph import QCBGraph
-        from qcb_tree import QCBTree
-        from allocator import Allocator
-        from qcb import QCB
-
         dag = DAG(Symbol('Test'))
         dag.add_gate(INIT('a', 'b', 'c', 'd'))
         dag.add_gate(CNOT('a', 'b'))
@@ -176,11 +168,6 @@ class RouterTest(unittest.TestCase):
 
 
     def test_extern_qcb(self):
-        from mapper import QCBMapper
-        from qcb_graph import QCBGraph
-        from qcb_tree import QCBTree
-        from allocator import Allocator
-        from qcb import QCB
         
         dag = DAG(Symbol('Test'))
         dag.add_gate(INIT('a', 'b', 'c', 'd'))
@@ -198,11 +185,6 @@ class RouterTest(unittest.TestCase):
 
 
     def test_complex_no_extern(self):
-        from mapper import QCBMapper
-        from qcb_graph import QCBGraph
-        from qcb_tree import QCBTree
-        from allocator import Allocator
-        from qcb import QCB
         
         dag = DAG(Symbol('Test'))
         dag.add_gate(INIT('a', 'b', 'c', 'd'))
@@ -244,11 +226,6 @@ class RouterTest(unittest.TestCase):
 
 
     def test_complex_qcb(self):
-        from mapper import QCBMapper
-        from qcb_graph import QCBGraph
-        from qcb_tree import QCBTree
-        from allocator import Allocator
-        from qcb import QCB
         
         dag = DAG(Symbol('Test'))
         dag.add_gate(INIT('a', 'b', 'c', 'd'))
@@ -274,12 +251,12 @@ class RouterTest(unittest.TestCase):
         qcb_base = QCB(15, 15, dag)
         allocator = Allocator(qcb_base, T_Factory())
 
-#        graph = QCBGraph(qcb_base)
-#        tree = QCBTree(graph)
-#
-#        mapper = QCBMapper(dag, tree)
-#        router = QCBRouter(qcb_base, dag, mapper)
-#
+        graph = QCBGraph(qcb_base)
+        tree = QCBTree(graph)
+
+        mapper = QCBMapper(dag, tree)
+        router = QCBRouter(qcb_base, dag, mapper)
+
     def test_io_simple(self):
         # Dummy T Factory
         dag = DAG(Symbol('T_Factory', 'factory_out'))

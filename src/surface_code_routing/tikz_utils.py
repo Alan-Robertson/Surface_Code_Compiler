@@ -1,4 +1,4 @@
-from qcb import SCPatch
+from surface_code_routing.qcb import SCPatch
 
 COLOUR_REG = 'red!20'
 COLOUR_EXTERN = 'blue!20'

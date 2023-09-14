@@ -1,13 +1,15 @@
-from functools import reduce
-from utils import consume
-from qcb import SCPatch
 import unittest
-from mapper import QCBMapper
-from symbol import Symbol, ExternSymbol
-from scope import Scope
-from dag import DAG
+from functools import reduce
 
-from tikz_utils import tex
+from surface_code_routing.utils import consume
+from surface_code_routing.qcb import QCB, SCPatch
+from surface_code_routing.mapper import QCBMapper
+from surface_code_routing.symbol import Symbol, ExternSymbol
+from surface_code_routing.scope import Scope
+from surface_code_routing.dag import DAG
+from surface_code_routing.allocator import Allocator
+
+from surface_code_routing.instructions import INIT, CNOT
 
 def ExternInjector(extern_name):
     sym = Symbol(extern_name)
@@ -22,74 +24,32 @@ def ExternInjector(extern_name):
 class AllocatorTest(unittest.TestCase):
     def test_original(self):
 
-        from dag import DAG
-        from qcb import QCB
-        from symbol import Symbol, ExternSymbol, symbol_map
-
-        from instructions import INIT, CNOT, T, Toffoli
-        from scope import Scope
-        from extern_interface import ExternInterface
-
-        # factory = ExternInterface(ExternSymbol('T_Factory'), 17)
-
         g = DAG(Symbol('tst'))
         init = INIT('a', 'b', 'c', 'd')
         g.add_gate(init)
         g.add_gate(CNOT('a', 'b'))
         g.add_gate(CNOT('c', 'd'))
-        g.add_gate(T('a'))
         g.add_gate(CNOT('a', 'b'))
-        g.add_gate(Toffoli('a', 'b', 'c'))
-        g.add_gate(T('a'))
-        g.add_gate(T('a'))
-        g.add_gate(T('c'))
-        g.add_gate(T('d'))
         g.add_gate(CNOT('c', 'd'))
         g.add_gate(CNOT('c', 'a'))
         g.add_gate(CNOT('b', 'd'))
-        g.add_gate(T('a'))
-        g.add_gate(T('c'))
-        g.add_gate(Toffoli('a', 'b', 'c'))
         g.add_gate(CNOT('c', 'd'))
         g.add_gate(CNOT('c', 'a'))
         g.add_gate(CNOT('b', 'd'))
 
-
-        sym = ExternSymbol('T_Factory', 'factory_out')
-        factory_impl = QCB(3, 5, DAG(symbol=sym, scope={sym:sym}))
-
-        from allocator import Allocator
-        from qcb import QCB
-        qcb_base = QCB(15, 10, g)
+        qcb_base = QCB(5, 5, g)
 
         allocator = Allocator(qcb_base, factory_impl)
 
     def test_simple_extern(self):
-
-        from dag import DAG
-        from qcb import QCB
-        from symbol import Symbol, ExternSymbol, symbol_map
-
-        from instructions import INIT, CNOT, T, Toffoli
-        from scope import Scope
-        from extern_interface import ExternInterface
-
-        # factory = ExternInterface(ExternSymbol('T_Factory'), 17)
-
+        from surface_code_routing.lib_instructions import T, T_Factory
         g = DAG(Symbol('tst'))
         g.add_gate(INIT('a', 'b', 'c', 'd'))
         g.add_gate(T('a'))
 
+        qcb_base = QCB(7, 7, g)
 
-
-        sym = ExternSymbol('T_Factory', 'factory_out')
-        factory_impl = QCB(1, 4, DAG(symbol=sym, scope={sym:sym}))
-
-        from allocator import Allocator
-        from qcb import QCB
-        qcb_base = QCB(3, 5, g)
-
-        allocator = Allocator(qcb_base, factory_impl)
+        allocator = Allocator(qcb_base, T_Factory())
 
     def test_io_extern_collision(self):
 

@@ -1,5 +1,5 @@
-from qcb import Segment, SCPatch, QCB
-from dag import DAG
+from surface_code_routing.qcb import Segment, SCPatch, QCB
+from surface_code_routing.dag import DAG
 from typing import *
 import copy
 class AllocatorError(Exception):

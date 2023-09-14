@@ -1,11 +1,10 @@
-from qcb import SCPatch
-from tree_slots import TreeSlots, SegmentSlot
-
-from collections import deque as consume
-from itertools import chain
 from functools import reduce
+from collections import deque as consume
 
-from tikz_utils import tikz_qcb_tree
+from surface_code_routing.qcb import SCPatch
+from surface_code_routing.tree_slots import TreeSlots, SegmentSlot
+
+from surface_code_routing.tikz_utils import tikz_qcb_tree
 
 class QCBTree():
     def __init__(self, qcb_graph, construct=True, distribute=True):

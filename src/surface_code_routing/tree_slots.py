@@ -1,6 +1,6 @@
 import bisect
 
-from qcb import SCPatch
+from surface_code_routing.qcb import SCPatch
 
 class TreeSlots():
     '''

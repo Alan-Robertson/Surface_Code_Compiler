@@ -1,4 +1,4 @@
-from symbol import symbol_resolve
+from surface_code_routing.symbol import symbol_resolve
 
 class ExternInterface():
     def __init__(self, symbol, n_cycles, n_prewarm=0):

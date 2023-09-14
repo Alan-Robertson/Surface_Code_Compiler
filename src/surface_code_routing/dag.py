@@ -95,6 +95,8 @@ class DAG(DAGNode):
         self.gates: list[DAGNode] = []
         self.last_layer = {}
 
+        self.n_ancillae = 0
+
         self.externs = Scope()
         self.predicates = set()
         self.antecedents = set()
@@ -461,9 +463,10 @@ class DAG(DAGNode):
     def __tikz__(self):
         return tikz_dag(self)
 
-from symbol import symbol_resolve, Symbol
-from scope import Scope
-from instructions import INIT, RESET_SYMBOL
-from bind import DAGBind, ExternBind
-from tikz_utils import tikz_dag
+
+from surface_code_routing.symbol import symbol_resolve, Symbol
+from surface_code_routing.scope import Scope
+from surface_code_routing.instructions import INIT, RESET_SYMBOL
+from surface_code_routing.bind import DAGBind, ExternBind
+from surface_code_routing.tikz_utils import tikz_dag
 import copy

@@ -1,5 +1,5 @@
-from bind import AddrBind
-from symbol import Symbol
+from surface_code_routing.bind import AddrBind
+from surface_code_routing.symbol import Symbol
 
 # Purely for namespacing
 class SCEdge:
@@ -704,7 +704,7 @@ class Segment():
 
 import copy
 from typing import *
-from dag import DAG
-from bind import Bind, ExternBind
+from surface_code_routing.dag import DAG
+from surface_code_routing.bind import Bind, ExternBind
 
-import tikz_utils
+from surface_code_routing import tikz_utils

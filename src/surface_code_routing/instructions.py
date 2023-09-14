@@ -1,8 +1,6 @@
 from functools import partial
-from symbol import Symbol, ExternSymbol, symbol_map, symbol_resolve
-from scope import Scope
-from dag import DAG, DAGNode
-
+from surface_code_routing.symbol import Symbol, ExternSymbol, symbol_map, symbol_resolve
+from surface_code_routing.scope import Scope
 
 def in_place_factory(fn, n_cycles=1, n_ancillae=0):
     '''
@@ -121,7 +119,7 @@ def RESET(*symbol_constructors):
         dag.add_node(Symbol("RESET", obj), n_cycles=1)
     return dag
 
-
+from surface_code_routing.dag import DAG, DAGNode
 
 PREP = in_place_factory_mult('PREP')
 Hadamard = in_place_factory('H', n_ancillae=1)

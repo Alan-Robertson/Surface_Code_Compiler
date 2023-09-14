@@ -1,8 +1,8 @@
 import numpy as np
 import queue
-from qcb import SCPatch
+from surface_code_routing.qcb import SCPatch
 from typing import *
-from tikz_utils import tikz_patch_graph 
+from surface_code_routing.tikz_utils import tikz_patch_graph 
 
 class PatchGraphNode():
 
