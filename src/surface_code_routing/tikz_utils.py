@@ -1,11 +1,13 @@
 from surface_code_routing.qcb import SCPatch
 
-COLOUR_REG = 'red!20'
+COLOUR_REG = 'red!35'
 COLOUR_EXTERN = 'blue!20'
-COLOUR_ROUTE = 'green!20'
+COLOUR_ROUTE = 'green!15'
 COLOUR_IO = 'blue!50!red!50!'
 COLOUR_NONE = 'black!20'
 COLOUR_DEBUG = 'yellow!30'
+COLOUR_JOIN = 'red!40!yellow!30'
+COLOUR_GRID = 'black!50!white'
 
 colour_map = {
     SCPatch.IO : COLOUR_IO,
@@ -110,8 +112,12 @@ def tikz_circle(x, y, key, label, *args, **kwargs):
 def tikz_edge(start, end):
     return f"\\path[->] ({start}) edge ({end});\n"
 
-def tikz_path(start, end):
-    return f"\\path ({start}) edge ({end});\n"
+def tikz_path(start, end, *args, **kwargs):
+    return f"\\path ({start}) edge[{tikz_argparse(*args, **kwargs)}] ({end});\n"
+
+def tikz_grid(width, height):
+    return f'\\draw[step=1.0,{COLOUR_GRID},thin] (0,0) grid {width,-height};'
+
 
 def tikz_obj_to_colour(obj):
     obj_id = id(obj)
@@ -322,12 +328,12 @@ def tikz_patch_graph_no_header(graph):
             tikz_str += tikz_patch_node(element)
     return tikz_str
 
-def tikz_patch_node(element, delta = 0.05):
+def tikz_patch_node(element, delta = 0.13, colour_map=colour_map):
     colour = colour_map[element.state]
-    return tikz_rectangle(element.x + 0.05,
-                          element.y + 0.05,
-                          element.x + 0.95,
-                          element.y + 0.95,
+    return tikz_rectangle(element.x + delta,
+                          element.y + delta,
+                          element.x + 1 - delta,
+                          element.y + 1 - delta,
                           fill=colour, key = hex(id(element))) 
 
 ### TIKZ ROUTER ###
@@ -341,10 +347,15 @@ def tikz_router(router):
 
 @tikz_str
 def tikz_route_layer(router, layer):
+    tikz_str = '\\pgfdeclarelayer{background}\n\\pgfsetlayers{background,main}\n'
+
     tikz_str = tikz_patch_graph_no_header(router.graph)
+    tikz_str += '\\begin{pgfonlayer}{background}\n'
+    tikz_str += tikz_grid(router.qcb.width,router.qcb.height)
     for gate in layer:
         route = router.routes[gate]
         tikz_str += tikz_route(route, router)
+    tikz_str += '\\end{pgfonlayer}\n'
     return tikz_str
 
 def tikz_route(route, router):
@@ -363,7 +374,7 @@ def tikz_route(route, router):
     curr_node = None
     while (element := next(element_iter, STOP_ITERATION)) is not STOP_ITERATION:
         if curr_node is not None:
-            tikz_str += tikz_path(hex(id(curr_node)), hex(id(element)))
+            tikz_str += tikz_path(hex(id(curr_node)), hex(id(element)), **{'double distance': '0.7cm', 'double': COLOUR_JOIN})
         curr_node = element
 
     return tikz_str
