@@ -9,7 +9,7 @@ from surface_code_routing.qcb_graph import QCBGraph
 from surface_code_routing.qcb_tree import QCBTree
 from surface_code_routing.router import QCBRouter
 from surface_code_routing.allocator import Allocator
-from surface_code_routing.compiled_qcb import CompiledQCB
+from surface_code_routing.compiled_qcb import CompiledQCB, qcb_compile
 
 from surface_code_routing.instructions import INIT, RESET, CNOT, Hadamard, Phase, in_place_factory, non_local_factory, PREP, MEAS, X
 
@@ -31,16 +31,7 @@ def T_Factory(height=5, width=6):
             'factory_out'))
         dag.add_gate(X('factory_out'))
 
-        qcb = QCB(height, width, dag)
-        allocator = Allocator(qcb)
-
-        graph = QCBGraph(qcb)
-        tree = QCBTree(graph)
-
-        mapper = QCBMapper(dag, tree)
-        router = QCBRouter(qcb, dag, mapper)
-
-        compiled_t_factory = CompiledQCB(qcb, router, dag) 
+        compiled_t_factory = qcb_compile(dag, height, width)
 
         return CompiledQCB(qcb, router, dag) 
 
@@ -79,4 +70,3 @@ def Toffoli(ctrl_a, ctrl_b, targ):
     dag.add_gate(T(ctrl_b))
     dag.add_gate(CNOT(ctrl_a, ctrl_b))
     return dag
-
