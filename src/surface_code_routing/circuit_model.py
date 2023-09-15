@@ -18,8 +18,8 @@ class PatchGraphNode():
     def set_underlying(self, state):
         self.state = state
 
-    def adjacent(self, gate):
-        return self.graph.adjacent(self.x, self.y, gate)
+    def adjacent(self, gate, bound=True):
+        return self.graph.adjacent(self.x, self.y, gate, bound=bound)
 
     def __gt__(self, *args):
         return 1
@@ -67,10 +67,10 @@ class PatchGraph():
     def active_gates(self):
         return self.environment.active_gates
 
-    def adjacent(self, i, j, gate):
+    def adjacent(self, i, j, gate, bound=True):
         opt = []
 
-        if self.graph[i, j].state is SCPatch.ROUTE:
+        if not bound or self.graph[i, j].state is SCPatch.ROUTE:
             if i + 1 < self.shape[0]:
                 if (self.graph[i + 1, j].state is SCPatch.ROUTE):
                     opt.append([i + 1, j])
@@ -127,7 +127,7 @@ class PatchGraph():
 
     def ancillae(self, gate, start, n_ancillae):
         # Currently only supports a single ancillae
-        potential_ancillae = start.adjacent(gate)
+        potential_ancillae = start.adjacent(gate, bound=False)
         for anc in potential_ancillae:
             if anc.lock_state is not gate:
                 return [anc]

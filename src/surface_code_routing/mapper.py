@@ -18,7 +18,6 @@ class QCBMapper():
         self.construct_map()
            
     def construct_map(self):
-
         for symbol in self.map:
             if symbol in self.dag.io():
                 leaf = self.mapping_tree.alloc(SCPatch.IO)
@@ -60,8 +59,6 @@ class QCBMapper():
         for symbol in dag_node.scope:
             segment_map = self.map[symbol]
             if segment_map.get_state() == SCPatch.EXTERN:
-                #offset = segment_map[symbol.io_element]
-                #segment = segment_map.segments[segment]
                 coordinates.append(segment_map[symbol]) 
             elif symbol.io_element is not None:
                 offset = segment.get_slot().io[node.io_element]

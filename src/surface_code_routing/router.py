@@ -73,7 +73,6 @@ class QCBRouter:
             recently_resolved = list(filter(lambda x: x.resolved(), self.active_gates))
             self.active_gates = set(filter(lambda x: not x.resolved(), self.active_gates))
             waiting = list(filter(lambda x: x not in self.active_gates, waiting))
-    
             for gate in recently_resolved:
                 resolved.add(gate)            
 
@@ -94,8 +93,9 @@ class QCBRouter:
             # Not the most elegant approach, could reorder some things
             if len(layers[-1]) == 0:
                 layers.pop()
-
-            waiting.sort()
+            if len(recently_resolved) > 0: 
+             
+                waiting.sort()
         return layers
 
     def attempt_gate(self, dag_node, address):

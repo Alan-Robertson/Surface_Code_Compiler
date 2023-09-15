@@ -329,5 +329,39 @@ class SlotTest(unittest.TestCase):
             assert tree.alloc(SCPatch.IO) is not TreeSlots.NO_CHILDREN_ERROR
 
 
+    def test_reproducibility(self):
+        def dag_fn(n_qubits, width, height): 
+             dag = DAG(f'{n_qubits}_{height}')
+             for i in range(n_qubits):
+                 dag.add_gate(Hadamard(f'q_{i}'))
+                 for j in range(i + 1, n_qubits):
+                     dag.add_gate(CNOT(f'q_{j}', f'q_{i}'))
+             return dag
+        height = 5
+        width = 5
+        n_qubits = 6
+        qcb_base = QCB(height, width, (dag_fn(n_qubits, height, width)))
+        Allocator(qcb_base)
+        graph_base = QCBGraph(qcb_base)
+        tree_base = QCBTree(graph_base)
+        nodes_base = list(tree_base.leaves)
+        nodes_base.sort(key=lambda node: node.vertex.segment.x_0 * height * 10 + node.vertex.segment.y_0)
+
+        alloc_order = [tree_base.alloc(Symbol('REGISTER')) for _ in range(n_qubits)]
+        coordinates_base = [(node.vertex.segment.x_0, node.vertex.segment.y_0) for node in alloc_order]
+        for i in range(20):
+            qcb = QCB(height, width, (dag_fn(n_qubits, height, width)))
+            Allocator(qcb)
+            graph = QCBGraph(qcb)
+            tree = QCBTree(graph)
+            nodes = list(tree.leaves)
+            nodes.sort(key=lambda node: node.vertex.segment.x_0 * height * 10 + node.vertex.segment.y_0)
+            assert(len(nodes_base) == len(nodes))
+            for node, node_b in zip(nodes, nodes_base):
+                assert(node.get_slot() == node_b.get_slot())
+            alloc_order = [tree_base.alloc(Symbol('REGISTER')) for _ in range(n_qubits)]
+            coordinates = [(node.vertex.segment.x_0, node.vertex.segment.y_0) for node in alloc_order]
+            assert(coordinates == coordinates_base)
+
 if __name__ == '__main__':
     unittest.main()

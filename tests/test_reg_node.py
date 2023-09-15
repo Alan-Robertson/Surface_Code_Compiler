@@ -1286,6 +1286,33 @@ class RegNodeTest(unittest.TestCase):
 
             parents = set(map(lambda x : x.parent, fringe))
 
+    def test_reproducibility(self):
+        def dag_fn(n_qubits, width, height): 
+             dag = DAG(f'{n_qubits}_height')
+             for i in range(n_qubits):
+                 dag.add_gate(Hadamard(f'q_{i}'))
+                 for j in range(i + 1, n_qubits):
+                     dag.add_gate(CNOT(f'q_{j}', f'q_{i}'))
+             return dag
+        height = 5
+        width = 5
+        n_qubits = 6
+        qcb_base = QCB(height, width, (dag_fn(n_qubits, height, width)))
+        Allocator(qcb_base)
+        graph_base = QCBGraph(qcb_base)
+        nodes_base = list(graph_base.graph)
+        nodes_base.sort(key=lambda node: node.segment.x_0 * height + node.segment.y_0)
+        for i in range(20):
+            qcb = QCB(height, width, (dag_fn(n_qubits, height, width)))
+            Allocator(qcb)
+            graph = QCBGraph(qcb)
+            nodes = list(graph.graph)
+            nodes.sort(key=lambda node: node.segment.x_0 * height + node.segment.y_0)
+            assert(len(nodes_base) == len(nodes))
+            for node, node_b in zip(nodes, nodes_base):
+                assert(node.get_slot() == node_b.get_slot())
+
+
 
     def test_compiler_chain(self):
         from qcb_graph import QCBGraph

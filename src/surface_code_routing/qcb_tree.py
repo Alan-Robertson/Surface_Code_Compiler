@@ -99,7 +99,6 @@ class QCBTree():
     def __tikz__(self):
         return tikz_qcb_tree(self)
 
-
 class TreeNode():
     def __init__(self, vertex):
         self.vertex = vertex
@@ -226,6 +225,9 @@ class RouteNode(TreeNode):
         return self.slots.alloc(slot)
 
 class RegNode(TreeNode):
+    # Set these to 0 for non-deterministic output
+    X_BIAS = 1e-13
+    Y_BIAS = 1e-8
     def __init__(self, vertex, slot_type=SCPatch.REG):
         super().__init__(vertex)
         self.weight = 0
@@ -238,7 +240,7 @@ class RegNode(TreeNode):
         self.parent.merge_slot(self.slots)
 
     def get_weight(self):
-        return self.weight
+        return self.weight + self.X_BIAS * self.get_segment().x_0 + self.Y_BIAS * self.get_segment().y_0
 
     def alloc(self, slot):
         return self.slots.alloc(slot)

@@ -7,7 +7,7 @@ class TreeSlots():
         Allocator object
     '''
     NO_CHILDREN_ERROR = object()
-
+    SORTING_KEY = lambda x: x.get_weight(self.symbol)
     def __init__(self, tree_node):
         self.tree_node = tree_node
         self.slots = {}
@@ -42,8 +42,8 @@ class TreeSlots():
         return iter(self.slots)
 
     def __repr__(self):
-        return "NODE: " + "".join(self.slots[slot].__repr__() for slot in self.slots)
-
+        return self.slots.__repr__()
+    
 class TreeSlot():
     '''
         Slot for a single symbol instance
@@ -58,11 +58,12 @@ class TreeSlot():
         self.last_weight = 0
 
     def distribute(self, child):
+        SORTING_KEY = lambda x: x.get_weight(self.symbol)
         if child not in self.children:
             self.children.add(child)
-            bisect.insort(self.ordering, child, key=lambda x: x.get_weight(self.symbol))
+            bisect.insort(self.ordering, child, key=SORTING_KEY)
         else:
-            self.ordering.sort(key=lambda x: x.get_weight(self.symbol))
+            self.ordering.sort(key=SORTING_KEY)
         self.last_weight = self.ordering[-1].get_weight(self.symbol)
 
     def get_weight(self):
@@ -87,7 +88,7 @@ class TreeSlot():
         return binding 
 
     def __repr__(self):
-        return '\n'.join(slot.__repr__() for slot in self.ordering)
+        return self.slots.keys().__repr__()
 
     def exhausted(self):
         return len(self.ordering) == 0
@@ -96,6 +97,7 @@ class SegmentSlot():
     '''
         This slot binds to either a REG, IO or EXTERN
     '''
+    SORTING_KEY = lambda x: x.get_weight(self.symbol) + 1e-9 * (self.tree_node.get_segment().x_0) + 1e-5 * (self.tree_node.get_segment().y_0)
     def __init__(self, leaf):
         self.symbol = leaf.get_slot_name()
         self.n_slots = leaf.get_segment().get_n_slots()

@@ -211,9 +211,35 @@ class AllocatorTest(unittest.TestCase):
 
         allocator = Allocator(qcb_base)
     
-    
+   
+    def test_reproducibility(self):
+        '''
+            Run the same inputs a few times to see if we get the same allocation
+        '''
+        def dag_fn(n_qubits, width, height): 
+             dag = DAG(f'qft_{n_qubits}_height')
+             for i in range(n_qubits):
+                 dag.add_gate(Hadamard(f'q_{i}'))
+                 for j in range(i + 1, n_qubits):
+                     dag.add_gate(CNOT(f'q_{j}', f'q_{i}'))
+             return dag
 
-    def test_2x2(self):
+        height = 5
+        width = 5
+        n_qubits = 6
+        qcb_base = QCB(height, width, (dag_fn(n_qubits, height, width)))
+        Allocator(qcb_base)
+        segs_base = list(qcb_base.segments)
+        segs_base.sort(key = lambda seg:  seg.x_0 * height + seg.y_0)
+        for i in range(20): 
+            qcb = QCB(height, width, (qft(n_qubits, height, width)))
+            allocator = Allocator(qcb)
+            segs = list(qcb.segments)
+            segs.sort(key=lambda   seg.x_0 * height + seg.y_0)
+            for seg, seg_b in zip(segs, segs_base): 
+                 assert(seg.state.state == seg_b.state.state)
+
+    def test_2x2(se 
 
         from dag import DAG
         from qcb import QCB
