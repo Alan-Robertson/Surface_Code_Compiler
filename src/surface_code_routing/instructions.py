@@ -119,8 +119,6 @@ def RESET(*symbol_constructors):
         dag.add_node(Symbol("RESET", obj), n_cycles=1)
     return dag
 
-
-
 from surface_code_routing.dag import DAG, DAGNode
 
 PREP = in_place_factory_mult('PREP')

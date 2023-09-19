@@ -13,3 +13,5 @@ from surface_code_routing import mapper
 from surface_code_routing import router
 from surface_code_routing import compiled_qcb
 from surface_code_routing import lib_instructions
+from surface_code_routing import gate_synthesis
+

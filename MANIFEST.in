@@ -1,0 +1,2 @@
+include src/surface_code_routing/gridsynth/gate_synth.hs 
+include src/surface_code_routing/gridsynth/gate_synth 

@@ -16,5 +16,7 @@ gate_synth = do
     gate_synth
 
 main :: IO ()
-main = do gate_synth
+main = do 
+    hSetBuffering stdout NoBuffering
+    gate_synth
     
