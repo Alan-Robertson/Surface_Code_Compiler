@@ -73,6 +73,7 @@ class QCBRouter:
             recently_resolved = list(filter(lambda x: x.resolved(), self.active_gates))
             self.active_gates = set(filter(lambda x: not x.resolved(), self.active_gates))
             waiting = list(filter(lambda x: x not in self.active_gates, waiting))
+
             for gate in recently_resolved:
                 resolved.add(gate)            
 
