@@ -15,6 +15,14 @@ def initialise_synth(fn):
         return fn(*args, **kwargs)
     return wrapper
 
+
+def Z_theta(p, q, precision=10, effort=25, seed=0):
+    return SYNTH.z_theta_instruction(
+            p, q, 
+            precision=precision,
+            effort=effort,
+            seed=seed)
+
 @initialise_synth
 def CPHASE_theta(p, q, precision=10, effort=25, seed=0):
     z_theta_2 = SYNTH.z_theta_instruction(p, q * 2, precision=precision, effort=effort, seed=seed)
@@ -42,11 +50,4 @@ def CPHASE_theta(p, q, precision=10, effort=25, seed=0):
         return dag
 
     return instruction
-
-
-
-
-
-
-
 

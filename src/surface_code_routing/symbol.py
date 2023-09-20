@@ -31,6 +31,9 @@ class Symbol(object):
         self.io_rev = dict(((j, i) for i, j in self.io.items()))
         self.io_element = None
 
+        self.z = self.io_in
+        self.x = self.io_out
+
     def format(self, io:'object|Sequence'):
         '''
             Basically overloads our constructor

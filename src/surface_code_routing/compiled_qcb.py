@@ -11,12 +11,24 @@ from surface_code_routing.qcb_tree import QCBTree
 from surface_code_routing.router import QCBRouter
 from surface_code_routing.mapper import QCBMapper
 
-def compile_qcb(dag, height, width, *externs):
-    qcb = QCB(height, width, dag)
+def compile_qcb(dag, width, height, *externs, verbose=False):
+    if verbose:
+        print(f"Compiling {dag}")
+        print("\tConstructing QCB...")
+    qcb = QCB(width, height, dag)
+
+    if verbose:
+        print(f"\tAllocating QCB...")
     allocator = Allocator(qcb, *externs)
+
+    if verbose:
+        print(f"\tConstructing Mapping")
     graph = QCBGraph(qcb)
     tree = QCBTree(graph)
     mapper = QCBMapper(dag, tree)
+
+    if verbose:
+        print(f"\tRouting...")
     router = QCBRouter(qcb, dag, mapper)
     compiled_qcb = CompiledQCB(qcb, router, dag)
     return compiled_qcb

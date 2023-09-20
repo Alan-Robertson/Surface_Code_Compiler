@@ -1,12 +1,13 @@
-from dag import DAG
-from symbol import Symbol
+from surface_code_routing.dag import DAG
+from surface_code_routing.symbol import Symbol
 
-from instructions import INIT, CNOT, T
-from scope import Scope
+from surface_code_routing.instructions import INIT, CNOT
+from surface_code_routing.lib_instructions import T, T_Factory
+from surface_code_routing.scope import Scope
 
 
-from scope import Scope
-from symbol import Symbol, ExternSymbol
+from surface_code_routing.scope import Scope
+from surface_code_routing.symbol import Symbol, ExternSymbol
 import unittest
 
 class ScopeTest(unittest.TestCase):
@@ -62,6 +63,19 @@ class ScopeTest(unittest.TestCase):
         assert(ExternSymbol('T_Factory') not in g.externs)
         assert(g.externs.contains(ExternSymbol('T_Factory')))
         
+    def test_externs_more(self):
+        g = DAG(Symbol('tst'))
+        init = INIT('a', 'b', 'c')
+        
+        g.add_gate(init)
+        g.add_gate(T('a'))
+        g.add_gate(T('a'))
+        g.add_gate(T('a'))
+
+
+        assert(ExternSymbol('T_Factory') not in g.externs)
+        assert(g.externs.contains(ExternSymbol('T_Factory')))
+
 
     def test_extern_fungibility(self):
         g = DAG(Symbol('tst'))

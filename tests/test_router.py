@@ -248,7 +248,7 @@ class RouterTest(unittest.TestCase):
         dag.add_gate(CNOT('c', 'a'))
         dag.add_gate(CNOT('b', 'd'))
 
-        qcb_base = QCB(15, 15, dag)
+        qcb_base = QCB(16, 16, dag)
         allocator = Allocator(qcb_base, T_Factory())
 
         graph = QCBGraph(qcb_base)
