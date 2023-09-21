@@ -127,10 +127,12 @@ class PatchGraph():
           
         if vertical:
             if j + 1 < self.shape[1]:
-                opt.append([i, j + 1])
+                if (self.graph[i, j].state is SCPatch.ROUTE) or (self.graph[i, j + 1].state is SCPatch.ROUTE):
+                    opt.append([i, j + 1])
 
             if j - 1 >= 0:
-                opt.append([i, j - 1]) 
+                if (self.graph[i, j].state is SCPatch.ROUTE) or (self.graph[i, j - 1].state is SCPatch.ROUTE):
+                    opt.append([i, j - 1]) 
         for i in opt:
             # Return without worrying about locks
             if probe is False:

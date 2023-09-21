@@ -34,14 +34,14 @@ class RotationInjector():
 
     def inject_rotations(self):
         index = 0
-        while index < len(self.dag.gates) and index < 5:
+        while index < len(self.dag.gates):
             gate = self.dag.gates[index]
             if gate.non_local():
+
                 rotation_targs = self.check_rotations(gate) 
                 if len(rotation_targs) > 0:
                     # Need to rotate some elements before gate can be performed
-                    rotation_gates = self.inject_rotation_gate(gate, rotation_targs)
-                    index -= len(rotation_gates) - 1
+                    index += self.inject_rotation_gate(gate, rotation_targs)
                     continue
             
             if gate.rotates():
@@ -60,6 +60,7 @@ class RotationInjector():
                 rotation_targs.append(argument)
         for argument in dag_symbol.x:
             address = self.mapper.dag_symbol_to_coordinates(argument)
+
             graph_node = self.graph[address]
             if graph_node.route_or_hadamard(graph_node.X_ORIENTED) is graph_node.SUGGEST_ROTATE:
                 rotation_targs.append(argument)
@@ -67,6 +68,7 @@ class RotationInjector():
                 
     def inject_rotation_gate(self, dag_node, symbols):
         injected_gates = []
+        index_tracker = 0
         for symbol in symbols:
             rotation_gate = None
             dag_index = self.dag.gates.index(dag_node)
@@ -77,7 +79,7 @@ class RotationInjector():
                 rotation_gate = predicate_gate
             else:
                 rotation_gate = Rotation(symbol).gates[0]
-                          
+            
                 predicate_gate.forward_edges[symbol] = rotation_gate
                 predicate_gate.antecedents.add(rotation_gate)
                 # May have multiple symbols pointing to the same gate, only a subset of which rotate
@@ -96,11 +98,12 @@ class RotationInjector():
 
                 injected_gates.append(rotation_gate)
                 self.dag.gates.insert(dag_index, rotation_gate)
+                index_tracker += 1 
         
             addresses = self.mapper(rotation_gate)
             self.rotate(rotation_gate, addresses)
 
-        return injected_gates 
+        return index_tracker 
 
     def rotate(self, dag_node, addresses):
         if dag_node.rotates():
