@@ -6,7 +6,7 @@ class AllocatorError(Exception):
     pass
 
 class Allocator:
-    def __init__(self, qcb: QCB, *extern_templates, optimise=True):
+    def __init__(self, qcb: QCB, *extern_templates, optimise=True, tikz_build=False):
         self.qcb = qcb
 
         self.extern_templates = sorted(extern_templates, 
@@ -20,6 +20,9 @@ class Allocator:
         self.io_width = len(qcb.io)
         self.reg_allocated = 0
         self.reg_quota = len(qcb.operations.internal_scope())
+
+        self.tikz_build = tikz_build
+        self.tikz_str = ""
 
         # optimise variables
         self.msfs = []
@@ -85,15 +88,12 @@ class Allocator:
             try:
                 self.place_reg()
             except AllocatorError as e:
-                #import traceback
-                #traceback.print_exc()
-                #print("Opt channel failed, bailing...")
                 return False
             new_req = self.reg_allocated - self.reg_quota - len(affected_regs)
 
         for r in affected_regs:
             r.allocated = False
-            (route, *parts), confirm = r.split(split_x, r.y_0, 1, 1)
+            (route, *parts), confirm = r.split(r.y_0, split_x, 1, 1)
             confirm(self.qcb.segments)
 
             route.state = SCPatch(SCPatch.ROUTE)
@@ -178,10 +178,10 @@ class Allocator:
                          if s.x_1 == self.width - 1 
                          and s.y_1 == self.height - 1), None)
             if last and last.height >= 2:
-                (bottom_block, *_), confirm = last.split(last.x_0, last.y_1-1, last.width, 2)
+                (bottom_block, *_), confirm = last.split(last.y_1 - 1, last.x_0, 2,  last.width)
                 confirm(self.qcb.segments)
                 
-                (route, reg), confirm = bottom_block.alloc(bottom_block.width, 1)
+                (route, reg), confirm = bottom_block.alloc(1, bottom_block.width)
                 confirm(self.qcb.segments)
                 
                 route.state = SCPatch(SCPatch.ROUTE)
@@ -192,7 +192,7 @@ class Allocator:
         self.global_merge_tl()
         for seg in self.get_free_segments(self.qcb):
             if not all(l.state.state == SCPatch.ROUTE for l in seg.left):
-                (left, main), confirm = seg.alloc(1, seg.height)
+                (left, main), confirm = seg.alloc(seg.height, 1)
                 confirm(self.qcb.segments)
                 left.state = SCPatch(SCPatch.ROUTE)
 
@@ -232,7 +232,7 @@ class Allocator:
         if self.io_width == 0:
             return
 
-        segs, confirm = self.get_free_segments(self.qcb)[0].split(0, self.height - 1, self.io_width, 1)
+        segs, confirm = self.get_free_segments(self.qcb)[0].split(self.height - 1, 0, 1,  self.io_width)
         if not confirm:
             raise AllocatorError("IO placement failed")
 
@@ -243,7 +243,7 @@ class Allocator:
         io.state = SCPatch(SCPatch.IO)
         
         above_block = next(iter(io.above))
-        (route, *_), confirm = above_block.split(0, self.height - 2, self.io_width, 1)
+        (route, *_), confirm = above_block.split(self.height - 2, 0, 1, self.io_width)
         route.allocated = True
         route.state = SCPatch(SCPatch.ROUTE)
         confirm(self.qcb.segments)
@@ -252,7 +252,7 @@ class Allocator:
             self.global_top_merge()
             self.global_left_merge()
             right_block = next(iter(io.right))
-            (route, *_), confirm = right_block.alloc(1, 2)
+            (route, *_), confirm = right_block.alloc(2, 1)
             route.state = SCPatch(SCPatch.ROUTE)
             confirm(self.qcb.segments)
 
@@ -310,9 +310,9 @@ class Allocator:
 
         # Check top drop
         if first.x_0 == 0 and first.y_0 != 0: # Connect to msf routing net in row above
-            bounds = (msf.width + 1, msf.height + 1)
+            bounds = (msf.height + 1, msf.width + 1)
         else:
-            bounds = (msf.width, msf.height + 1) # No connection needed
+            bounds = (msf.height + 1, msf.width) # No connection needed
 
         # Attempt 1
         segs, confirm = first.alloc(*bounds)
@@ -335,7 +335,7 @@ class Allocator:
 
         # Do right drop for leftmost MSF (connection to routing net in row above)
         if msf_block.x_0 == 0 and msf_block.y_0 != 0:
-            (msf_block, right_drop), confirm = msf_block.alloc(msf.width, msf.height + 1)
+            (msf_block, right_drop), confirm = msf_block.alloc(msf.height + 1, msf.width)
             confirm(self.qcb.segments)
 
             right_drop.allocated = True
@@ -344,7 +344,7 @@ class Allocator:
             msf_block.allocated = False
 
         # Add route layer below
-        (msf_seg, route_seg), confirm = msf_block.alloc(msf.width, msf.height)
+        (msf_seg, route_seg), confirm = msf_block.alloc(msf.height, msf.width)
         confirm(self.qcb.segments)
 
         msf_seg.allocated = True
@@ -366,7 +366,7 @@ class Allocator:
                 drop_block = next(iter(route_seg.below & left_route.right))
                 drop_height = left_route.y_1 - route_seg.y_1
 
-                segs, confirm = drop_block.alloc(1, drop_height)
+                segs, confirm = drop_block.alloc(drop_height, 1)
                 confirm(self.qcb.segments)
 
                 drop_seg, *others = segs
@@ -381,7 +381,7 @@ class Allocator:
                 drop_block = left_seg
                 drop_height = route_seg.y_1 - left_route.y_1
                 
-                segs, confirm = drop_block.split(route_seg.x_0 - 1, left_route.y_1 + 1, 1, drop_height)
+                segs, confirm = drop_block.split(left_route.y_1 + 1, route_seg.x_0 - 1, drop_height, 1)
                 confirm(self.qcb.segments)
 
                 drop_seg, *others = segs
@@ -421,7 +421,7 @@ class Allocator:
         # Always valid because we perform a global top merge before
         bottom_free = next(s for s in bottom_route.below if s.x_0 == 0)
         if not bottom_free.state.state == SCPatch.IO:
-            segs, confirm = bottom_free.alloc(1, self.height - bottom_route.y_1 - 3)
+            segs, confirm = bottom_free.alloc(self.height - bottom_route.y_1 - 3, 1)
             if not confirm:
                 raise AllocatorError("Could not route routing layer to IO")
             
@@ -441,13 +441,13 @@ class Allocator:
             left_route = next(iter(left_route.below))
 
 
-        (reg, seg), confirm = seg.alloc(seg.width, 1)
+        (reg, seg), confirm = seg.alloc(1, seg.width)
         confirm(self.qcb.segments)
         reg.state = SCPatch(SCPatch.REG)
         out.append(reg)
         self.reg_allocated += reg.width
 
-        (route, *_), confirm = seg.alloc(seg.width, 1)
+        (route, *_), confirm = seg.alloc(1, seg.width)
         confirm(self.qcb.segments)
         route.state = SCPatch(SCPatch.ROUTE)
 
@@ -456,7 +456,7 @@ class Allocator:
             # self.global_left_merge()
             seg = next(iter(route.below))
 
-            (drop, *_), confirm = seg.alloc(1, left_route.y_0 - route.y_0)
+            (drop, *_), confirm = seg.alloc(left_route.y_0 - route.y_0, 1)
             confirm(self.qcb.segments)
             drop.state = SCPatch(SCPatch.ROUTE)
         
@@ -472,13 +472,13 @@ class Allocator:
                 (seg.below and all(s.state.state == SCPatch.ROUTE for s in seg.below)))
 
     def check_free_reachable(self, seg):
-        (row, *_), confirm = seg.alloc(seg.width, 1)
+        (row, *_), confirm = seg.alloc(1, seg.width)
         return self.check_reachable(row)
     
     def place_reg_top_routable(self, seg):
         out = []
 
-        (reg, *_), confirm = seg.alloc(seg.width, 1)
+        (reg, *_), confirm = seg.alloc(1, seg.width)
         confirm(self.qcb.segments)
         reg.state = SCPatch(SCPatch.REG)
         out.append(reg)
@@ -562,7 +562,7 @@ class Allocator:
                             and s.state.state == SCPatch.ROUTE), None)
         if left_edge or right_edge:
             # Don't need drop
-            (reg, seg), confirm = seg.alloc(seg.width, 1)
+            (reg, seg), confirm = seg.alloc(1, seg.width)
             confirm(self.qcb.segments)
             reg.state = SCPatch(SCPatch.REG)
             out.append(reg)
@@ -572,8 +572,8 @@ class Allocator:
             drop_x = min((s.x_0 
                         for s in seg.above 
                         if s.state.state == SCPatch.ROUTE), default=None)
-            
-            if not drop_x:
+           
+            if drop_x is None:
                 left_edge = next(iter(s 
                         for s in seg.left 
                         if s.y_0 <= seg.y_0 <= s.y_1
@@ -590,12 +590,11 @@ class Allocator:
                     return out + self.place_reg_isolated(seg)
              
             drop_x = max(drop_x, seg.x_0)
-
-            (row, seg), confirm = seg.alloc(seg.width, 1)
+            (row, seg), confirm = seg.alloc(1, seg.width)
             confirm(self.qcb.segments)
 
             row.allocated = False
-            (drop, *regs), confirm = row.split(drop_x, row.y_0, 1, 1)
+            (drop, *regs), confirm = row.split(row.y_0, drop_x, 1, 1)
             confirm(self.qcb.segments)
 
             drop.allocated = True
@@ -607,7 +606,7 @@ class Allocator:
                 out.append(r)
                 self.reg_allocated += r.width
 
-        (route, *_), confirm = seg.alloc(seg.width, 1)
+        (route, *_), confirm = seg.alloc(1, seg.width)
         confirm(self.qcb.segments)
         route.state = SCPatch(SCPatch.ROUTE)
         return out
@@ -617,7 +616,6 @@ class Allocator:
         seg = next(iter(self.get_free_segments(self.qcb)), None)
         if not seg:
             raise AllocatorError('No free space for registers left')
-
 
         if seg.y_0 == 0:
             return self.place_reg_top(seg)
@@ -669,7 +667,7 @@ class Allocator:
 
         split_x = min(fill_x.x_1, seg.x_1)
         
-        (block, *_), confirm = seg.alloc(split_x - seg.x_0 + 1, 1)
+        (block, *_), confirm = seg.alloc(1, split_x - seg.x_0 + 1)
         if self.check_reg_valid(block):
             confirm(self.qcb.segments)
             block.state = SCPatch(SCPatch.REG)
@@ -697,18 +695,30 @@ class Allocator:
             self.msfs.append(externs[0])
             self.global_merge_lt()
 
+            if self.tikz_build:
+                self.tikz_str += self.__tikz__()
+
             for i, extern in enumerate(externs[1:]):
                 self.place_msf(extern)
                 self.msfs.append(extern)
                 self.global_merge_lt()
 
+                if self.tikz_build:
+                    self.tikz_str += self.__tikz__()
+
             self.route_msf_to_io()
+            if self.tikz_build:
+                self.tikz_str += self.__tikz__()
 
         self.global_merge_tl()
+        if self.tikz_build:
+            self.tikz_str += self.__tikz__()
 
         while self.reg_allocated < self.reg_quota:
             self.place_reg()
             self.global_merge_tl()
+            if self.tikz_build:
+                self.tikz_str += self.__tikz__()
         
 
     def global_merge_tl(self):
@@ -738,3 +748,6 @@ class Allocator:
             queue = self.get_free_segments(self.qcb)
             queue.sort(key=lambda s: (s.x_0, s.y_0))
             offset += 1
+
+    def __tikz__(self):
+        return self.qcb.__tikz__()

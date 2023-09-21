@@ -19,7 +19,7 @@ class QCBRouter:
             Initialise the router
         '''
         if graph is None: 
-            graph = PatchGraph(shape=(qcb.width, qcb.height), mapper=mapper, environment=self)
+            graph = PatchGraph(shape=(qcb.height, qcb.width), mapper=mapper, environment=self)
         else:
             graph.environment = self
         self.graph = graph

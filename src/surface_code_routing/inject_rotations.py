@@ -20,7 +20,7 @@ class RotationInjector():
         self.qcb = qcb
 
         if graph is None: 
-            graph = PatchGraph(shape=(qcb.width, qcb.height), mapper=mapper, environment=None)
+            graph = PatchGraph(shape=qcb.shape, mapper=mapper, environment=None)
         self.graph = graph
         if autorun:
             self.inject_rotations()
@@ -29,7 +29,7 @@ class RotationInjector():
     def reset_rotations(self):
         for i in range(self.qcb.width):
             for j in range(self.qcb.height):
-                self.graph[i, j].orientation = self.graph.default_orientation
+                self.graph[j, i].orientation = self.graph.default_orientation
 
 
     def inject_rotations(self):

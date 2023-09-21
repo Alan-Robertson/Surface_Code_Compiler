@@ -9,7 +9,7 @@ from surface_code_routing.scope import Scope
 from surface_code_routing.dag import DAG
 from surface_code_routing.allocator import Allocator
 
-from surface_code_routing.instructions import INIT, CNOT
+from surface_code_routing.instructions import INIT, CNOT, Hadamard
 
 def ExternInjector(extern_name):
     sym = Symbol(extern_name)
@@ -52,17 +52,6 @@ class AllocatorTest(unittest.TestCase):
         allocator = Allocator(qcb_base, T_Factory())
 
     def test_io_extern_collision(self):
-
-        from dag import DAG
-        from qcb import QCB
-        from symbol import Symbol, ExternSymbol, symbol_map
-
-        from instructions import INIT, CNOT, T, Toffoli
-        from scope import Scope
-        from extern_interface import ExternInterface
-
-        # factory = ExternInterface(ExternSymbol('T_Factory'), 17)
-
         dag_symbol = ExternSymbol('tst', 'out')
         g = DAG(dag_symbol, scope={dag_symbol:dag_symbol})
         g.add_gate(ExternInjector('A'))
@@ -70,45 +59,18 @@ class AllocatorTest(unittest.TestCase):
         sym = ExternSymbol('A', 'out')
         factory_impl = QCB(1, 2, DAG(symbol=sym, scope={sym:sym}))
 
-        from allocator import Allocator
-        from qcb import QCB
         qcb_base = QCB(3, 3, g)
 
         allocator = Allocator(qcb_base, factory_impl)
 
     def test_io_reg_collision(self):
-
-        from dag import DAG
-        from qcb import QCB
-        from symbol import Symbol, ExternSymbol, symbol_map
-
-        from instructions import INIT, CNOT, T, Toffoli
-        from scope import Scope
-        from extern_interface import ExternInterface
-
-        # factory = ExternInterface(ExternSymbol('T_Factory'), 17)
-
         g = DAG(Symbol('tst', 'out'))
         g.add_gate(INIT('a', 'b', 'c', 'd'))
-
-
-        from allocator import Allocator
-        from qcb import QCB
         qcb_base = QCB(4, 4, g)
 
         allocator = Allocator(qcb_base)
 
     def test_io_extern_collision_fail(self):
-        from dag import DAG
-        from qcb import QCB
-        from symbol import Symbol, ExternSymbol, symbol_map
-
-        from instructions import INIT, CNOT, T, Toffoli
-        from scope import Scope
-        from extern_interface import ExternInterface
-
-        # factory = ExternInterface(ExternSymbol('T_Factory'), 17)
-
         dag_symbol = ExternSymbol('tst', 'out')
         g = DAG(dag_symbol, scope={dag_symbol:dag_symbol})
         g.add_gate(ExternInjector('A'))
@@ -117,8 +79,6 @@ class AllocatorTest(unittest.TestCase):
         sym = ExternSymbol('A', 'out')
         factory_impl = QCB(1, 2, DAG(symbol=sym, scope={sym:sym}))
 
-        from allocator import Allocator
-        from qcb import QCB
         qcb_base = QCB(3, 3, g)
 
         try:
@@ -130,17 +90,6 @@ class AllocatorTest(unittest.TestCase):
 
 
     def test_extern_io_conflict_drop(self):
-
-        from dag import DAG
-        from qcb import QCB
-        from symbol import Symbol, ExternSymbol, symbol_map
-
-        from instructions import INIT, CNOT, T, Toffoli
-        from scope import Scope
-        from extern_interface import ExternInterface
-
-        # factory = ExternInterface(ExternSymbol('T_Factory'), 17)
-
         dag_symbol = ExternSymbol('tst', 'out')
         g = DAG(dag_symbol, scope={dag_symbol:dag_symbol})
         g.add_gate(INIT('a', 'b'))
@@ -154,8 +103,6 @@ class AllocatorTest(unittest.TestCase):
         sym_b = ExternSymbol('B', 'out')
         factory_b = QCB(1, 1, DAG(symbol=sym_b, scope={sym_b:sym_b}))
 
-        from allocator import Allocator
-        from qcb import QCB
         qcb_base = QCB(4, 5, g)
 
         try:
@@ -166,17 +113,6 @@ class AllocatorTest(unittest.TestCase):
   
 
     def test_only_extern(self):
-
-        from dag import DAG
-        from qcb import QCB
-        from symbol import Symbol, ExternSymbol, symbol_map
-
-        from instructions import INIT, CNOT, T, Toffoli
-        from scope import Scope
-        from extern_interface import ExternInterface
-
-        # factory = ExternInterface(ExternSymbol('T_Factory'), 17)
-
         g = DAG(Symbol('tst'))
         g.add_gate(ExternInjector('A'))
         g.add_gate(ExternInjector('B'))
@@ -186,27 +122,13 @@ class AllocatorTest(unittest.TestCase):
         syms = [ExternSymbol(c, 'out') for c in 'ABC']
         factory_impls = [QCB(1, i+1, DAG(symbol=s, scope={s:s})) for i, s in enumerate(syms)]
 
-        from allocator import Allocator
-        from qcb import QCB
         qcb_base = QCB(3, 4, g)
-
         allocator = Allocator(qcb_base, *(factory_impls))
 
     def test_3x2(self):
-
-        from dag import DAG
-        from qcb import QCB
-        from symbol import Symbol, ExternSymbol, symbol_map
-
-        from instructions import INIT
-
-
         g = DAG(Symbol('tst'))
         init = INIT('a', 'b', 'c', 'd')
         g.add_gate(init)
-      
-        from allocator import Allocator
-        from qcb import QCB
         qcb_base = QCB(2, 3, g)
 
         allocator = Allocator(qcb_base)
@@ -232,28 +154,18 @@ class AllocatorTest(unittest.TestCase):
         segs_base = list(qcb_base.segments)
         segs_base.sort(key = lambda seg:  seg.x_0 * height + seg.y_0)
         for i in range(20): 
-            qcb = QCB(height, width, (qft(n_qubits, height, width)))
+            qcb = QCB(height, width, (dag_fn(n_qubits, height, width)))
             allocator = Allocator(qcb)
             segs = list(qcb.segments)
-            segs.sort(key=lambda   seg.x_0 * height + seg.y_0)
+            segs.sort(key=lambda seg: seg.x_0 * height + seg.y_0)
             for seg, seg_b in zip(segs, segs_base): 
                  assert(seg.state.state == seg_b.state.state)
 
-    def test_2x2(se 
-
-        from dag import DAG
-        from qcb import QCB
-        from symbol import Symbol, ExternSymbol, symbol_map
-
-        from instructions import INIT
-
-
+    def test_2x2(self):
         g = DAG(Symbol('tst'))
         init = INIT('a', 'b', 'c', 'd')
         g.add_gate(init)
       
-        from allocator import Allocator
-        from qcb import QCB
         qcb_base = QCB(2, 2, g)
 
         try:

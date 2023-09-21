@@ -16,8 +16,8 @@ class PatchGraphNode():
 
     def __init__(self, graph, i, j, orientation = None):
         self.graph = graph
-        self.x = i
-        self.y = j
+        self.y = i
+        self.x = j
         self.state = SCPatch.ROUTE
 
         if orientation is None:
@@ -29,13 +29,13 @@ class PatchGraphNode():
         self.state = state
 
     def adjacent(self, gate, **kwargs):
-        return self.graph.adjacent(self.x, self.y, gate, **kwargs)
+        return self.graph.adjacent(self.y, self.x, gate, **kwargs)
 
     def __gt__(self, *args):
         return 1
 
     def __repr__(self):
-        return str('[{}, {}]'.format(self.x, self.y))
+        return str('[{}, {}]'.format(self.y, self.x))
 
     def __str__(self):
         return self.__repr__()
@@ -86,7 +86,7 @@ class PatchGraph():
         self.mapper = mapper
         self.default_orientation = default_orientation
 
-        self.graph = np.array([[PatchGraphNode(self, j, i, orientation=self.default_orientation) for i in range(shape[1])] for j in range(shape[0])])
+        self.graph = np.array([[PatchGraphNode(self, i, j, orientation=self.default_orientation) for j in range(shape[1])] for i in range(shape[0])])
 
         for segment in self.mapper.map.values():
             for coordinates in segment.range():
@@ -117,22 +117,22 @@ class PatchGraph():
                 bound = False
 
         if horizontal and (not bound or self.graph[i, j].state is SCPatch.ROUTE):
-            if i + 1 < self.shape[0]:
-                if (self.graph[i + 1, j].state is SCPatch.ROUTE):
-                    opt.append([i + 1, j])
-
-            if i - 1 >= 0:
-                if (self.graph[i - 1, j].state is SCPatch.ROUTE):
-                    opt.append([i - 1, j])
-          
-        if vertical:
             if j + 1 < self.shape[1]:
-                if (self.graph[i, j].state is SCPatch.ROUTE) or (self.graph[i, j + 1].state is SCPatch.ROUTE):
+                if (self.graph[i, j + 1].state is SCPatch.ROUTE):
                     opt.append([i, j + 1])
 
             if j - 1 >= 0:
-                if (self.graph[i, j].state is SCPatch.ROUTE) or (self.graph[i, j - 1].state is SCPatch.ROUTE):
-                    opt.append([i, j - 1]) 
+                if (self.graph[i, j - 1].state is SCPatch.ROUTE):
+                    opt.append([i, j - 1])
+          
+        if vertical:
+            if i + 1 < self.shape[0]:
+                if (self.graph[i, j].state is SCPatch.ROUTE) or (self.graph[i + 1, j].state is SCPatch.ROUTE):
+                    opt.append([i + 1, j])
+
+            if i - 1 >= 0:
+                if (self.graph[i, j].state is SCPatch.ROUTE) or (self.graph[i - 1, j].state is SCPatch.ROUTE):
+                    opt.append([i - 1, j]) 
         for i in opt:
             # Return without worrying about locks
             if probe is False:

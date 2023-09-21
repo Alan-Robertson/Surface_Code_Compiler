@@ -63,7 +63,7 @@ class QCBMapper():
             return segment_map[symbol]
         elif symbol.io_element is not None:
             offset = segment.get_slot().io[node.io_element]
-            return (segment.x_0 + offset, segment.y_1)
+            return (segment.y_1, segment.x_0 + offset)
         else:
             return segment_map[symbol]
 
@@ -93,9 +93,6 @@ class RegSegmentMap():
         self.n_slots_full = 0
         self.allocator_position = 0
 
-    def initial_alloc(self, symbol):
-        self.map
-
     def alloc(self, symbol):
         if self.n_slots_full == self.n_slots:
             raise Exception("REGISTER SEGMENT FULL")
@@ -106,7 +103,7 @@ class RegSegmentMap():
 
     def range(self):
         for offset in self.map_rev:
-            yield self.segment.x_0 + offset, self.segment.y_1
+            yield self.segment.y_1, self.segment.x_0 + offset
 
     def get_state(self):
         return self.segment.get_state()
@@ -115,7 +112,7 @@ class RegSegmentMap():
         return SCPatch.REG
 
     def __getitem__(self, symbol):
-        return self.segment.x_0 + self.map[symbol], self.segment.y_1
+        return self.segment.y_1, self.segment.x_0 + self.map[symbol]
 
     def __hash__(self):
         return self.segment.__hash__()
@@ -156,7 +153,7 @@ class IOSegmentMap():
 
     def range(self):
         for offset in self.map.values():
-            yield self.segment.x_0 + offset, self.segment.y_1
+            yield  self.segment.y_1, self.segment.x_0 + offset
 
     def get_state(self):
         return self.segment.get_state()
@@ -165,7 +162,7 @@ class IOSegmentMap():
         return SCPatch.IO
 
     def __getitem__(self, symbol):
-        return self.segment.x_0 + self.map[symbol], self.segment.y_1
+        return self.segment.y_1, self.segment.x_0 + self.map[symbol]
 
     def __hash__(self):
         return self.segment.__hash__()
@@ -202,7 +199,7 @@ class ExternSegmentMap():
     def __getitem__(self, symbol):
         segment = self.segments[symbol]
         offset = self.map.get(symbol.io_element, 0)
-        return segment.x_0 + offset, segment.y_1
+        return segment.y_1, segment.x_0 + offset
 
     def __hash__(self):
         return self.segment.__hash__()

@@ -32,8 +32,8 @@ class QCB():
         Closure object
         Contains both a QCB memory layout and a DAG execution description
     '''
-    def __init__(self, width, height, operations: 'DAG', io=None):
-        self.segments: Set[Segment] = {Segment(0, 0, width-1, height-1)}
+    def __init__(self, height, width, operations: 'DAG', io=None):
+        self.segments: Set[Segment] = {Segment(0, 0, height - 1, width - 1)}
         self.mappable_segments = set()
         self.operations = operations
         self.cycles = 69 
@@ -41,6 +41,7 @@ class QCB():
         self.predicate = self.symbol.predicate
         self.prewarm = 0
         self.extern_templates = dict()
+
 
         if io is None:
             # Placeholder
@@ -53,6 +54,8 @@ class QCB():
 
         self.width = width
         self.height = height
+        self.shape = (self.height, self.width)
+
         self.externs = operations.externs
 
         self.compiled_layers: list[Bind|ExternBind] = []
@@ -210,7 +213,7 @@ class Segment():
     width = property(lambda self: self.x_1 - self.x_0 + 1)
     height = property(lambda self: self.y_1 - self.y_0 + 1)
 
-    def __init__(self, x_0: int, y_0: int, x_1: int, y_1: int):
+    def __init__(self, y_0: int, x_0: int, y_1: int, x_1: int):
         assert(x_0 <= x_1)
         assert(y_0 <= y_1)
         self.x_0 = x_0
@@ -242,7 +245,7 @@ class Segment():
     def range(self):
         for x in range(self.x_0, self.x_1 + 1):
             for y in range(self.y_0, self.y_1 + 1):
-                yield x, y
+                yield y, x
 
     def get_n_slots(self):
         # How many distinct elements are in this patch
@@ -277,16 +280,16 @@ class Segment():
         return {label:edge_dict[label] for label in labels}
 
     def __repr__(self):
-        return f"Segment({[self.x_0, self.y_0, self.x_1, self.y_1]})"
+        return f"Segment({[self.y_0, self.x_0, self.y_1, self.x_1]})"
 
     def __str__(self):
         return self.__repr__()
 
-    def alloc(self, width: int, height: int) -> 'Tuple[None, None]|Tuple[List[Segment], Callable[[],]]':
+    def alloc(self, height: int, width: int) -> 'Tuple[None, None]|Tuple[List[Segment], Callable[[],]]':
         if width > self.width or height > self.height:
             return None, None
 
-        chunks, confirm = self.split(self.x_0, self.y_0, width, height)
+        chunks, confirm = self.split(self.y_0, self.x_0, height, width)
         if not confirm:
             return None, None
         
@@ -294,7 +297,7 @@ class Segment():
 
         return chunks, confirm
 
-    def split(self, x: int, y: int, width: int, height: int) -> \
+    def split(self, y: int, x: int, height:int, width: int) -> \
         'Tuple[None, None]|Tuple[List[Segment], Callable[[Set[Segment]],]]':
 
         if self.allocated:
@@ -329,7 +332,7 @@ class Segment():
         segments = []
         for x_start, x_end in zip(positions_x_start, positions_x_end):
             for y_start, y_end in zip(positions_y_start, positions_y_end):
-                segment = Segment(x_start, y_start, x_end, y_end)
+                segment = Segment(y_start, x_start, y_end, x_end)
                 segment.right = self._filter_mutual_neighbours(segment, SCEdge.RIGHT)
                 segment.left = self._filter_mutual_neighbours(segment, SCEdge.LEFT)
                 segment.above = self._filter_mutual_neighbours(segment, SCEdge.ABOVE)
@@ -396,7 +399,7 @@ class Segment():
             else: # Cannot merge
                 return None, None
 
-            merged_segment = Segment(left.x_0, left.y_0, right.x_1, right.y_1) # y_0 == y_1 here
+            merged_segment = Segment(left.y_0, left.x_0, right.y_1, right.x_1) # y_0 == y_1 here
             merged_segment.left = left.left
             merged_segment.right = right.right
             merged_segment.above = left.above.union(right.above)
@@ -432,7 +435,7 @@ class Segment():
             else: # Cannot merge
                 return None, None
 
-            merged_segment = Segment(above.x_0, above.y_0, below.x_1, below.y_1)
+            merged_segment = Segment(above.y_0, above.x_0, below.y_1, below.x_1)
             merged_segment.left = above.left.union(below.left)
             merged_segment.right = above.right.union(below.right)
             merged_segment.above = above.above
@@ -491,7 +494,7 @@ class Segment():
         elif all(map(lambda s:s.allocated, self.right)):
             return [self], lambda s: None
 
-        splits = {self.y_0, self.y_1+1}
+        splits = {self.y_0, self.y_1 + 1}
 
         above_seg, below_seg = None, None
 
@@ -508,13 +511,13 @@ class Segment():
                 merged_segments.add(edge)
 
                 if edge.y_0 < self.y_0:
-                    above_seg = Segment(edge.x_0, edge.y_0, edge.x_1, self.y_0-1)
+                    above_seg = Segment(edge.y_0, edge.x_0, self.y_0 - 1, edge.x_1)
                     above_seg.above = edge.above # Fine since edge is destroyed
                     above_seg.below = set()
                     above_seg.right = edge._filter_mutual_neighbours(above_seg, SCEdge.RIGHT)
                     above_seg.left = edge._filter_mutual_neighbours(above_seg, SCEdge.LEFT)
                 if self.y_1 < edge.y_1:
-                    below_seg = Segment(edge.x_0, self.y_1+1, edge.x_1, edge.y_1)
+                    below_seg = Segment(self.y_1 + 1, edge.x_0, edge.y_1, edge.x_1)
                     below_seg.above = set()
                     below_seg.below = edge.below # Fine since edge is destroyed
                     below_seg.right = edge._filter_mutual_neighbours(below_seg, SCEdge.RIGHT)
@@ -525,7 +528,7 @@ class Segment():
 
         # Process all internal blocks
         for y_start, y_end in zip(splits[:-1], map(lambda h: h-1, splits[1:])):
-            segment = Segment(self.x_0, y_start, self.x_1, y_end)
+            segment = Segment(y_start, self.x_0, y_end, self.x_1)
             segment.left = self._filter_mutual_neighbours(segment, SCEdge.LEFT)
             segment.right = self._filter_mutual_neighbours(segment, SCEdge.RIGHT)
             segments.append(segment)
@@ -615,13 +618,13 @@ class Segment():
                 merged_segments.add(edge)
 
                 if edge.x_0 < self.x_0:
-                    left_seg = Segment(edge.x_0, edge.y_0, self.x_0 - 1, edge.y_1)
+                    left_seg = Segment(edge.y_0, edge.x_0, edge.y_1, self.x_0 - 1)
                     left_seg.left = edge.left # Fine since edge is destroyed
                     left_seg.right = set()
                     left_seg.below = edge._filter_mutual_neighbours(left_seg, SCEdge.BELOW)
                     left_seg.above = edge._filter_mutual_neighbours(left_seg, SCEdge.ABOVE)
                 if self.x_1 < edge.x_1:
-                    right_seg = Segment(self.x_1 + 1, edge.y_0, edge.x_1, edge.y_1)
+                    right_seg = Segment(edge.y_0, self.x_1 + 1, edge.y_1, edge.x_1)
                     right_seg.left = set()
                     right_seg.right = edge.right # Fine since edge is destroyed
                     right_seg.below = edge._filter_mutual_neighbours(right_seg, SCEdge.BELOW)
@@ -632,7 +635,7 @@ class Segment():
 
         # Process all internal blocks
         for x_start, x_end in zip(splits[:-1], map(lambda x: x-1, splits[1:])):
-            segment = Segment(x_start, self.y_0, x_end, self.y_1)
+            segment = Segment(self.y_0, x_start, self.y_1, x_end)
             segment.above = self._filter_mutual_neighbours(segment, SCEdge.ABOVE)
             segment.below = self._filter_mutual_neighbours(segment, SCEdge.BELOW)
             segments.append(segment)

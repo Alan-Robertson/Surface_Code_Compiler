@@ -115,7 +115,7 @@ def tikz_edge(start, end):
 def tikz_path(start, end, *args, **kwargs):
     return f"\\path ({start}) edge[{tikz_argparse(*args, **kwargs)}] ({end});\n"
 
-def tikz_grid(width, height):
+def tikz_grid(height, width):
     return f'\\draw[step=1.0,{COLOUR_GRID},thin] (0,0) grid {width,-height};'
 
 
@@ -351,7 +351,7 @@ def tikz_route_layer(router, layer):
 
     tikz_str = tikz_patch_graph_no_header(router.graph)
     tikz_str += '\\begin{pgfonlayer}{background}\n'
-    tikz_str += tikz_grid(router.qcb.width,router.qcb.height)
+    tikz_str += tikz_grid(*router.qcb.shape)
     for gate in layer:
         route = router.routes[gate]
         tikz_str += tikz_route(route, router)

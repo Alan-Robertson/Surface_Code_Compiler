@@ -16,7 +16,7 @@ from surface_code_routing.instructions import INIT, RESET, CNOT, Hadamard, Phase
 local_Tdag = in_place_factory('T_dag') 
 
 @cache
-def T_Factory(width=7, height=5):
+def T_Factory(height=5, width=7):
         dag = DAG(Symbol('T_Factory', (), 'factory_out'))
         dag.add_gate(INIT(*['q_{i}'.format(i=i) for i in range(4)]))
         dag.add_gate(INIT(*['a_{i}'.format(i=i) for i in range(11)]))
@@ -31,9 +31,9 @@ def T_Factory(width=7, height=5):
             'factory_out'))
         dag.add_gate(X('factory_out'))
 
-        return compile_qcb(dag, width, height)
+        return compile_qcb(dag, height, width)
 
-def T(targ, width=7, height=5):
+def T(targ, height=5, width=7):
     factory = T_Factory(height=height, width=width)
     dag = factory.instruction((), (targ,))
     return dag
