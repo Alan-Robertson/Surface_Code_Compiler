@@ -46,7 +46,6 @@ class RotationInjector():
             
             if gate.rotates():
                 addresses = self.mapper(gate)
-                print("Gate, Rotating")
                 self.rotate(gate, addresses)
             index += 1
 
