@@ -11,6 +11,9 @@ from surface_code_routing.qcb_tree import QCBTree
 from surface_code_routing.router import QCBRouter
 from surface_code_routing.mapper import QCBMapper
 
+from surface_code_routing.circuit_model import PatchGraph
+from surface_code_routing.inject_rotations import RotationInjector
+
 def compile_qcb(dag, width, height, *externs, verbose=False):
     if verbose:
         print(f"Compiling {dag}")
@@ -29,7 +32,9 @@ def compile_qcb(dag, width, height, *externs, verbose=False):
 
     if verbose:
         print(f"\tRouting...")
-    router = QCBRouter(qcb, dag, mapper)
+    circuit_model = PatchGraph((qcb.width, qcb.height), mapper, None)
+    rot_injector = RotationInjector(dag, mapper, qcb, graph=circuit_model)
+    router = QCBRouter(qcb, dag, mapper, graph=circuit_model)
     compiled_qcb = CompiledQCB(qcb, router, dag)
     return compiled_qcb
 

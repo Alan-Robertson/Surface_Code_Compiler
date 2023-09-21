@@ -54,18 +54,18 @@ class QCBMapper():
     def dag_symbol_to_segment(self, symbol):
         return self.map[symbol].get_segment()
 
+    def dag_symbol_to_coordinates(self, symbol):
+        segment_map = self.map[symbol]
+        if segment_map.get_state() == SCPatch.EXTERN:
+            return segment_map[symbol]
+        elif symbol.io_element is not None:
+            offset = segment.get_slot().io[node.io_element]
+            return (segment.x_0 + offset, segment.y_1)
+        else:
+            return segment_map[symbol]
+
     def dag_node_to_coordinates(self, dag_node):
-        coordinates = []
-        for symbol in dag_node.scope:
-            segment_map = self.map[symbol]
-            if segment_map.get_state() == SCPatch.EXTERN:
-                coordinates.append(segment_map[symbol]) 
-            elif symbol.io_element is not None:
-                offset = segment.get_slot().io[node.io_element]
-                coordinates.append((segment.x_0 + offset, segment.y_1))
-            else:
-                coordinates.append(segment_map[symbol]) 
-        return coordinates 
+        return [self.dag_symbol_to_coordinates(symbol) for symbol in dag_node.scope]
             
     def __getitem__(self, dag_node):
         return self.dag_node_to_coordinates(dag_node)

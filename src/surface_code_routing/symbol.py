@@ -125,7 +125,8 @@ class Symbol(object):
         self.io_rev = dict(((j, i) for i, j in self.io.items()))
         self.io_in = io_in
         self.io_out = io_out
-
+        self.z = io_in
+        self.x = io_out
         return self
 
     def is_extern(self):

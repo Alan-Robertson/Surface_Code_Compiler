@@ -10,7 +10,7 @@ import sys
 sys.setrecursionlimit(10000)
 
 class DAGNode():
-    def __init__(self, symbol, *args, scope=None, externs=None, n_cycles=1, n_ancillae=0):
+    def __init__(self, symbol, *args, scope=None, externs=None, n_cycles=1, n_ancillae=0, rotation=False):
         symbol = symbol_resolve(symbol)
         if externs is None:
             externs = dict()
@@ -35,10 +35,14 @@ class DAGNode():
 
         self.__n_cycles = n_cycles
         self.n_ancillae = n_ancillae
+        self.__rotates = rotation
         self.gates = [self]
         self.layers = [self]
         self.layer = 0
         self.slack = float('inf')
+
+        self.back_edges = dict()
+        self.forward_edges = dict()
 
     def __call__(self, scope=None):
         self.predicates = set()
@@ -58,9 +62,18 @@ class DAGNode():
 
     def n_cycles(self):
         return self.__n_cycles
+
+    def rotates(self):
+        return self.__rotates
+
+    def rotate(self):
+        self.__rotates ^= True
         
     def __repr__(self):
         return self.symbol.__repr__()
+
+    def __contains__(self, other):
+        return other in self.symbol.io
 
     def non_local(self):
         return len(self.symbol.io) > 1
@@ -101,6 +114,9 @@ class DAG(DAGNode):
         self.predicates = set()
         self.antecedents = set()
 
+        self.forward_edges = dict()
+        self.back_edges = dict()
+
         self.physical_externs = set()
 
         # Catches any undeclared externs in the scope
@@ -133,6 +149,9 @@ class DAG(DAGNode):
     def n_cycles(self):
         return len(self.layers)
 
+    def rotates(self):
+        return False
+
     def add_gate(self, dag, *args, scope=None, **kwargs):
 
         gate = dag(scope=scope)
@@ -140,10 +159,6 @@ class DAG(DAGNode):
         operands = gate.symbol.io
         if len(gate.externs) > 0:
             self.externs |= gate.externs
-       
-#        for operand in operands:
-#            if gate.scope[operand] is operand:
-#                self.scope[operand] = None
 
         if gate.unrollable():
             self.unroll_gate(gate)
@@ -185,6 +200,8 @@ class DAG(DAGNode):
     def update_dependencies(self, gate):
         for dep in gate.symbol.io:
             predicate = self.last_layer[dep]
+            gate.back_edges[dep] = predicate
+            predicate.forward_edges[dep] = gate
             # Breaks self-referencing gates
             if predicate is not gate:
                 predicate.antecedents.add(gate)

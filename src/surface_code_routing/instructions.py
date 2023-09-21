@@ -3,7 +3,7 @@ from itertools import chain
 from surface_code_routing.symbol import Symbol, ExternSymbol, symbol_map, symbol_resolve
 from surface_code_routing.scope import Scope
 
-def in_place_factory(fn, n_cycles=1, n_ancillae=0):
+def in_place_factory(fn, **kwargs):
     '''
     Factory method for generating in place gates
     '''
@@ -12,16 +12,16 @@ def in_place_factory(fn, n_cycles=1, n_ancillae=0):
         sym = Symbol(fn, 'targ')
         scope = Scope({sym('targ'):targ})
         dag = DAG(sym, scope=scope)
-        dag.add_node(sym, n_cycles=n_cycles, n_ancillae=n_ancillae)
+        dag.add_node(sym, **kwargs)
         return dag
     return instruction
 
-def in_place_factory_mult(fn, n_cycles=1, n_ancillae=0, singular_instruction=None):
+def in_place_factory_mult(fn, singular_instruction=None, **kwargs):
     '''
     Factory method for generating in place gates
     '''
     if singular_instruction is None:
-        singular_instruction =  in_place_factory(fn, n_cycles=n_cycles, n_ancillae=n_ancillae)
+        singular_instruction = in_place_factory(fn, **kwargs)
     
     def instruction(*args):
         args = tuple(map(symbol_resolve, args))
@@ -38,7 +38,7 @@ def in_place_factory_mult(fn, n_cycles=1, n_ancillae=0, singular_instruction=Non
         return dag
     return instruction
 
-def factory_factory(fn, n_cycles=1):
+def factory_factory(fn, **kwargs):
     def instruction(targ):
         targ = symbol_resolve(targ)
         sym = Symbol(fn, 'targ')
@@ -47,7 +47,7 @@ def factory_factory(fn, n_cycles=1):
         scope = Scope({factory:factory, sym('targ'):targ})
 
         dag = DAG(sym, scope=scope)
-        dag.add_node(factory, n_cycles=n_cycles)
+        dag.add_node(factory, **kwargs)
         dag.add_gate(CNOT(factory('factory_out'), targ))
         dag.add_gate(RESET(factory))
         return dag
@@ -67,6 +67,19 @@ def non_local_factory(fn, n_cycles=1, n_ancillae=0):
 
         # This object is jointly initialised
         dag.add_node(sym, n_cycles=n_cycles)
+        return dag
+    return instruction
+
+def ZX_factory(fn, **kwargs):
+    def instruction(z_args, x_args):
+        args = tuple(map(symbol_resolve, chain(z_args, x_args)))
+        sym = Symbol(fn, z_args, x_args)
+        
+        scope = Scope({sym(arg):arg for arg in args})
+
+        dag = DAG(sym, scope=scope)
+        dag.add_node(sym, **kwargs)
+        # This object is jointly initialised
         return dag
     return instruction
 
@@ -148,29 +161,26 @@ def XYZ_PI_4(X, Y, Z):
     dag.add_gate(Hadamard(args[0]))
     return dag
 
-#def CNOT(*args):
-#    args = tuple(map(symbol_resolve, args))
-#    sym = Symbol('CNOT', args[:1], args[1:])
-#
-#    scope = Scope({sym(arg):arg for arg in args})
-#    
-#    dag = DAG(sym, scope=scope)
-#    dag.add_gate(Hadamard(args[0]))
-#    # This object is jointly initialised
-#    dag.add_gate(JOINT_MEASURE(*args))
-#    dag.add_gate(Hadamard(args[0]))
-#    return dag
-
 CNOT = non_local_factory('CNOT', n_cycles=1)
+
+CNOT_BASE = ZX_factory('CNOT')
+def CNOT(ctrl, *targs):
+   return CNOT_BASE((ctrl,), targs) 
+
 MEAS = non_local_factory('MEAS', n_cycles=1)
 PREP = in_place_factory_mult('PREP')
+
+HADAMARD_SYMBOL = Symbol('H')
 Hadamard = in_place_factory('H', n_cycles=3, n_ancillae=1)
+
+ROTATION_SYMBOL = Symbol('Rotation')
+Rotation = in_place_factory('Rotation', n_cycles=3, n_ancillae=1, rotation=True)
+
 Phase = in_place_factory('P')
 X = in_place_factory('X')
 Y = in_place_factory('Y')
 Z = in_place_factory('Z')
 
 JOINT_MEASURE = non_local_factory('MEAS ANC', n_cycles=1)
-
 
 from surface_code_routing.dag import DAG, DAGNode

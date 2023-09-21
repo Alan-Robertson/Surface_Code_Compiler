@@ -10,25 +10,26 @@ from surface_code_routing.symbol import ExternSymbol
 
 from surface_code_routing.utils import consume
 from surface_code_routing.tikz_utils import tikz_router
-from surface_code_routing.instructions import RESET_SYMBOL
+from surface_code_routing.instructions import RESET_SYMBOL, ROTATION_SYMBOL, HADAMARD_SYMBOL, Rotation
 
 
 class QCBRouter:
-    def __init__(self, qcb:QCB, dag:DAG, mapper:QCBMapper, auto_route=True):
+    def __init__(self, qcb:QCB, dag:DAG, mapper:QCBMapper, graph=None, auto_route=True):
         '''
             Initialise the router
         '''
-        self.graph = PatchGraph(shape=(qcb.width, qcb.height), environment=self)
+        if graph is None: 
+            graph = PatchGraph(shape=(qcb.width, qcb.height), mapper=mapper, environment=self)
+        else:
+            graph.environment = self
+        self.graph = graph
+
         self.dag = dag
         self.qcb = qcb
         self.mapper = mapper
 
         self.routes = dict()
         self.active_gates = set()
-
-        for segment in self.mapper.map.values():
-            for coordinates in segment.range():
-                self.graph[coordinates].set_underlying(segment.get_slot())
 
         self.anc: dict[Any, ANC] = {}    
         
@@ -64,7 +65,7 @@ class QCBRouter:
 
                     # Release an extern allocation
                     if gate.get_symbol() == RESET_SYMBOL:
-                        extern_lock[self.dag.externs[gate.get_unary_symbol(())]] = None
+                        extern_lock[self.dag.externs[gate.get_unary_symbol()]] = None
                     layers[-1].append(gate)
 
                 if len(recently_resolved) == 0:
@@ -73,7 +74,9 @@ class QCBRouter:
 
             self.active_gates = set(filter(lambda x: not x.resolved(), self.active_gates))
             for gate in recently_resolved:
-                resolved.add(gate)            
+                resolved.add(gate) 
+                if gate.rotates():
+                    self.rotate(gate, self.mapper[gate])
                 # Should only trigger when the final antecedent is resolved
                 for antecedent in gate.antecedents():
                     all_resolved = True
@@ -85,6 +88,7 @@ class QCBRouter:
                         waiting.append(RouteBind(antecedent, addresses))
             
             waiting.sort()
+            waiting_clear = list()
             # Initially active gates
             for gate in waiting:
                 addresses = self.mapper[gate]
@@ -110,9 +114,8 @@ class QCBRouter:
                 if not extern_requirements_satisfied:
                     continue
                             
-
                 # Check that all addresses are free
-                if not all(self.attempt_gate(gate, address) for address in addresses):
+                if not all(self.probe_address(gate, address) for address in addresses):
                     # Not all addresses are currently free, keep waiting
                     continue
 
@@ -130,7 +133,7 @@ class QCBRouter:
                         extern_lock[physical_extern] = argument
 
             # Update the waiting list 
-            waiting = list(filter(lambda x: x not in self.active_gates and x not in resolved, waiting))
+            waiting = list(filter(lambda x: x not in self.active_gates and x not in resolved and x not in waiting_clear, waiting))
 
             # Not the most elegant approach, could reorder some things
             if len(layers[-1]) == 0:
@@ -138,8 +141,8 @@ class QCBRouter:
              
         return layers
 
-    def attempt_gate(self, dag_node, address):
-        return self.graph[address].lock(dag_node)
+    def probe_address(self, dag_node, address):
+        return self.graph[address].probe(dag_node)
 
     def find_route(self, gate, addresses):
         paths = []
@@ -180,3 +183,9 @@ class QCBRouter:
 
     def __tikz__(self):
         return tikz_router(self) 
+
+    def rotate(self, dag_node, addresses):
+        for address in addresses:
+            self.graph[address].rotate()
+
+

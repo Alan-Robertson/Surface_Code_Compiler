@@ -205,5 +205,8 @@ class RouteBind(Bind):
     def __repr__(self):
         return self.obj.__repr__()
 
+    def rotates(self):
+        return self.obj.rotates()
+    
     def n_ancillae(self):
         return self.obj.n_ancillae
