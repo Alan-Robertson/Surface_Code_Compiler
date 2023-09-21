@@ -83,12 +83,12 @@ class RotationInjector():
                 predicate_gate.forward_edges[symbol] = rotation_gate
                 predicate_gate.antecedents.add(rotation_gate)
                 # May have multiple symbols pointing to the same gate, only a subset of which rotate
-                if dag_node not in predicate_gate.forward_edges.values():
+                if dag_node not in predicate_gate.forward_edges.values() and dag_node in predicate_gate.antecedents:
                     predicate_gate.antecedents.remove(dag_node)
 
                 dag_node.back_edges[symbol] = rotation_gate
                 dag_node.predicates.add(rotation_gate)
-                if predicate_gate not in dag_node.back_edges.values():
+                if predicate_gate not in dag_node.back_edges.values() and predicate_gate in dag_node.predicates:
                     dag_node.predicates.remove(predicate_gate)
 
                 rotation_gate.forward_edges[symbol] = dag_node

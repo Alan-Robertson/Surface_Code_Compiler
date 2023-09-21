@@ -362,7 +362,6 @@ class DAG(DAGNode):
                     ((index, extern) for index, extern in enumerate(idle_externs) if extern.satisfies(gate)),
                      (None, None)
                      )
-
                 if binding is not None:
                     idle_externs.pop(index)
                     self.externs[gate.symbol] = binding.get_obj()
@@ -386,7 +385,7 @@ class DAG(DAGNode):
         while len(active) > 0 or len(waiting) > 0:
             layers.append([])
             n_cycles += 1
-
+            
             # Update each active gate
             for gate in active:
                 gate.cycle()
@@ -430,7 +429,10 @@ class DAG(DAGNode):
                                 all_resolved = False
                                 break
                         if all_resolved:
-                            waiting.append(DAGBind(antecedent))
+                            if antecedent.is_extern():
+                                waiting.append(ExternBind(antecedent))
+                            else:
+                                waiting.append(DAGBind(antecedent))
 
                     # Unlock Externs For Reallocation
                     if gate.get_symbol() == RESET_SYMBOL:
@@ -442,7 +444,6 @@ class DAG(DAGNode):
             # Sort the waiting list based on the current slack
             waiting.sort()
             for gate in waiting:
-
                 # If it's an extern gate then see if a free resource exists
                 if gate.is_extern():
                     index, binding = next(

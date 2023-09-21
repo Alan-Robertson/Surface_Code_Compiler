@@ -38,15 +38,8 @@ def T(targ, width=7, height=5):
     dag = factory.instruction((), (targ,))
     return dag
 
-@cache
-def MAJ():
-    dag = DAG(Symbol('MAJ', ('a', 'b', 'c')))
-    dag.add_gate(CNOT('c', 'b'))
-    dag.add_gate(CNOT('c', 'a'))
-    dag.add_gate(Toffoli('a', 'b', 'c'))
 
-
-def Toffoli(ctrl_a, ctrl_b, targ):
+def Toffoli(ctrl_a, ctrl_b, targ, T=T):
     ctrl_a, ctrl_b, targ = map(Symbol, (ctrl_a, ctrl_b, targ))
     sym = Symbol('Toffoli', {'ctrl_a', 'ctrl_b', 'targ'})
     scope = Scope({sym('ctrl_a'):ctrl_a, sym('ctrl_b'):ctrl_b, sym('targ'):targ})
@@ -68,3 +61,23 @@ def Toffoli(ctrl_a, ctrl_b, targ):
     dag.add_gate(T(ctrl_b))
     dag.add_gate(CNOT(ctrl_a, ctrl_b))
     return dag
+
+
+def MAJ(a, b, c, Toffoli=Toffoli):
+    dag = DAG(Symbol('MAJ', ('a', 'b', 'c')))
+    dag.add_gate(CNOT('c', 'b'))
+    dag.add_gate(CNOT('c', 'a'))
+    dag.add_gate(Toffoli('a', 'b', 'c'))
+    return dag
+
+def UMA(a, b, c, Toffoli=Toffoli):
+    dag = DAG(Symbol('MAJ', ('a', 'b', 'c')))
+    dag.add_gate(X('b'))
+    dag.add_gate(CNOT('a', 'b'))
+    dag.add_gate(Toffoli('a', 'b', 'c'))
+    dag.add_gate(X('b'))
+    dag.add_gate(CNOT('c', 'a', 'b'))
+
+
+
+
