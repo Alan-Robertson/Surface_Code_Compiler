@@ -41,7 +41,8 @@ class QCB():
         self.predicate = self.symbol.predicate
         self.prewarm = 0
         self.extern_templates = dict()
-
+        
+        self.allocator = None
 
         if io is None:
             # Placeholder

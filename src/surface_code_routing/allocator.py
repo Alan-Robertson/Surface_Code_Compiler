@@ -159,12 +159,14 @@ class Allocator:
     def optimise(self):
         dag = self.qcb.operations
         while self.try_optimise():
-            pass
+            if self.tikz_build:
+                self.tikz_str += self.__tikz__()
 
         while self.try_opt_channel():
             self.n_channels += 1
-            pass
-
+            if self.tikz_build:
+                self.tikz_str += self.__tikz__()
+        
 
         n_layers, compiled_layers = dag.compile(self.n_channels, *self.msfs)
         self.qcb.compiled_layers = compiled_layers
@@ -187,6 +189,8 @@ class Allocator:
                 route.state = SCPatch(SCPatch.ROUTE)
                 reg.state = SCPatch(SCPatch.REG) 
                 reg.allocated = True
+        if self.tikz_build:
+            self.tikz_str += self.__tikz__()
 
 
         self.global_merge_tl()
@@ -195,6 +199,9 @@ class Allocator:
                 (left, main), confirm = seg.alloc(seg.height, 1)
                 confirm(self.qcb.segments)
                 left.state = SCPatch(SCPatch.ROUTE)
+        
+        if self.tikz_build:
+            self.tikz_str += self.__tikz__()
 
         # TODO add reg before flood
         while self.get_free_segments(self.qcb):
@@ -226,7 +233,10 @@ class Allocator:
                 else:
                     r.allocated = True
                     r.state = SCPatch(SCPatch.REG)
-            
+        if self.tikz_build:
+            self.tikz_str += self.__tikz__()
+
+
 
     def place_io(self):
         if self.io_width == 0:
