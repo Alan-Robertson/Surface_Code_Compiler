@@ -146,15 +146,28 @@ class QCBRouter:
 
     def find_route(self, gate, addresses):
         paths = []
-        graph_nodes = list(map(lambda address: self.graph[address], addresses))
+        graph_nodes = map(lambda address: self.graph[address], addresses)
+        gate_symbol = gate.get_symbol()
+        orientations = [PatchGraphNode.Z_ORIENTED, PatchGraphNode.X_ORIENTED]
 
         # Find routes
-        for start, end in zip(graph_nodes, graph_nodes[1:]):
-            path = self.graph.route(start, end, gate)
+        iterable = self.mapper.dag_node_to_symbol_map(gate)
+        start = next(iterable)
+        start_symbol, start_node = start
+        start_node = self.graph[start_node]
+        start_orientation = orientations[start_symbol in gate_symbol.x]
+        while (end := next(iterable, None)) != None:
+            end_symbol, end_node = end
+            end_node = self.graph[end_node]
+            end_orientation = orientations[end_symbol in gate_symbol.x]
+            path = self.graph.route(start_node, end_node, gate, start_orientation=start_orientation, end_orientation=end_orientation)
             if path is not PatchGraph.NO_PATH_FOUND:
                 paths += path
             else:
                 return False, PatchGraph.NO_PATH_FOUND
+            start_symbol = end_symbol
+            start_node = end_node
+            start_orientation = end_orientation
 
         # Add any ancillae
         for graph_node in graph_nodes:

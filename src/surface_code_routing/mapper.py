@@ -50,6 +50,9 @@ class QCBMapper():
                 segment_map.alloc(symbol, segment_map.segments[extern])
             self.map[symbol] = segment_map 
 
+    def dag_node_to_symbol_map(self, dag_node):
+        for symbol in dag_node.scope:
+            yield symbol, self.dag_symbol_to_coordinates(symbol)
 
     def dag_symbol_to_segment(self, symbol):
         return self.map[symbol].get_segment()

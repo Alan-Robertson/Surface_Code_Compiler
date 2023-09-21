@@ -20,7 +20,7 @@ class RotationInjector():
         self.qcb = qcb
 
         if graph is None: 
-            graph = PatchGraph(shape=(qcb.height, qcb.width), mapper=mapper, environment=None)
+            graph = PatchGraph(shape=(qcb.width, qcb.height), mapper=mapper, environment=None)
         self.graph = graph
         if autorun:
             self.inject_rotations()
@@ -56,12 +56,12 @@ class RotationInjector():
         for argument in dag_symbol.z:
             address = self.mapper.dag_symbol_to_coordinates(argument)
             graph_node = self.graph[address]
-            if graph_node.route_or_hadamard(graph_node.Z_ORIENTED) is graph_node.SUGGEST_HADAMARD:
+            if graph_node.route_or_hadamard(graph_node.Z_ORIENTED) is graph_node.SUGGEST_ROTATE:
                 rotation_targs.append(argument)
         for argument in dag_symbol.x:
             address = self.mapper.dag_symbol_to_coordinates(argument)
             graph_node = self.graph[address]
-            if graph_node.route_or_hadamard(graph_node.X_ORIENTED) is graph_node.SUGGEST_HADAMARD:
+            if graph_node.route_or_hadamard(graph_node.X_ORIENTED) is graph_node.SUGGEST_ROTATE:
                 rotation_targs.append(argument)
         return rotation_targs
                 

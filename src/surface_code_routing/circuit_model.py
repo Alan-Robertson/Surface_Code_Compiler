@@ -3,15 +3,16 @@ import queue
 from surface_code_routing.qcb import SCPatch
 from typing import *
 from surface_code_routing.tikz_utils import tikz_patch_graph 
+from surface_code_routing.bind import AddrBind
 
 
 class PatchGraphNode():
 
-    INITIAL_LOCK_STATE = object()
-    Z_ORIENTED = object() # Smooth edge up
-    X_ORIENTED = object() # Rough edge up
-    SUGGEST_ROUTE = object()
-    SUGGEST_HADAMARD = object()
+    INITIAL_LOCK_STATE = AddrBind('INITIAL LOCK STATE')
+    Z_ORIENTED = AddrBind('Z') # Smooth edge up
+    X_ORIENTED = AddrBind('X') # Rough edge up
+    SUGGEST_ROUTE = AddrBind('Suggest Route')
+    SUGGEST_ROTATE = AddrBind('Suggest Rotate')
 
     def __init__(self, graph, i, j, orientation = None):
         self.graph = graph
@@ -66,7 +67,7 @@ class PatchGraphNode():
             return self.SUGGEST_ROUTE
         if next(self.adjacent(None, bound=False, vertical=False, probe=False), None) is not None:
             return self.SUGGEST_ROUTE
-        return self.SUGGEST_HADAMARD
+        return self.SUGGEST_ROTATE
 
     def rotate(self):
         if self.orientation == self.Z_ORIENTED:
@@ -110,8 +111,10 @@ class PatchGraph():
         if orientation is not None:
             if orientation == self.graph[i, j].orientation:
                 horizontal = False
+                bound = False
             else:
                 vertical = False
+                bound = False
 
         if horizontal and (not bound or self.graph[i, j].state is SCPatch.ROUTE):
             if i + 1 < self.shape[0]:
@@ -128,7 +131,6 @@ class PatchGraph():
 
             if j - 1 >= 0:
                 opt.append([i, j - 1]) 
-
         for i in opt:
             # Return without worrying about locks
             if probe is False:
@@ -150,14 +152,19 @@ class PatchGraph():
         path[start] = None
         path_cost[start] = 0
 
+        orientation = None
         while not frontier.empty():
             current = frontier.get()[1]
             if current == end:
                 break
+
+            # Correct join at the start
             if track_rotations and current == start:
                 orientation = start_orientation
             for i in current.adjacent(gate, orientation=orientation):
-                if track_rotations and i == end:
+
+                # Correct join at the end
+                if False and track_rotations and i == end:
                     if current not in end.adjacent(gate, orientation=end_orientation):
                         continue
                 if (i == end and current != start) or i.state == SCPatch.ROUTE:
