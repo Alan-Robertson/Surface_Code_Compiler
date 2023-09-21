@@ -132,10 +132,11 @@ class DAG(DAGNode):
         for obj in self.scope:
             if self.scope[obj] is None:
                 init_gate = INIT(obj)
-                self.gates.append(init_gate)
-                self.last_layer[obj] = init_gate
-                self.update_layer(init_gate)
-                self.update_dependencies(init_gate)
+                init_node = init_gate.gates[0]
+                self.gates.append(init_node)
+                self.last_layer[obj] = init_node
+                self.update_layer(init_node)
+                self.update_dependencies(init_node)
 
     def extern(self):
         return self.symbol.extern() 
@@ -151,6 +152,10 @@ class DAG(DAGNode):
 
     def rotates(self):
         return False
+
+    def rotate(self):
+        for i in self.gates:
+            i.rotate()
 
     def add_gate(self, dag, *args, scope=None, **kwargs):
 
