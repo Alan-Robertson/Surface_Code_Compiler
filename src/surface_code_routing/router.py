@@ -1,5 +1,6 @@
 from typing import *
 from queue import PriorityQueue
+from surface_code_routing.utils import debug_print
 
 from surface_code_routing.qcb import Segment, SCPatch, QCB
 from surface_code_routing.circuit_model import PatchGraph, PatchGraphNode 
@@ -12,9 +13,8 @@ from surface_code_routing.utils import consume
 from surface_code_routing.tikz_utils import tikz_router
 from surface_code_routing.instructions import RESET_SYMBOL, ROTATION_SYMBOL, HADAMARD_SYMBOL, Rotation
 
-
 class QCBRouter:
-    def __init__(self, qcb:QCB, dag:DAG, mapper:QCBMapper, graph=None, auto_route=True):
+    def __init__(self, qcb:QCB, dag:DAG, mapper:QCBMapper, graph=None, auto_route=True, verbose=False):
         '''
             Initialise the router
         '''
@@ -28,6 +28,7 @@ class QCBRouter:
         self.qcb = qcb
         self.mapper = mapper
 
+        self.verbose = verbose
         self.routes = dict()
         self.active_gates = set()
 
@@ -52,8 +53,10 @@ class QCBRouter:
         layers = []
         extern_queue = []
         extern_lock = {i:None for i in self.dag.physical_externs}
+        unlocked_externs = len(self.dag.physical_externs)
 
         while len(waiting) > 0 or len(self.active_gates) > 0:
+            debug_print(waiting, self.active_gates, unlocked_externs, extern_lock, debug=self.verbose) 
             layers.append(list())
 
             recently_resolved = list()
@@ -66,6 +69,7 @@ class QCBRouter:
                     # Release an extern allocation
                     if gate.get_symbol() == RESET_SYMBOL:
                         extern_lock[self.dag.externs[gate.get_unary_symbol()]] = None
+                        unlocked_externs += 1
                     layers[-1].append(gate)
 
                 if len(recently_resolved) == 0:
@@ -98,6 +102,11 @@ class QCBRouter:
                 extern_requirements_satisfied = True
                 for argument in gate.get_symbol().io:
                     if argument.is_extern():
+
+                        # If all externs locked just skip checks and keep going
+                        if unlocked_externs == 0:
+                            break
+
                         logical_extern = argument
                         physical_extern = self.dag.externs[argument]
 
@@ -130,6 +139,7 @@ class QCBRouter:
                     self.routes[AddrBind(gate)] = addresses 
                     self.active_gates.add(gate)
                     for physical_extern, argument in externs_acquired:
+                        unlocked_externs -= 1
                         extern_lock[physical_extern] = argument
 
             # Update the waiting list 
