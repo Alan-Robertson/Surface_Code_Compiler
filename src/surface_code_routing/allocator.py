@@ -1,12 +1,14 @@
 from surface_code_routing.qcb import Segment, SCPatch, QCB
 from surface_code_routing.dag import DAG
+from surface_code_routing.utils import debug_print
+
 from typing import *
 import copy
 class AllocatorError(Exception):
     pass
 
 class Allocator:
-    def __init__(self, qcb: QCB, *extern_templates, optimise=True, tikz_build=False):
+    def __init__(self, qcb: QCB, *extern_templates, optimise=True, tikz_build=True, debug=False):
         self.qcb = qcb
 
         self.extern_templates = sorted(extern_templates, 
@@ -19,10 +21,11 @@ class Allocator:
         
         self.io_width = len(qcb.io)
         self.reg_allocated = 0
-        self.reg_quota = len(qcb.operations.internal_scope())
+        self.reg_quota = len(qcb.operations.internal_scope()) - len(qcb.operations.io())
 
         self.tikz_build = tikz_build
         self.tikz_str = ""
+        self.debug = debug
 
         # optimise variables
         self.msfs = []
@@ -160,12 +163,12 @@ class Allocator:
         dag = self.qcb.operations
         while self.try_optimise():
             if self.tikz_build:
-                self.tikz_str += self.__tikz__()
+                self.tikz_str += self.qcb.__tikz__()
 
         while self.try_opt_channel():
             self.n_channels += 1
             if self.tikz_build:
-                self.tikz_str += self.__tikz__()
+                self.tikz_str += self.qcb.__tikz__()
         
 
         n_layers, compiled_layers = dag.compile(self.n_channels, *self.msfs)
@@ -190,7 +193,7 @@ class Allocator:
                 reg.state = SCPatch(SCPatch.REG) 
                 reg.allocated = True
         if self.tikz_build:
-            self.tikz_str += self.__tikz__()
+            self.tikz_str += self.qcb.__tikz__()
 
 
         self.global_merge_tl()
@@ -201,7 +204,7 @@ class Allocator:
                 left.state = SCPatch(SCPatch.ROUTE)
         
         if self.tikz_build:
-            self.tikz_str += self.__tikz__()
+            self.tikz_str += self.qcb.__tikz__()
 
         # TODO add reg before flood
         while self.get_free_segments(self.qcb):
@@ -234,7 +237,7 @@ class Allocator:
                     r.allocated = True
                     r.state = SCPatch(SCPatch.REG)
         if self.tikz_build:
-            self.tikz_str += self.__tikz__()
+            self.tikz_str += self.qcb.__tikz__()
 
 
 
@@ -308,7 +311,7 @@ class Allocator:
         
         first = next((s for s in self.get_free_segments(self.qcb) if s.y_position() > fringe), None)
         if not first:
-            raise AllocatorError(f"MSF placement failed: all blocks exhausted for {msf}")
+            raise AllocatorError(f"Extern placement failed: all blocks exhausted for {msf}")
         
         # Merge sequence
         segs, confirm = first.top_merge()
@@ -412,7 +415,7 @@ class Allocator:
             success, position = self.try_place_msf(msf, fringe)
     
 
-    def route_msf_to_io(self):
+    def route_to_io(self):
         if len(self.qcb.io) == 0:
             return
         
@@ -430,7 +433,8 @@ class Allocator:
 
         # Always valid because we perform a global top merge before
         bottom_free = next(s for s in bottom_route.below if s.x_0 == 0)
-        if not bottom_free.state.state == SCPatch.IO:
+        debug_print(bottom_free, self.debug)
+        if not bottom_free.get_state() == SCPatch.IO and not bottom_free.get_state() == SCPatch.ROUTE :
             segs, confirm = bottom_free.alloc(self.height - bottom_route.y_1 - 3, 1)
             if not confirm:
                 raise AllocatorError("Could not route routing layer to IO")
@@ -494,6 +498,8 @@ class Allocator:
         out.append(reg)
         self.reg_allocated += reg.width
         self.global_left_merge()
+
+        # Find the next unallocated segment
         below_seg = next(iter(s for s in reg.below if not s.allocated), None)
         if not below_seg:
             return out
@@ -570,6 +576,8 @@ class Allocator:
                             for s in seg.right 
                             if s.y_0 <= seg.y_0 + 1 <= s.y_1
                             and s.state.state == SCPatch.ROUTE), None)
+
+        debug_print(seg, left_edge, right_edge, self.debug)
         if left_edge or right_edge:
             # Don't need drop
             (reg, seg), confirm = seg.alloc(1, seg.width)
@@ -582,7 +590,7 @@ class Allocator:
             drop_x = min((s.x_0 
                         for s in seg.above 
                         if s.state.state == SCPatch.ROUTE), default=None)
-           
+            debug_print(drop_x, self.debug)   
             if drop_x is None:
                 left_edge = next(iter(s 
                         for s in seg.left 
@@ -602,10 +610,12 @@ class Allocator:
             drop_x = max(drop_x, seg.x_0)
             (row, seg), confirm = seg.alloc(1, seg.width)
             confirm(self.qcb.segments)
+            debug_print(row, seg, self.debug)
 
             row.allocated = False
             (drop, *regs), confirm = row.split(row.y_0, drop_x, 1, 1)
             confirm(self.qcb.segments)
+            debug_print(drop, self.debug)
 
             drop.allocated = True
             drop.state = SCPatch(SCPatch.ROUTE)
@@ -629,9 +639,13 @@ class Allocator:
 
         if seg.y_0 == 0:
             return self.place_reg_top(seg)
-        
+       
+        debug_print([(s, s.state.state) for s in seg.above], self.debug)
+
         if all(s.state.state == SCPatch.ROUTE for s in seg.above):
-            return self.place_reg_top_routable(seg)
+            segs = self.place_reg_top_routable(seg)
+            debug_print("Placed Top", segs, self.debug)
+            return segs
         elif seg.height >= 2:
             return self.place_reg_route_below(seg)
         
@@ -697,6 +711,8 @@ class Allocator:
             Perform initial allocation
         '''
         self.place_io()
+        if self.tikz_build:
+                self.tikz_str += self.qcb.__tikz__()
 
         externs = self.extern_templates
         if len(externs) > 0:
@@ -706,7 +722,7 @@ class Allocator:
             self.global_merge_lt()
 
             if self.tikz_build:
-                self.tikz_str += self.__tikz__()
+                self.tikz_str += self.qcb.__tikz__()
 
             for i, extern in enumerate(externs[1:]):
                 self.place_msf(extern)
@@ -714,21 +730,30 @@ class Allocator:
                 self.global_merge_lt()
 
                 if self.tikz_build:
-                    self.tikz_str += self.__tikz__()
+                    self.tikz_str += self.qcb.__tikz__()
 
-            self.route_msf_to_io()
+            self.route_to_io()
             if self.tikz_build:
-                self.tikz_str += self.__tikz__()
+                self.tikz_str += self.qcb.__tikz__()
 
         self.global_merge_tl()
         if self.tikz_build:
-            self.tikz_str += self.__tikz__()
+            self.tikz_str += self.qcb.__tikz__()
 
         while self.reg_allocated < self.reg_quota:
-            self.place_reg()
-            self.global_merge_tl()
+            # If an IO exists, then our first block must be rouatable to it
+            # If the IO has already been created by the externs then this isn't needed
+            if self.reg_allocated == 0 and len(externs) == 0 and self.io_width > 0:
+                self.place_reg()
+                self.global_merge_tl()
+                self.route_to_io()
+                self.global_merge_tl()
+            else:
+                self.place_reg()
+                self.global_merge_tl()
+
             if self.tikz_build:
-                self.tikz_str += self.__tikz__()
+                self.tikz_str += self.qcb.__tikz__()
         
 
     def global_merge_tl(self):
@@ -760,4 +785,4 @@ class Allocator:
             offset += 1
 
     def __tikz__(self):
-        return self.qcb.__tikz__()
+        return self.tikz_str

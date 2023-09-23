@@ -1,18 +1,16 @@
 from functools import reduce
-from utils import consume
-from qcb import SCPatch
+from surface_code_routing.utils import consume
 import unittest
-from mapper import QCBMapper
 
-from lib_instructions import T_Factory, T, Toffoli
-from instructions import INIT, CNOT, MEAS, X
-from dag import DAG
-from symbol import Symbol, ExternSymbol
-from mapper import QCBMapper
-from qcb_graph import QCBGraph
-from qcb_tree import QCBTree
-from allocator import Allocator
-from qcb import QCB
+from surface_code_routing.lib_instructions import T_Factory, T, Toffoli
+from surface_code_routing.instructions import INIT, CNOT, MEAS, X
+from surface_code_routing.dag import DAG
+from surface_code_routing.symbol import Symbol, ExternSymbol
+from surface_code_routing.mapper import QCBMapper
+from surface_code_routing.qcb_graph import QCBGraph
+from surface_code_routing.qcb_tree import QCBTree
+from surface_code_routing.allocator import Allocator
+from surface_code_routing.qcb import QCB, SCPatch
      
 class MapperTest(unittest.TestCase):
 
@@ -64,12 +62,6 @@ class MapperTest(unittest.TestCase):
 
 
     def test_reg_mapping(self):
-        from qcb_graph import QCBGraph
-        from qcb_tree import QCBTree
-        from allocator import Allocator
-        from qcb import QCB
-        from dag import DAG
-        from symbol import Symbol, ExternSymbol
 
         dag = DAG(Symbol('Test'))
         dag.add_gate(INIT('a', 'b', 'c', 'd'))

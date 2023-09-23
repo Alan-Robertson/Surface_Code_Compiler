@@ -71,8 +71,6 @@ def tex_header(*tiksargs):
 \usepackage{pgfplots} 
 \usepackage[edges]{forest}
 \usetikzlibrary{patterns, backgrounds, arrows.meta}
-\usepackage[export]{animate}
-
 \setlength{\parindent}{0cm}
 \setlength{\parskip}{1em}
 
@@ -156,7 +154,10 @@ def tikz_dag_edge(node_start, node_end):
 
 ### QCB Segments ###
 @tikz_str
-def tikz_qcb(qcb, seg_label_fn=lambda seg: f"{seg}{seg.get_symbol()}"):    
+def tikz_qcb(*args, **kwargs):
+    return tikz_qcb_no_header(*args, **kwargs)
+
+def tikz_qcb_no_header(qcb, seg_label_fn=lambda seg: f"{seg.get_symbol()}"):    
     tikz_str = ""
     for segment in qcb.segments:
         tikz_str += tikz_qcb_segement(segment, seg_label_fn=seg_label_fn)    
@@ -166,14 +167,14 @@ def tikz_qcb(qcb, seg_label_fn=lambda seg: f"{seg}{seg.get_symbol()}"):
 def tikz_pruned_qcb(*args, **kwargs):    
     return tikz_pruned_qcb_no_header(*args, **kwargs)
 
-def tikz_pruned_qcb_no_header(pruned_qcb, seg_label_fn=lambda seg: f"{seg}{seg.get_symbol()}"):    
+def tikz_pruned_qcb_no_header(pruned_qcb, seg_label_fn=lambda seg: f"{seg.get_symbol()}"):    
     tikz_str = ""
     # Draw segments
     for vertex in pruned_qcb.graph:
         tikz_str += tikz_qcb_segement(vertex.get_segment(), seg_label_fn=seg_label_fn)
     return tikz_str
 
-def tikz_qcb_segement(segment, seg_label_fn=lambda seg: f"{seg}{seg.get_symbol()}"):
+def tikz_qcb_segement(segment, seg_label_fn=lambda seg: f"{seg.get_symbol()}"):
     colour = colour_map[segment.get_state()]
     segment_str = tikz_segment_rectangle(segment, colour)
     segment_str += tikz_node(segment.x_0 + 0.5, segment.y_0 + 0.5, seg_label_fn(segment))
@@ -304,17 +305,26 @@ def tikz_tree_edge(parent, child):
 
 @tikz_str
 def tikz_mapper(mapper):
-    tikz_str = tikz_qcb_tree_no_header(mapper.mapping_tree, 
-                         node_draw_fn = lambda x: "", 
-                         leaf_draw_fn = lambda x: "") 
+    return tikz_mapper_no_header(mapper)
 
-    for symbol, segment in mapper.map.items():
-        tikz_str += tikz_mapper_label(segment, str(symbol))
+def tikz_mapper_no_header(mapper, qcb=True, tree=True):
+       
+    if qcb:
+        tikz_str =  tikz_qcb_no_header(mapper.mapping_tree.graph.qcb, seg_label_fn=lambda x: '')
+    else:
+        tikz_str = ''
+    if tree:
+        tikz_str += tikz_qcb_tree_no_header(mapper.mapping_tree, 
+                             node_draw_fn = lambda x: "", 
+                             leaf_draw_fn = lambda x: "") 
+    for symbol in mapper.map:
+        if not symbol.is_extern():
+            coordinates = mapper.dag_symbol_to_coordinates(symbol)
+            tikz_str += tikz_mapper_label(*coordinates, label=str(symbol))
     return tikz_str
 
-def tikz_mapper_label(segment, label):
-    colour = colour_map[segment.get_state()]
-    return tikz_node(segment.x_0 + 0.5, segment.y_0 + 0.5, label)
+def tikz_mapper_label(y, x, label):
+    return tikz_node(x + 0.5, y + 0.5, label)
 
 ### TIKZ CIRCUIT MODEL ###
 @tikz_str
@@ -326,6 +336,7 @@ def tikz_patch_graph_no_header(graph):
     for row in graph.graph:
         for element in row:
             tikz_str += tikz_patch_node(element)
+    tikz_str += tikz_mapper_no_header(graph.mapper, qcb=False, tree=False)
     return tikz_str
 
 def tikz_patch_node(element, delta = 0.13, colour_map=colour_map):

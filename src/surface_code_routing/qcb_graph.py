@@ -2,7 +2,7 @@ from surface_code_routing.qcb import Segment, SCPatch
 from typing import *
 import copy
 
-from surface_code_routing.tikz_utils import tikz_pruned_qcb, tikz_graph_qcb
+from surface_code_routing.tikz_utils import tikz_graph_qcb
 
 
 class GraphNode:
@@ -48,7 +48,7 @@ class QCBGraph:
         self.qcb = qcb
 
     def __tikz__(self):
-        return tikz_pruned_qcb(self)
+        return tikz_graph_qcb(self)
 
     def get_qcb(self):
         return self.qcb

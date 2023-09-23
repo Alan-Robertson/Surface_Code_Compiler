@@ -101,6 +101,9 @@ class RegSegmentMap():
         self.map_rev[index] = symbol
         self.n_slots_full += 1
 
+    def get_segment(self):
+        return self.segment
+
     def range(self):
         for offset in self.map_rev:
             yield self.segment.y_1, self.segment.x_0 + offset
@@ -161,6 +164,9 @@ class IOSegmentMap():
     def get_slot(self):
         return SCPatch.IO
 
+    def get_segment(self):
+        return self.segment
+
     def __getitem__(self, symbol):
         return self.segment.y_1, self.segment.x_0 + self.map[symbol]
 
@@ -189,6 +195,9 @@ class ExternSegmentMap():
         for segment in self.segments.values():
             for coordinate in segment.range():
                 yield coordinate
+    
+    def get_segment(self):
+        return self.segment
 
     def get_state(self):
         return SCPatch.EXTERN
