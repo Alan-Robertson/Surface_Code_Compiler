@@ -52,11 +52,13 @@ def factory_factory(fn, **kwargs):
         dag.add_gate(RESET(factory))
         return dag
 
-def non_local_factory(fn, n_cycles=1, n_ancillae=0):
+def non_local_factory(fn, n_cycles=1, n_ancillae=0, max_args=None):
     '''
     Factory method for generating non-local gates
     '''
     def instruction(*args):
+        if max_targs is not None and len(args) > max_targs):
+            raise Exception(f"Too many arguments: {fn} ({*args})")
         args = tuple(map(symbol_resolve, args))
         sym = Symbol(fn, args)
 
@@ -161,7 +163,7 @@ def XYZ_PI_4(X, Y, Z):
     dag.add_gate(Hadamard(args[0]))
     return dag
 
-CNOT = non_local_factory('CNOT', n_cycles=1)
+CNOT = non_local_factory('CNOT', n_cycles=3)
 
 CNOT_BASE = ZX_factory('CNOT')
 def CNOT(ctrl, *targs):
@@ -175,12 +177,14 @@ Hadamard = in_place_factory('H', n_cycles=3, n_ancillae=1)
 
 ROTATION_SYMBOL = Symbol('Rotation')
 Rotation = in_place_factory('Rotation', n_cycles=3, n_ancillae=1, rotation=True)
+MOVE_SYMBOL = Symbol('MOVE')
+Rotation = non_local_factory("MOVE", n_cycles=1, 
 
 Phase = in_place_factory('P')
 X = in_place_factory('X')
 Y = in_place_factory('Y')
 Z = in_place_factory('Z')
 
-JOINT_MEASURE = non_local_factory('MEAS ANC', n_cycles=1)
+JOINT_MEASURE = non_local_factory('MEAS ANC', n_cycles=1, max_args=2)
 
 from surface_code_routing.dag import DAG, DAGNode
