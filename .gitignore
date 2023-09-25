@@ -17,3 +17,9 @@
 *build
 *_minted*
 *__pycache__*
+
+
+# Because of vscode's garbage
+*.vscode/*
+.vscode/*
+.vscode
