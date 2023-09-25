@@ -57,7 +57,7 @@ def non_local_factory(fn, n_cycles=1, n_ancillae=0, max_args=None):
     Factory method for generating non-local gates
     '''
     def instruction(*args):
-        if (max_targs is not None) and (len(args) > max_targs):
+        if (max_args is not None) and (len(args) > max_args):
             raise Exception(f"Too many arguments: {fn} ({args})")
         args = tuple(map(symbol_resolve, args))
         sym = Symbol(fn, args)
@@ -163,9 +163,8 @@ def XYZ_PI_4(X, Y, Z):
     dag.add_gate(Hadamard(args[0]))
     return dag
 
-CNOT = non_local_factory('CNOT', n_cycles=3)
 
-CNOT_BASE = ZX_factory('CNOT')
+CNOT_BASE = ZX_factory('CNOT', n_cycles=3)
 def CNOT(ctrl, *targs):
    return CNOT_BASE((ctrl,), targs) 
 

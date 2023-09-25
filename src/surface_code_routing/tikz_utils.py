@@ -3,6 +3,7 @@ from surface_code_routing.qcb import SCPatch
 COLOUR_REG = 'red!35'
 COLOUR_EXTERN = 'blue!20'
 COLOUR_ROUTE = 'green!15'
+COLOUR_LOCAL_ROUTE = 'green!10'
 COLOUR_IO = 'blue!50!red!50!'
 COLOUR_NONE = 'black!20'
 COLOUR_DEBUG = 'yellow!30'
@@ -12,6 +13,7 @@ COLOUR_GRID = 'black!50!white'
 colour_map = {
     SCPatch.IO : COLOUR_IO,
     SCPatch.ROUTE : COLOUR_ROUTE,
+    SCPatch.LOCAL_ROUTE : COLOUR_LOCAL_ROUTE,
     SCPatch.EXTERN : COLOUR_EXTERN,
     SCPatch.REG : COLOUR_REG,
     SCPatch.INTERMEDIARY : COLOUR_NONE, 

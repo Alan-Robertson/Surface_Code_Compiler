@@ -14,7 +14,7 @@ from surface_code_routing.tikz_utils import tikz_router
 from surface_code_routing.instructions import RESET_SYMBOL, ROTATION_SYMBOL, HADAMARD_SYMBOL, Rotation
 
 class QCBRouter:
-    def __init__(self, qcb:QCB, dag:DAG, mapper:QCBMapper, graph=None, auto_route=True, verbose=True):
+    def __init__(self, qcb:QCB, dag:DAG, mapper:QCBMapper, graph=None, auto_route=True, verbose=False):
         '''
             Initialise the router
         '''

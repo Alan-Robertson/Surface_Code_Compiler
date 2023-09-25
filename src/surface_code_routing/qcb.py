@@ -66,6 +66,9 @@ class QCB():
     def n_cycles(self):
         return self.cycles 
 
+    def __iter__(self):
+        return self.segments.__iter__()
+
     def n_pre_warm_cycles(self):
         return self.prewarm
 
@@ -99,12 +102,13 @@ class QCB():
 
 class SCPatch():
     # Singletons
-    EXTERN = Symbol('EXTERN')
-    REG = Symbol('REGISTER')
-    ROUTE = Symbol('ROUTE')
-    IO = Symbol('IO')
-    INTERMEDIARY = Symbol('INTERMEDIARY')
-    NONE = Symbol('NONE')
+    EXTERN = Symbol('EXTERN') # Allocated for external dependencies
+    REG = Symbol('REGISTER')  # Memory in current scope
+    ROUTE = Symbol('ROUTE')   # Routing Lanes
+    LOCAL_ROUTE = Symbol('LOCAL') # Non-globally connected routing lanes, do not use for routing
+    IO = Symbol('IO') # IO elements
+    INTERMEDIARY = Symbol('INTERMEDIARY') # Virtual placements
+    NONE = Symbol('NONE') # Unallocated
 
     def __init__(self, qcb: 'None|QCB' = None):
         if qcb is None:
@@ -129,6 +133,10 @@ class SCPatch():
 
     def get_state(self):
         return self.state
+
+    def set_state(self, state):
+        self.state = state
+
 
     def get_slot_name(self):
         return self.slot.predicate
@@ -233,6 +241,9 @@ class Segment():
 
     def get_symbol(self):
         return self.state.get_symbol()
+
+    def set_state(self, state):
+        return self.state.set_state(state)
 
     def get_slot(self):
         return self.state.get_slot()

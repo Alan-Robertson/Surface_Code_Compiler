@@ -446,6 +446,8 @@ class DAG(DAGNode):
             for gate in waiting:
                 # If it's an extern gate then see if a free resource exists
                 if gate.is_extern():
+                    if len(idle_externs) == 0:
+                        continue
                     index, binding = next(
                         ((index, extern) for index, extern in enumerate(idle_externs) if extern.satisfies(gate)),
                          (None, None)

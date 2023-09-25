@@ -47,10 +47,10 @@ class QCBTree():
             return ExternRegNode
         if vertex.get_slot() == SCPatch.REG:
             return RegNode
-        if vertex.get_slot() == SCPatch.ROUTE:
-            return RouteNode 
         if vertex.get_slot() == SCPatch.IO:
             return RegNode 
+        else:
+            return RouteNode 
 
     def construct_spanning_tree(self):
 

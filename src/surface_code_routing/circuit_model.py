@@ -2,7 +2,8 @@ import numpy as np
 import queue
 from surface_code_routing.qcb import SCPatch
 from typing import *
-from surface_code_routing.tikz_utils import tikz_patch_graph 
+from surface_code_routing.tikz_utils import tikz_patch_graph
+from surface_code_routing.utils import debug_print
 from surface_code_routing.bind import AddrBind
 
 
@@ -14,7 +15,7 @@ class PatchGraphNode():
     SUGGEST_ROUTE = AddrBind('Suggest Route')
     SUGGEST_ROTATE = AddrBind('Suggest Rotate')
 
-    def __init__(self, graph, i, j, orientation = None):
+    def __init__(self, graph, i, j, orientation = None, verbose=False):
         self.graph = graph
         self.y = i
         self.x = j
@@ -24,8 +25,11 @@ class PatchGraphNode():
             orientation = self.X_ORIENTED
         self.orientation = orientation
         self.lock_state = self.INITIAL_LOCK_STATE
+
+        self.verbose = verbose
     
     def set_underlying(self, state):
+        debug_print(self, state, debug=self.verbose)
         self.state = state
 
     def adjacent(self, gate, **kwargs):
@@ -64,9 +68,12 @@ class PatchGraphNode():
 
     def route_or_hadamard(self, orientation):
         if orientation == self.orientation:
+            debug_print('MATCHING ORIETATION', self, debug=self.verbose)
             return self.SUGGEST_ROUTE
         if next(self.adjacent(None, bound=False, vertical=False, probe=False), None) is not None:
+            debug_print('HORIZONTAL_ROUTING', self, tuple(self.adjacent(None, bound=False, vertical=False, probe=False)), debug=self.verbose)
             return self.SUGGEST_ROUTE
+        debug_print('FALLBACK ROTATE', self, debug=self.verbose)
         return self.SUGGEST_ROTATE
 
     def rotate(self):
@@ -80,17 +87,26 @@ class PatchGraph():
 
     NO_PATH_FOUND = object()
 
-    def __init__(self, shape, mapper, environment, default_orientation = PatchGraphNode.X_ORIENTED ):
+    def __init__(self, shape, mapper, environment, default_orientation = PatchGraphNode.X_ORIENTED, verbose=False):
         self.shape = shape
         self.environment = environment
         self.mapper = mapper
         self.default_orientation = default_orientation
 
-        self.graph = np.array([[PatchGraphNode(self, i, j, orientation=self.default_orientation) for j in range(shape[1])] for i in range(shape[0])])
+        self.verbose = verbose
+
+        self.graph = np.array([[PatchGraphNode(self, i, j, orientation=self.default_orientation, verbose=False) for j in range(shape[1])] for i in range(shape[0])])
 
         for segment in self.mapper.map.values():
             for coordinates in segment.range():
-                self.graph[coordinates].set_underlying(segment.get_slot())
+                if self.graph[coordinates].state == SCPatch.ROUTE: 
+                    self.graph[coordinates].set_underlying(segment.get_slot())
+                else:
+                    break
+        for segment in self.mapper.qcb:
+            if segment.get_state() == SCPatch.LOCAL_ROUTE:
+                for coordinates in segment.range():
+                    self.graph[coordinates].set_underlying(SCPatch.LOCAL_ROUTE)
 
 
     def __getitem__(self, coords):
@@ -163,8 +179,8 @@ class PatchGraph():
             # Correct join at the start
             if track_rotations and current == start:
                 orientation = start_orientation
+            debug_print(current, gate, orientation, current.adjacent(gate, orientation=orientation) , debug=self.verbose)
             for i in current.adjacent(gate, orientation=orientation):
-
                 # Correct join at the end
                 if False and track_rotations and i == end:
                     if current not in end.adjacent(gate, orientation=end_orientation):

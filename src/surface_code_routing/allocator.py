@@ -10,6 +10,7 @@ class AllocatorError(Exception):
 class Allocator:
     def __init__(self, qcb: QCB, *extern_templates, optimise=True, tikz_build=True, debug=False):
         self.qcb = qcb
+        self.qcb.allocator = self
 
         self.extern_templates = sorted(extern_templates, 
                                      key=lambda extern: (extern.width, extern.height),
@@ -34,6 +35,8 @@ class Allocator:
         self.allocate()
         if optimise:
            self.optimise()
+
+        self.route_remainder()
 
     def reg_to_route(self, keep: Set[Tuple[int, int]]):
         
@@ -160,19 +163,23 @@ class Allocator:
         return False
 
     def optimise(self):
+
+        # Attempts to allocate either an extern or a new channel
         dag = self.qcb.operations
         while self.try_optimise():
             if self.tikz_build:
                 self.tikz_str += self.qcb.__tikz__()
 
+        # Splits remaining blocks
         while self.try_opt_channel():
             self.n_channels += 1
             if self.tikz_build:
                 self.tikz_str += self.qcb.__tikz__()
         
-
+        
+        # Set final compilation in the QCB
         n_layers, compiled_layers = dag.compile(self.n_channels, *self.msfs)
-        self.qcb.compiled_layers = compiled_layers
+        #self.qcb.compiled_layers = compiled_layers
 
         self.global_top_merge()
         self.global_left_merge()
@@ -192,14 +199,16 @@ class Allocator:
                 route.state = SCPatch(SCPatch.ROUTE)
                 reg.state = SCPatch(SCPatch.REG) 
                 reg.allocated = True
+
         if self.tikz_build:
             self.tikz_str += self.qcb.__tikz__()
 
 
         self.global_merge_tl()
+        # Add routing to flood fill 
         for seg in self.get_free_segments(self.qcb):
-            if not all(l.state.state == SCPatch.ROUTE for l in seg.left):
-                (left, main), confirm = seg.alloc(seg.height, 1)
+            if not all(left_node.state.state == SCPatch.ROUTE for left_node in seg.left):
+                (left, *main), confirm = seg.alloc(seg.height, 1)
                 confirm(self.qcb.segments)
                 left.state = SCPatch(SCPatch.ROUTE)
         
@@ -239,7 +248,13 @@ class Allocator:
         if self.tikz_build:
             self.tikz_str += self.qcb.__tikz__()
 
-
+    def route_remainder(self):
+        '''
+        Final allocation step, set everything that remains as a route
+        '''
+        for seg in self.qcb.segments:
+            if seg.get_state() is SCPatch.NONE:
+                seg.state = SCPatch(SCPatch.LOCAL_ROUTE)
 
     def place_io(self):
         if self.io_width == 0:
@@ -347,14 +362,24 @@ class Allocator:
         msf_block.allocated = False
 
         # Do right drop for leftmost MSF (connection to routing net in row above)
+#        if msf_block.x_0 == 0 and msf_block.y_0 != 0:
+#            (msf_block, right_drop), confirm = msf_block.alloc(msf.height + 1, msf.width)
+#            confirm(self.qcb.segments)
+#
+#            right_drop.allocated = True
+#            right_drop.state = SCPatch(SCPatch.ROUTE)
+#
+#            msf_block.allocated = False
+#
         if msf_block.x_0 == 0 and msf_block.y_0 != 0:
-            (msf_block, right_drop), confirm = msf_block.alloc(msf.height + 1, msf.width)
+            (left_drop, msf_block), confirm = msf_block.alloc(msf.height + 1, 1)
             confirm(self.qcb.segments)
 
-            right_drop.allocated = True
-            right_drop.state = SCPatch(SCPatch.ROUTE)
+            left_drop.allocated = True
+            left_drop.state = SCPatch(SCPatch.ROUTE)
 
             msf_block.allocated = False
+
 
         # Add route layer below
         (msf_seg, route_seg), confirm = msf_block.alloc(msf.height, msf.width)
@@ -414,7 +439,6 @@ class Allocator:
             fringe = position
             success, position = self.try_place_msf(msf, fringe)
     
-
     def route_to_io(self):
         if len(self.qcb.io) == 0:
             return
@@ -754,7 +778,6 @@ class Allocator:
 
             if self.tikz_build:
                 self.tikz_str += self.qcb.__tikz__()
-        
 
     def global_merge_tl(self):
         self.global_top_merge()

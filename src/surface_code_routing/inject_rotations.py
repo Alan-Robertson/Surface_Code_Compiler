@@ -1,6 +1,8 @@
 from typing import *
 from queue import PriorityQueue
 
+from surface_code_routing.utils import debug_print
+
 from surface_code_routing.qcb import Segment, SCPatch, QCB
 from surface_code_routing.circuit_model import PatchGraph, PatchGraphNode 
 from surface_code_routing.dag import DAG, DAGNode
@@ -13,11 +15,12 @@ from surface_code_routing.instructions import ROTATION_SYMBOL, HADAMARD_SYMBOL, 
 
 
 class RotationInjector():
-    def __init__(self, dag, mapper, qcb, graph=None, autorun=True):
+    def __init__(self, dag, mapper, qcb, graph=None, autorun=True, verbose=False):
 
         self.dag = dag
         self.mapper = mapper
         self.qcb = qcb
+        self.verbose = verbose
 
         if graph is None: 
             graph = PatchGraph(shape=qcb.shape, mapper=mapper, environment=None)
@@ -25,6 +28,11 @@ class RotationInjector():
         if autorun:
             self.inject_rotations()
             self.reset_rotations()
+        
+        # Delete local routes
+        for segment in qcb.segments:
+            if segment.get_state() is SCPatch.LOCAL_ROUTE:
+                segment.set_state(SCPatch.ROUTE)
 
     def reset_rotations(self):
         for i in range(self.qcb.width):
@@ -57,13 +65,19 @@ class RotationInjector():
             address = self.mapper.dag_symbol_to_coordinates(argument)
             graph_node = self.graph[address]
             if graph_node.route_or_hadamard(graph_node.Z_ORIENTED) is graph_node.SUGGEST_ROTATE:
+                debug_print(dag_node, graph_node, graph_node.orientation, 'ROTATE', debug=self.verbose)
                 rotation_targs.append(argument)
+            else:
+                debug_print(dag_node, graph_node, graph_node.orientation, 'ROUTE', debug=self.verbose)
         for argument in dag_symbol.x:
             address = self.mapper.dag_symbol_to_coordinates(argument)
-
             graph_node = self.graph[address]
             if graph_node.route_or_hadamard(graph_node.X_ORIENTED) is graph_node.SUGGEST_ROTATE:
+                debug_print(dag_node, graph_node, graph_node.orientation, 'ROTATE', debug=self.verbose)
                 rotation_targs.append(argument)
+            else:
+                debug_print(dag_node, graph_node, graph_node.orientation, 'ROUTE', debug=self.verbose)
+
         return rotation_targs
                 
     def inject_rotation_gate(self, dag_node, symbols):

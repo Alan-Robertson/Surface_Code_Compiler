@@ -7,6 +7,7 @@ class QCBMapper():
     def __init__(self, dag, mapping_tree):
         self.dag = dag
         self.mapping_tree = mapping_tree
+        self.qcb = mapping_tree.graph.qcb
         
         self.map = dict()
         self.segment_maps = dict()
@@ -127,11 +128,13 @@ class RegSegmentMap():
         return self.map.__repr__()
 
     def placement_strategy(self):
+        # TODO, ensure that the last allocations are at the ends of the segment
         if self.n_slots <= 4:
             # A reasonable hash function for small segments
             return int((self.n_slots_full * 7 + self.n_slots) % self.n_slots)
         else:
             # A better hash function for larger placements
+            # Double check this one, chance of duplication, could lead to slowdowns
             index = self.ALLOC_FAILED
             while index is self.ALLOC_FAILED:
                 row_num = int(maths.floor(maths.log2(self.allocator_position + 1)) + 1) 
