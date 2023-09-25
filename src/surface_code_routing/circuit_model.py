@@ -189,7 +189,18 @@ class PatchGraph():
         return final_route 
 
     def ancillae(self, gate, start, n_ancillae):
-        # Currently only supports a single ancillae
+        # Currently supports a single ancillae
+        return self.single_ancillae(gate, start)
+
+    def single_ancillae(self, gate, start):
+        potential_ancillae = start.adjacent(gate, bound=False)
+        for anc in potential_ancillae:
+            if anc.lock_state is not gate:
+                return [anc]
+        return self.NO_PATH_FOUND
+
+
+    def l_ancillae(self, gate, start):
         potential_ancillae = start.adjacent(gate, bound=False)
         for anc in potential_ancillae:
             if anc.lock_state is not gate:

@@ -1,7 +1,7 @@
 import copy
 from surface_code_routing.symbol import symbol_resolve
 from surface_code_routing.scope import Scope
-from surface_code_routing.instructions import RESET, CNOT
+from surface_code_routing.instructions import RESET, MOVE
 
 from surface_code_routing.dag import DAG
 from surface_code_routing.qcb import QCB, SCPatch
@@ -88,12 +88,12 @@ class CompiledQCB:
         dag = DAG(sym, scope=scope)
         
         for arg, fn_arg in zip(args, self.predicate.ordered_io_in()):
-            dag.add_gate(CNOT(arg, fn(fn_arg)))
+            dag.add_gate(MOVE(arg, fn(fn_arg)))
         
         dag.add_node(fn, n_cycles=self.n_cycles())
 
         for targ, fn_arg in zip(targs, self.predicate.ordered_io_out()):
-            dag.add_gate(CNOT(fn(fn_arg), targ))
+            dag.add_gate(MOVE(fn(fn_arg), targ))
 
         dag.add_gate(RESET(fn))
         return dag
