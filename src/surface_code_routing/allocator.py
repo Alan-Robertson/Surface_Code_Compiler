@@ -159,7 +159,6 @@ class Allocator:
             elif new_msf and self.try_opt_new_msf(new_msf):
                 self.msfs.append(new_msf)
                 return True
-        
         return False
 
     def optimise(self):
@@ -169,6 +168,7 @@ class Allocator:
         while self.try_optimise():
             if self.tikz_build:
                 self.tikz_str += self.qcb.__tikz__()
+            self.global_merge_tl()
 
         # Splits remaining blocks
         while self.try_opt_channel():
