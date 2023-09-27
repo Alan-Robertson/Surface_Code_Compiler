@@ -102,7 +102,7 @@ class QCBPrune:
         if len(seg.left) > 1:
             top_left = min((s for s in seg.left), key=lambda s: s.y_0)
             seg.allocated = False
-            (top, bottom), confirm = seg.split(seg.y_0, seg.x_0, top_left.y_1 - seg.y_0 + 1, seg.width)
+            confirm, (top, bottom) = seg.split(seg.y_0, seg.x_0, top_left.y_1 - seg.y_0 + 1, seg.width)
             confirm(self.segments)
             top.allocated = True
             top.state = SCPatch(SCPatch.ROUTE)
@@ -114,7 +114,7 @@ class QCBPrune:
         if len(seg.right) > 1:
             top_right = min((s for s in seg.right), key=lambda s: s.y_0)
             seg.allocated = False
-            (top, bottom), confirm = seg.split(seg.y_0, seg.x_0, top_right.y_1 - seg.y_0 + 1, seg.width)
+            confirm, (top, bottom) = seg.split(seg.y_0, seg.x_0, top_right.y_1 - seg.y_0 + 1, seg.width)
             confirm(self.segments)
             top.allocated = True
             top.state = SCPatch(SCPatch.ROUTE)
@@ -129,7 +129,7 @@ class QCBPrune:
 
             left_top = min((s for s in seg.above), key=lambda s: s.x_0)
             seg.allocated = False
-            (left, right), confirm = seg.split(seg.y_0, seg.x_0, seg.height, left_top.x_1 - seg.x_0 + 1)
+            confirm, (left, right)  = seg.split(seg.y_0, seg.x_0, seg.height, left_top.x_1 - seg.x_0 + 1)
             confirm(self.segments)
             left.allocated = True
             left.state = SCPatch(SCPatch.ROUTE)
@@ -141,7 +141,7 @@ class QCBPrune:
         if len(seg.below) > 1:
             left_bottom = min((s for s in seg.below), key=lambda s: s.x_0)
             seg.allocated = False
-            (left, right), confirm = seg.split(seg.y_0, seg.x_0, seg.height, left_bottom.x_1 - seg.x_0 + 1)
+            confirm, (left, right) = seg.split(seg.y_0, seg.x_0, seg.height, left_bottom.x_1 - seg.x_0 + 1)
             confirm(self.segments)
             left.allocated = True
             left.state = SCPatch(SCPatch.ROUTE)

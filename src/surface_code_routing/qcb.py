@@ -137,7 +137,6 @@ class SCPatch():
     def set_state(self, state):
         self.state = state
 
-
     def get_slot_name(self):
         return self.slot.predicate
 
@@ -239,6 +238,12 @@ class Segment():
         self.state = SCPatch()
         self.debug_name = ""
 
+    def allocate(self):
+        self.allocated = True
+
+    def deallocate(self):
+        self.allocated = False
+    
     def get_symbol(self):
         return self.state.get_symbol()
 
@@ -267,6 +272,31 @@ class Segment():
             return self.width * self.height
         return 0
         return self.state.get_n_slots()
+
+    # Useful for finding relative ordering of segments
+    @classmethod
+    def find_max_segment(cls, segments, key=None):
+        curr_max = float('-inf')
+        curr_seg = None
+        for segment in segments:
+            if (val := key(segment)) > curr_max:
+                curr_seg = segment
+                curr_max = val
+        return curr_seg
+
+    @classmethod 
+    def topmost_segment(cls, segments):
+        return cls.find_max_segment(segments, key = lambda x: -x.y_0) 
+    @classmethod 
+    def bottommost_segment(cls, segments):
+        return cls.find_max_segment(segments, key = lambda x: x.y_1) 
+    @classmethod 
+    def leftmost_segment(cls, segments):
+        return cls.find_max_segment(segments, key = lambda x: -x.x_0) 
+    @classmethod
+    def rightmost_segment(cls, segments):
+        return cls.find_max_segment(segments, key = lambda x: x.x_1) 
+
 
 
     def is_extern(self):
@@ -301,13 +331,29 @@ class Segment():
         if width > self.width or height > self.height:
             return None, None
 
-        chunks, confirm = self.split(self.y_0, self.x_0, height, width)
+        confirm, chunks = self.split(self.y_0, self.x_0, height, width)
         if not confirm:
             return None, None
         
         chunks[0].allocated = True
 
-        return chunks, confirm
+        return confirm, chunks
+
+    def split_top(self, height, max_width=float('inf')):
+        width = min(max_width, self.width)
+        return self.split(self.y_0, self.x_0, height, width)
+
+    def split_left(self, width, max_height=float('inf')):
+        height = min(max_height, self.height)
+        return self.split(self.y_0, self.x_0, height, width)
+
+    def split_right(self, width, max_height=float('inf')):
+        height = min(max_height, self.height)
+        return self.split(self.y_1 - width, self.x_0, height, width)
+
+
+    def split_top_left(self, height, width):
+        return self.split(self.y_0, self.x_0, height, width)
 
     def split(self, y: int, x: int, height:int, width: int) -> \
         'Tuple[None, None]|Tuple[List[Segment], Callable[[Set[Segment]],]]':
@@ -375,7 +421,7 @@ class Segment():
             segs.remove(self)
             segs.update(segments)
         
-        return segments, confirm
+        return confirm, segments
 
     # link edges between sets seg_a and seg_b
     # (seg_b is seg_a if not specified)
@@ -425,7 +471,7 @@ class Segment():
             segs.remove(segment)
             segs.add(merged_segment)
 
-        return merged_segment, confirm
+        return confirm, merged_segment
 
 
     # Merge two blocks vertically that share a horizontal boundary
@@ -461,7 +507,7 @@ class Segment():
             segs.remove(segment)
             segs.add(merged_segment)
 
-        return merged_segment, confirm
+        return confirm, merged_segment
 
     def _confirm_local_merge(self, segment: 'Segment', merged_segment: 'Segment'):
         for edge in merged_segment.edges().values():
@@ -504,7 +550,7 @@ class Segment():
         if self.allocated:
             return None, None
         elif all(map(lambda s:s.allocated, self.right)):
-            return [self], lambda s: None
+            return lambda s: None, (self,) 
 
         splits = {self.y_0, self.y_1 + 1}
 
@@ -600,7 +646,7 @@ class Segment():
             segs.difference_update(old)
             segs.update(segments)
 
-        return segments, confirm  
+        return confirm, segments
 
     # # merge cell into below neighbours
     # #   a a a        F C B
@@ -611,7 +657,7 @@ class Segment():
         if self.allocated:
             return None, None
         elif all(map(lambda s:s.allocated, self.below)):
-            return [self], lambda s: None
+            return lambda s: None, (self,) 
 
         splits = {self.x_0, self.x_1+1}
 
@@ -705,8 +751,7 @@ class Segment():
             segs.difference_update(old)
             segs.update(segments)
 
-        return segments, confirm  
-
+        return confirm, segments
     def _filter_mutual_neighbours(self, other: 'Segment', label: str):
         edge_dict = {
             SCEdge.ABOVE:self.above,
