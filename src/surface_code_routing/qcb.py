@@ -1,3 +1,6 @@
+import copy
+from typing import *
+
 from surface_code_routing.bind import AddrBind
 from surface_code_routing.symbol import Symbol
 
@@ -761,10 +764,66 @@ class Segment():
         }
         return set(e for e in edge_dict[label] if self.seg_adjacent(other, e, label))
 
+    def split_contains_below(self, segment, height):
+        """
+            Returns if an adjacent segment is contained by this segment from above
+        """
+        if segment not in self.below:
+            raise Exception("Segments not adjacent")
+        x_0 = max(self.x_0, segment.x_0)
+        x_1 = min(self.x_1, segment.x_1)
+        if x_0 != segment.x_0 or x_1 != segment.x_1:
+            confirm, segments = segment.split(segment.y_0, x_0, height, x_1 - x_0 + 1)
+            for seg in segments: # Maximum of 6 segments
+                if seg.y_0 == segment.y_0 and seg.x_0 == x_0:
+                    return confirm, seg
+        return None, None
 
-import copy
-from typing import *
+    def split_contains_right(self, segment, height):
+        """
+            Returns if an adjacent segment is contained by this segment from above
+        """
+        if segment not in self.below:
+            raise Exception("Segments not adjacent")
+        x_0 = max(self.x_0, segment.x_0)
+        x_1 = min(self.x_1, segment.x_1)
+        if x_0 != segment.x_0 or x_1 != segment.x_1:
+            confirm, segments = segment.split(segment.y_0, x_0, height, x_1 - x_0 + 1)
+            for seg in segments: # Maximum of 6 segments
+                if seg.y_0 == segment.y_0 and seg.x_0 == x_0:
+                    return confirm, seg
+        return None, None
+
+    def route_edge(self, edge, reverse=True):
+        """ 
+        Search left edge, True implies bottom to top, False implies top to bottom.
+        """
+        if len(edge) == 0:
+            # Nothing on this edge
+            return False, None
+
+        route_segments = []
+        for segment in sorted(edge, key=lambda x: x.y_0, reverse=reverse):
+            if segment.get_state() is SCPatch.NONE:
+                # Unallocated, may be used for routing
+                confirm, routing_segments = segment.split_right(1)
+                routing_lane = next(seg in routing_segments if seg.x_0 == segment.x_1)
+                route_segments.append(segment)
+            elif segment.get_state() is SCPatch.ROUTE:
+                # Route, we've found the end
+                return True, route_segments
+            else:
+                # Non-routable element found, terminate
+                return False, None
+        # Reached top of object without finding routing node. Take a leap 
+        above_probe = next(iter(segment.above), None)
+        if above_probe is not None and above_probe.get_state() is SCPatch.ROUTE:
+            # Found a route above, join to it
+            return True, route_segments
+        # No route found, give up
+        return False, None
+
+
 from surface_code_routing.dag import DAG
 from surface_code_routing.bind import Bind, ExternBind
-
 from surface_code_routing import tikz_utils
