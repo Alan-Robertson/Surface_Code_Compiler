@@ -11,15 +11,99 @@ from surface_code_routing.allocator import Allocator
 
 from surface_code_routing.instructions import INIT, CNOT, Hadamard
 
-def ExternInjector(extern_name):
-    sym = Symbol(extern_name)
+from test_utils import CompiledQCBInterface
 
-    extern = ExternSymbol(extern_name)
-    scope = Scope({extern:extern})
 
-    dag = DAG(sym, scope=scope)
-    dag.add_node(extern, n_cycles=1)
-    return dag
+from surface_code_routing.qcb import QCB, Segment, SCPatch
+
+class SegmentTest(unittest.TestCase):
+    def test_segments(self):
+
+        segment = Segment(0, 0, 4, 4)
+        finalised_segments = {segment}
+
+        confirm, segments = segment.split(0, 0, 1, 1)
+
+        assert (len(finalised_segments) == 1)
+        assert (len(segments) == 4)
+
+        confirm(finalised_segments)
+        assert (len(finalised_segments) == 4)
+
+        seg_tl = next((i for i in finalised_segments if i.x_0 == 0 and i.y_0 == 0), None)
+        seg_tr = next((i for i in finalised_segments if i.x_0 == 1 and i.y_0 == 0), None)
+        assert (len(seg_tl.below) == 1 and len(seg_tl.left) == 0 and len(seg_tl.right) == 1 and len(seg_tl.above) == 0) 
+        assert (len(seg_tr.below) == 1 and len(seg_tr.left) == 1 and len(seg_tr.right) == 0 and len(seg_tr.above) == 0) 
+        
+        seg_bl = next(iter(seg_tl.below))
+        seg_br = next(iter(seg_tr.below))
+
+        assert (seg_tl in seg_tr.left) and (seg_br in seg_tr.below)
+        assert (seg_tr in seg_tl.right) and (seg_bl in seg_tl.below)
+        assert (seg_bl in seg_br.left) and (seg_tr in seg_br.above)
+        assert (seg_br in seg_bl.right) and (seg_tl in seg_bl.above)
+
+        assert (seg_br.horizontal_merge(seg_bl)[1] == seg_bl.horizontal_merge(seg_br)[1])
+        assert (seg_tr.horizontal_merge(seg_tl)[1] == seg_tl.horizontal_merge(seg_tr)[1])
+        assert (seg_tr.vertical_merge(seg_br)[1] == seg_br.vertical_merge(seg_tr)[1])
+        assert (seg_tl.vertical_merge(seg_bl)[1] == seg_bl.vertical_merge(seg_tl)[1])
+
+        confirm, seg_bottom = seg_bl.horizontal_merge(seg_br)
+        confirm(finalised_segments)
+        assert(len(finalised_segments) == 3)
+        assert(seg_bottom in finalised_segments)
+  
+        error_uncaught = False
+        try: # Too tall
+            seg_bottom.split(1, 1, 5, 1)
+            error_uncaught = True
+        except AssertionError:
+            pass
+    
+        try: # Too short
+            seg_bottom.split(1, 1, 0, 1)
+            error_uncaught = True
+        except AssertionError:
+            pass
+
+        try: # Y Coord out of bounds up
+            seg_bottom.split(0, 1, 4, 1)
+            error_uncaught = True
+        except AssertionError:
+            pass
+
+        try: # Y Coord out of bounds down
+            seg_bottom.split(5, -1, 4, 1)
+            error_uncaught = True
+        except AssertionError:
+            pass
+
+        try: # Too long
+            seg_bottom.split(1, 1, 1, 5)
+            error_uncaught = True
+        except AssertionError:
+            pass
+    
+        try: # Too narrow
+            seg_bottom.split(1, 1, 1, 0)
+            error_uncaught = True
+        except AssertionError:
+            pass
+
+        try: # X Coord out of bounds left
+            seg_bottom.split(1, -1, 4, 1)
+            error_uncaught = True
+        except AssertionError:
+            pass
+
+        try: # X Coord out of bounds right
+            seg_bottom.split(1, 5, 4, 1)
+            error_uncaught = True
+        except AssertionError:
+            pass
+
+        assert error_uncaught is False
+
 
 class AllocatorTest(unittest.TestCase):
     def test_top_alloc(self):
@@ -69,142 +153,45 @@ class AllocatorTest(unittest.TestCase):
 
         allocator = Allocator(qcb_base)
 
+    def test_single_extern(self):
+        extern = CompiledQCBInterface("TST", 3, 3)
+        g = DAG(Symbol('tst'))
+        g.add_gate(INIT(*[f'q_{i}' for i in range(5)]))
+
+        qcb_base = QCB(7, 5, g)
+
+        allocator = Allocator(qcb_base, extern)
+
+    def test_two_externs(self):
+        extern_a = CompiledQCBInterface("TST", 2, 2)
+        extern_b = CompiledQCBInterface("TST", 2, 2)
+        g = DAG(Symbol('tst'))
+        g.add_gate(INIT(*[f'q_{i}' for i in range(5)]))
+
+        qcb_base = QCB(7, 5, g)
+
+        allocator = Allocator(qcb_base, extern_a, extern_b)
+
+    def test_two_externs_more_reg(self):
+        extern_a = CompiledQCBInterface("TST", 2, 2)
+        extern_b = CompiledQCBInterface("TST", 2, 2)
+        g = DAG(Symbol('tst'))
+        g.add_gate(INIT(*[f'q_{i}' for i in range(10)]))
+
+        qcb_base = QCB(7, 5, g)
+
+        allocator = Allocator(qcb_base, extern_a, extern_b)
+
+    def test_extern_right_drop_up(self):
+        extern_a = CompiledQCBInterface("TST", 2, 3)
+        extern_b = CompiledQCBInterface("TST", 2, 3)
+        g = DAG(Symbol('tst'))
+        g.add_gate(INIT(*[f'q_{i}' for i in range(1)]))
+
+        qcb_base = QCB(7, 5, g)
+
+        allocator = Allocator(qcb_base, extern_a, extern_b)
 
 
-#    def test_simple_extern(self):
-#        from surface_code_routing.lib_instructions import T, T_Factory
-#        g = DAG(Symbol('tst'))
-#        g.add_gate(INIT('a', 'b', 'c', 'd'))
-#        g.add_gate(T('a'))
-#
-#        qcb_base = QCB(7, 7, g)
-#
-#        allocator = Allocator(qcb_base, T_Factory())
-#
-#    def test_io_extern_collision(self):
-#        dag_symbol = ExternSymbol('tst', 'out')
-#        g = DAG(dag_symbol, scope={dag_symbol:dag_symbol})
-#        g.add_gate(ExternInjector('A'))
-#        
-#        sym = ExternSymbol('A', 'out')
-#        factory_impl = QCB(1, 2, DAG(symbol=sym, scope={sym:sym}))
-#
-#        qcb_base = QCB(3, 3, g)
-#
-#        allocator = Allocator(qcb_base, factory_impl)
-#
-#    def test_io_reg_collision(self):
-#        g = DAG(Symbol('tst', 'out'))
-#        g.add_gate(INIT('a', 'b', 'c', 'd'))
-#        qcb_base = QCB(4, 4, g)
-#
-#        allocator = Allocator(qcb_base)
-#
-#    def test_io_extern_collision_fail(self):
-#        dag_symbol = ExternSymbol('tst', 'out')
-#        g = DAG(dag_symbol, scope={dag_symbol:dag_symbol})
-#        g.add_gate(ExternInjector('A'))
-#
-#        
-#        sym = ExternSymbol('A', 'out')
-#        factory_impl = QCB(1, 2, DAG(symbol=sym, scope={sym:sym}))
-#
-#        qcb_base = QCB(3, 3, g)
-#
-#        try:
-#            allocator = Allocator(qcb_base, factory_impl)
-#        except:
-#            return
-#
-#        assert False, "This should fail."
-#
-#
-#    def test_extern_io_conflict_drop(self):
-#        dag_symbol = ExternSymbol('tst', 'out')
-#        g = DAG(dag_symbol, scope={dag_symbol:dag_symbol})
-#        g.add_gate(INIT('a', 'b'))
-#        g.add_gate(ExternInjector('A'))
-#        g.add_gate(ExternInjector('B'))
-#
-#        
-#        sym_a = ExternSymbol('A', 'out')
-#        factory_a = QCB(2, 4, DAG(symbol=sym_a, scope={sym_a:sym_a}))
-#
-#        sym_b = ExternSymbol('B', 'out')
-#        factory_b = QCB(1, 1, DAG(symbol=sym_b, scope={sym_b:sym_b}))
-#
-#        qcb_base = QCB(4, 5, g)
-#
-#        try:
-#            allocator = Allocator(qcb_base, factory_a, factory_b)
-#        except AssertionError as e:
-#            raise e
-#        
-#  
-#
-#    def test_only_extern(self):
-#        g = DAG(Symbol('tst'))
-#        g.add_gate(ExternInjector('A'))
-#        g.add_gate(ExternInjector('B'))
-#        g.add_gate(ExternInjector('C'))
-#        
-#
-#        syms = [ExternSymbol(c, 'out') for c in 'ABC']
-#        factory_impls = [QCB(1, i+1, DAG(symbol=s, scope={s:s})) for i, s in enumerate(syms)]
-#
-#        qcb_base = QCB(3, 4, g)
-#        allocator = Allocator(qcb_base, *(factory_impls))
-#
-#    def test_3x2(self):
-#        g = DAG(Symbol('tst'))
-#        init = INIT('a', 'b', 'c', 'd')
-#        g.add_gate(init)
-#        qcb_base = QCB(2, 3, g)
-#
-#        allocator = Allocator(qcb_base)
-#    
-#   
-#    def test_reproducibility(self):
-#        '''
-#            Run the same inputs a few times to see if we get the same allocation
-#        '''
-#        def dag_fn(n_qubits, width, height): 
-#             dag = DAG(f'qft_{n_qubits}_height')
-#             for i in range(n_qubits):
-#                 dag.add_gate(Hadamard(f'q_{i}'))
-#                 for j in range(i + 1, n_qubits):
-#                     dag.add_gate(CNOT(f'q_{j}', f'q_{i}'))
-#             return dag
-#
-#        height = 5
-#        width = 5
-#        n_qubits = 6
-#        qcb_base = QCB(height, width, (dag_fn(n_qubits, height, width)))
-#        Allocator(qcb_base)
-#        segs_base = list(qcb_base.segments)
-#        segs_base.sort(key = lambda seg:  seg.x_0 * height + seg.y_0)
-#        for i in range(20): 
-#            qcb = QCB(height, width, (dag_fn(n_qubits, height, width)))
-#            allocator = Allocator(qcb)
-#            segs = list(qcb.segments)
-#            segs.sort(key=lambda seg: seg.x_0 * height + seg.y_0)
-#            for seg, seg_b in zip(segs, segs_base): 
-#                 assert(seg.state.state == seg_b.state.state)
-#
-#    def test_2x2(self):
-#        g = DAG(Symbol('tst'))
-#        init = INIT('a', 'b', 'c', 'd')
-#        g.add_gate(init)
-#      
-#        qcb_base = QCB(2, 2, g)
-#
-#        try:
-#            allocator = Allocator(qcb_base)
-#        except:
-#            return
-#        
-#        assert False, "This should fail."
-#
-#
 if __name__ == '__main__':
     unittest.main()

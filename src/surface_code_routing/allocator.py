@@ -1,7 +1,7 @@
 from itertools import chain
 from typing import *
 import copy
-
+import pdb
 from surface_code_routing.qcb import Segment, SCPatch, QCB
 from surface_code_routing.dag import DAG
 import surface_code_routing.utils as utils 
@@ -24,6 +24,9 @@ class Allocator:
     INVARIANT_FAILED = AddrBind("Failed")
     ROUTEABLE = (SCPatch.ROUTE, SCPatch.NONE)
 
+    VERTICAL_UP = AddrBind("Vertical Up")
+    VERTICAL_DOWN = AddrBind("Vertical Down")
+
     def __init__(self, qcb: QCB, *extern_templates, optimise=False, tikz_build=True, verbose=True, opt_space=False, opt_route=True):
         self.qcb = qcb
         self.qcb.allocator = self
@@ -31,7 +34,6 @@ class Allocator:
         self.extern_templates = sorted(extern_templates, 
                                      key=lambda extern: (extern.width, extern.height),
                                      reverse=True)
-        self.qcb.extern_templates = {x.symbol:x for x in self.extern_templates}
 
         self.height = qcb.height
         self.width = qcb.width
@@ -66,19 +68,23 @@ class Allocator:
         if self.tikz_build:
                 self.tikz_str += self.qcb.__tikz__()
 
-
     def allocate(self):
         for extern in self.extern_templates:
+            self.global_left_merge()
             self.debug_print(f"Externs: {extern}")   
-            invariant = self.alloc_extern(extern)
+            invariant = self.extern_invariant(extern)
             self.build_tikz_str()
             if invariant is self.INVARIANT_FAILED:
                 raise Exception("Not enough space for registers")
 
         while self.reg_allocated < self.reg_quota: 
             self.debug_print(f"Registers: {self.reg_allocated} / {self.reg_quota}")
-            free_segment = next(iter(self.get_free_segments(self.qcb)), None)
-            invariant = self.alloc_reg(free_segment)
+
+            # Have to global merge before attempting to retrieve segment
+            self.global_merge_tl()
+
+            free_segment = next(iter(self.get_free_segments()), None)
+            invariant = self.reg_invariant(free_segment)
             self.build_tikz_str()
             if invariant is self.INVARIANT_FAILED:
                 raise Exception("Not enough space for registers")
@@ -86,12 +92,32 @@ class Allocator:
     def extern_invariant(self, extern):
         placed = False 
         for free_segment in self.get_free_segments(): 
-           invariant, extern, routes = self.alloc_extern(extern, segment) 
+           invariant, segment, routes = self.alloc_extern(extern, free_segment) 
+           self.debug_print(f"Attempting to allocate {extern} {segment}")
            if invariant is not self.INVARIANT_FAILED:
-               placed = True
-               break
+               self.place_extern_segment(segment, extern)
+               self.place_route_segments(*routes)
+               self.debug_print(f"Success: {extern} {segment}")
+               return True
         if placed is not True:
             raise Exception(f"Could not allocate extern: {extern}, no valid placement")
+
+    def reg_invariant(self, segment):
+        self.debug_print(segment)
+
+        invariant, regs, routes = self.alloc_reg(segment)
+        
+        self.debug_print(invariant, regs, routes, '\n')
+        if invariant is not self.INVARIANT_FAILED:
+            if regs is None and routes is None:
+                return self.INVARIANT_FAILED
+            if regs is not None:
+                self.place_reg_segments(*regs)
+            if routes is not None:
+                self.place_route_segments(*routes)
+        else:
+            self.place_route_segments((segment, ))
+        return invariant
 
     
     def alloc_extern(self, extern, segment):
@@ -99,34 +125,47 @@ class Allocator:
             self.debug_print(f"Segment {segment} was too small to contain {extern}")
             return self.INVARIANT_FAILED, None, None
 
-        # Attempt tight fit below
-        if segment.height == extern.height:
-            # Check that the route below is already routable
-            if ((len(extern_segment.below) > 0) 
-                and all(x.get_state() in self.ROUTEABLE for x in extern_segment.below)
-                ):
-                self.debug_print("Attempting tight route from below")
-                return route_extern_tight_below(extern_segment)
-            else:
-                return self.INVARIANT_FAILED, None, None
-        
-        confirm, segment = segment.split_top_left(extern.height, extern.width)
-        extern_segment, *remainder = segment
+        confirm, segments = segment.split_top_left(extern.height, extern.width) 
+        confirm(self.qcb.segments)
+        extern_segment = next((seg for seg in segments if seg.x_0 == segment.x_0 and seg.y_0 == segment.y_0), None)
 
-        # Attempt loose fit bottom, tight fit on right or left
-        if segment.width == extern.width:
-            if all(x.get_state() in self.ROUTEABLE for x in extern_segment.right):
-                confirm(self.qcb.segments)
-                self.debug_print("Attempting tight route from below")
-                invariant, extern, routes = route_extern_tight_right(extern_segment)
-                if invariant is not SELF.INVARIANT_FAILED:
-                    return invariant, extern, routes
 
-    # Drop right up to route
-    # Drop left up to route
-    # Drop left down to route
+        if ((extern_segment.x_0 == 0 and extern_segment.y_0 == 0) # First allocation, just place below
+            or (any(seg.get_state() is SCPatch.ROUTE for seg in extern_segment.below) and # Already routable from below 
+                all(seg.get_state() in self.ROUTEABLE for seg in extern_segment.below))
+            ):
 
-    def route_right_drop_up(segment):
+            success, extern, below_route = self.route_below(extern_segment)
+            return success, extern[0], below_route
+
+        success, _, below_route = self.route_below(extern_segment)
+        if not success:
+            # Cannot route below
+            return self.INVARIANT_FAILED, None
+
+        # Need to do a drop, start with a right drop up
+        success, routes = self.route_right_drop_up(extern_segment)
+        if success:
+            return success, extern_segment, routes
+
+    def place_segment_of_type(self, seg_type, *segments):
+        for segment in segments:
+            segment.set_state(seg_type)
+            segment.allocate()
+
+    def place_route_segments(self, *segments):
+        self.place_segment_of_type(SCPatch.ROUTE, *segments)
+
+    def place_reg_segments(self, *segments):
+        self.place_segment_of_type(SCPatch.REG, *segments)
+        for segment in segments:
+            self.reg_allocated += segment.height * segment.width
+
+    def place_extern_segment(self, segment, extern):
+        segment.state = SCPatch(extern)
+        segment.allocate()
+
+    def route_right_drop_up(self, segment):
         '''
                      +
             %%%%%%%%%+
@@ -137,29 +176,28 @@ class Allocator:
                     @@ 
         '''
         # Not at the top, try a right drop
-        below_probe = extern_segment.rightmost_segment(extern_segment.below)
+        below_probe = segment.rightmost_segment(segment.below)
         # Probe extends beyond range of block
-        if below_probe.x_1 > extern_segment.x_1:
+        if below_probe.x_1 > segment.x_1:
             below_right_probe = below_probe
         else:
-            below_right_probe = next(
-            iter(below_probe.topmost_segment(below_probe.right)),
-            None)
+            below_right_probe = below_probe.topmost_segment(below_probe.right)
+
         below_right_routeable = (
-                (below_right_probe != None) 
+                (below_right_probe is not None) 
                 or (below_right_probe.get_state() in SCPatch.ROUTEABLE)
                 )
         # Trying to find a viable right route
         if below_right_routeable:
             # Routing is possible, create the corner
-            confirm, segments = below_right_routeable.split(segment.x_1 + 1, segment.y_1 + 1, 1, 1)
+            confirm, segments = below_right_probe.split(segment.y_1 + 1, segment.x_1 + 1, 1, 1)
             confirm(self.qcb.segments)
             below_right_route = next(seg for seg in segments if (
                 (seg.x_0 == segment.x_1 + 1)
                 and (seg.y_0 == segment.y_1 + 1)))
 
             # Try to route up the right hand side
-            success, routes = extern_segment.route_edge(extern_segment.right)
+            success, routes = self.route_vertical_up(below_right_route, segment.x_1 + 1)
             if success is True:
                 return success, routes + [below_right_route]
         return False, None
@@ -258,33 +296,6 @@ class Allocator:
 
 
     def alloc_reg(self, segment):
-        self.debug_print(segment)
-        invariant, regs, routes = self.reg_invariant(segment)
-        
-        self.debug_print(invariant, regs, routes, '\n')
-
-        if invariant is not self.INVARIANT_FAILED:
-            if regs is not None:
-                self.place_reg_segments(*regs)
-            if routes is not None:
-                self.place_route_segments(*routes)
-            self.global_merge_tl()
-        return invariant
-
-    def place_segment_of_type(self, seg_type, *segments):
-        for segment in segments:
-            segment.set_state(seg_type)
-            segment.allocate()
-
-    def place_route_segments(self, *segments):
-        self.place_segment_of_type(SCPatch.ROUTE, *segments)
-
-    def place_reg_segments(self, *segments):
-        self.place_segment_of_type(SCPatch.REG, *segments)
-        for segment in segments:
-            self.reg_allocated += segment.height * segment.width
-
-    def reg_invariant(self, segment):
         '''
             Given the current free segment, try to allocate a register
             If this function does not return INVARIANT_FAILED then register allocation is feasible 
@@ -300,8 +311,8 @@ class Allocator:
         reg_segment = segments[0]
         if reg_segment.width == 1:
             self.debug_print("Width 1 Segment")
-            # Width one segment, can't be a register, ROUTE it
-            return self.ROUTE_BLOCK, None, (reg_segment,)
+            confirm(self.qcb.segments)
+            return self.route_single_reg(reg_segment) 
 
         
         # Check if this segment would already be routable from above
@@ -315,8 +326,11 @@ class Allocator:
             # ++++++++++
             #
             confirm(self.qcb.segments)
-            segs, routes = self.route_below(reg_segment)
-            return self.REG_INVARIANT_ABOVE, segs, routes 
+            success, segs, routes = self.route_below(reg_segment)
+            if success:
+                return self.REG_INVARIANT_ABOVE, segs, routes 
+            else:
+                return self.INVARIANT_FAILED, None, None
 
         if ((len(segment.above) > 0) # Don't do this if you're at the top
              and (all(x.get_state() is SCPatch.ROUTE for x in segment.above))):
@@ -328,8 +342,9 @@ class Allocator:
             # --------
             #
             confirm(self.qcb.segments)
-            regs, routes = self.route_reg_from_above(reg_segment) 
+            invariant, regs, routes = self.route_reg_from_above(reg_segment) 
             return self.REG_INVARIANT_ABOVE, regs, routes
+
         ####  
         # Segment cannot be routed from above
         # Split to create a probe on the left
@@ -339,6 +354,7 @@ class Allocator:
         #        
         confirm(self.qcb.segments)
         confirm, segments = reg_segment.split_top_left(1, 1)
+        original_segment = reg_segment
         probe_segment, reg_segment = segments
         # If this is the top row then it gets split
         #
@@ -353,7 +369,7 @@ class Allocator:
         top_probe_routable = ((top_probe is not None) 
                               and (top_probe.get_state() is SCPatch.ROUTE) 
                               ) 
-        if left_probe == None:
+        if left_probe is None:
             bottom_probe = None
             bottom_probe_routable = False
         else:
@@ -381,15 +397,64 @@ class Allocator:
             regs, routes = self.route_reg_from_top_left(probe_segment, reg_segment) 
             return self.REG_INVARIANT_ABOVE_LEFT, regs, routes
 
-        # All else failed, attempt to drop
-        # Allocate segments so that they're not destroyed by the merge
-        # This allocates the probe and the segment
-        success, regs, routes = self.route_drop_left(probe_segment, reg_segment)
+        # All else failed, attempt to drop left
+        success, regs, routes = self.route_drop_left(original_segment)
+        if success:
+            return self.REG_INVARIANT_DROP, regs, routes
 
         # Could not find a routing strategy that doesn't violate the invariant
         # Fail
         return self.INVARIANT_FAILED, None, None
-   
+  
+    def route_single_reg(self, segment):
+        above = next(iter(segment.above), None)
+        left = next(iter(segment.left), None)
+        below = next(iter(segment.below), None)
+
+        if above is None:
+            # Top of the QCB, route down
+            success, routes = self.route_vertical_down(below, segment.x_0)
+            if success:
+                return self.REG_INVARIANT_DROP, (segment, ), routes 
+       
+        if below.get_state() is SCPatch.ROUTE:
+            return self.REG_BLOCK, (segment, ), None
+
+        if above.get_state() is SCPatch.ROUTE and left.get_state() is SCPatch.ROUTE:
+            return self.REG_BLOCK, (segment, ), None
+
+        if left.get_state() is SCPatch.ROUTE and below.get_state() in self.ROUTEABLE:
+            if below.x_0 < segment.x_0:
+                if below.get_state() is not SCPatch.ROUTE:
+                    # Construct a routing channel
+                    confirm, segments = below.split(segment.y_0 + 1, segment.x_0 - 1, 1, 2)
+                    below_route = next((seg for seg in segments if seg.x_0 == segment.x_0 - 1 and seg.y_0 == segment.y_0 + 1), None)
+                    confirm(self.qcb.segments)
+                    return self.REG_BLOCK, (segment, ), (below_route, )
+                else: 
+                    # No need, already routed and connected from below
+                    return self.REG_BLOCK, (segment, ), None
+
+            else:
+                below_left = Segment.topmost_segment(below.left)
+                if below_left.get_state() in self.ROUTEABLE:
+                    routes = []
+                    if below_left.get_state() is not SCPatch.ROUTE:
+                        confirm, segments = below_left.split(segment.y_0 + 1, segment.x_0 - 1, 1, 1)
+                        below_left_route = next((seg for seg in segments if seg.x_0 == segment.x_0 - 1 and seg.y_0 == segment.y_0 + 1), None)
+                        confirm(self.qcb.segments)
+                        routes.append(below_left_route)
+                    if below.get_state() is not SCPatch.ROUTE:
+                        # Construct a routing channel
+                        confirm, segments = below.split(segment.y_0 + 1, segment.x_0 - 1, 1, 1)
+                        below_route = next((seg for seg in segments if seg.x_0 == segment.x_0 - 1 and seg.y_0 == segment.y_0 + 1), None)
+                        confirm(self.qcb.segments)
+                        routes.append(below_route)
+
+                    return self.REG_INVARIANT_ABOVE_LEFT, (segment, ), routes
+
+        return self.ROUTE_BLOCK, None, (segment, )
+
 
     def route_reg_from_left(self, left_probe, probe, segment): 
          if ((left_probe.y_1 > probe_segment.y_1) # Two high, this implies a route below
@@ -403,20 +468,22 @@ class Allocator:
                 #      **%%%%%%%%%
                 #      +----------
                 #      +++++++++++
-                route_segment, confirm = self.route_below(segment) 
+                success, reg_segments, route_segments = self.route_below(segment) 
+                return reg_segments, route_segments
 
     def route_reg_from_top_left(self, probe, segment):
         # Above of probe is routable
         #       +%%%%%%%%%
         #      %@---------
+        print(probe, segment)
         probe.allocate() 
         segment.allocate()
-        probe, route_below_probe = self.route_below(probe) 
-        reg, route_below = self.route_below(segment)
+        success, probe, route_below_probe = self.route_below(probe) 
+        success, regs, route_below = self.route_below(segment)
         #       +%%%%%%%%%
         #      %+---------
         #       ++++++++++
-        return reg, (*probe, *route_below_probe, *route_below)
+        return regs, (*probe, *route_below_probe, *route_below)
 
 
     def route_reg_from_above(self, segment):
@@ -442,7 +509,7 @@ class Allocator:
             if left_element.get_state() is SCPatch.ROUTE:
                 # The routable left edge may either extend past the current y coordinate
                 if left_element.y_1 > segment.y_1:
-                     return segment, None 
+                     return self.REG_INVARIANT_ABOVE, segment, None 
 
                 # Routable left edge is split vertically
                 # Two block case
@@ -450,157 +517,157 @@ class Allocator:
                     probe_existing_route = Segment.rightmost_segment(left_element.below)
                     if probe_existing_route is not None:
                         if probe_existing_route.get_state() is SCPatch.ROUTE:
-                            return segment, None 
-                # Both tests failed, fallback to routing through the probe
+                            return self.REG_INVARIANT_ABOVE,   segment, None 
+            # Both tests failed, fallback to routing through the probe
+            return self.INVARIANT_FAILED, None, None 
         else:
         # Can't route from right, have to use route through the probe
         #       *++++++++++
         #       %@---------
         #       %
             confirm(self.qcb.segments)
-            return (reg_segment,), (potential_route_segment,) 
+            return self.REG_INVARIANT_ABOVE, (reg_segment,), (potential_route_segment,) 
    
-        def route_drop_left_or_right(self, segment, probe=None, 
-                                     split_side = Segment.split_left,
-                                     probe_side = lambda x: x.left):
+    def route_drop_left(self, segment):
 
+        # Can't route from right, have to use route through the probe
+        #        %%%%%%%%%%
+        #       %@---------
+        #       %+
+        #       ++
+        probe = Segment.leftmost_segment(segment.below)
+        print(f"{probe}, {segment}")
+        success, routes = self.route_vertical_down(probe, segment.x_0)
+        if success:
+            success, regs, route_below = self.route_below(segment, exclude={routes[0]})
+            return self.REG_INVARIANT_DROP, (segment, ), routes + route_below
 
-            # Check if it is possible to create a route under the segment
-            if (not all(x.get_state() in self.ROUTEABLE for x in segment.below)
-                 or ((probe is not None) 
-                     and not all(x.get_state() in self.routable for x in probe.below))
-                ):
+        # Cannot create routing channel under the current segment
+        return self.INVARIANT_FAILED, None, None 
 
-                # Cannot create routing channel under the current segment
-                return self.ROUTE_BLOCK, None, (probe, segment) 
+    def route_below(self, segment, fallback_split=False, fallback_end_cap=False, exclude=None):
+        #
+        # ------------
+        # ++++++++++++
+        if exclude is None:
+            exclude = set()
 
+        routing_elements = list()
+        for potential_route in Segment.left_to_right(segment.below):
+            print("Exclusions", potential_route, exclude, potential_route in exclude)
+            # As routing below may impact other allocations we can exclude particular elements
+            if potential_route in exclude:
+                continue
 
-            ###
-            #
-            #  @----- 
-            #
-            if probe is None:
-                confirm, segments = split_side(segment, 1)
-                if confirm is None:
-                    return self.INVARIANT_FAILED, None, None
-                if len(segments) == 1: # Width 1
-                    probe = segments[0]
-                else:
-                    probe, segment = segments
-                    confirm(self.qcb.segments)
+            self.debug_print(f"Potential Route: {potential_route} {potential_route.get_state()}")
+            if potential_route.get_state() not in self.ROUTEABLE:
+                if not fallback_split or len(routing_elements) == 0:
+                    # Nothing below was ever routable
+                    # or don't fallback, just fail
+                    return False, None, None
+                # TODO split segment and end cap
 
-            segment.allocate()
-            probe.allocate()
-            # Merge needed to ensure that below traces all the way to the drop
-            self.global_top_merge()
-            segment.deallocate()
-            probe.deallocate()
-
-            ###
-            #
-            #  %%%%%%%
-            # %@------
-            # %?
-            #   
-
-            # Regular placement has failed, try dropping from below left to route
-            # Because the left probe is guaranteed to be of width one, below of the probe may have
-            # zero or one elements
-            below = next(iter(probe.below), None) 
-            
-            # Zero elements, cannot route from below if up against bottom edge
-            if below is None:
-                # Bottom row
-                raise Exception("It is the solemn belief of the authors that this code cannot occur, the proof for this is left as an exercise for the reader")
-                return self.INVARIANT_FAILED, None, None
-           
-            # If below is already allocated then we can't drop
-            if below.get_state() not in self.ROUTEABLE:
-                return self.INVARIANT_FAILED, None, None
-
-            ###
-            #  %%%%%%%
-            # %@------
-            # %
-            # %
-            # %
-            # ?
-            #
-            ###
-
-            # Check that we can actually route this from below
-            highest_seg = None
-            for drop_edge in below.left:
-                if drop_edge.get_state() is SCPatch.ROUTE:
-                    if highest_seg is None:
-                        highest_seg = drop_edge
-                    elif highest_seg.y_0 > drop_edge.y_0:
-                        highest_seg = drop_edge
-            # Guarantee that a drop is viable
-            if highest_seg is not None:
-                confirm, segments = below.split_top_left(highest_seg.y_0 - below.y_1 + 1, 1)
+            if potential_route.get_state() is SCPatch.NONE: 
+                route_length = min(potential_route.width, segment.x_1 - potential_route.x_0 + 1)
+                confirm, segments = potential_route.split_top_left(1, route_length)
                 confirm(self.qcb.segments)
-                drop_path = drop_segments[0] 
-              
-                # The existance of this route was confirmed at the start of this function
-                routing_segments = list()
-                for routing_segment_block in (
-                        i for i in segment.below if i.get_state() is not SCPatch.ROUTE
-                        ):
-                    confirm, segments = routing_segment_block.split_top(1)
-                    confirm(self.qcb.segments)
-                    routing_segments.append(segments[0])
+                potential_route = next((seg for seg in segments if seg.y_0 == potential_route.y_0), None)
+                routing_elements.append(potential_route)
+        return True, (segment, ), routing_elements 
+    
+    def route_vertical_up(self, *args, **kwargs):
+        return self.route_vertical(*args, direction = self.VERTICAL_UP, **kwargs)
 
-                return self.REG_INVARIANT_DROP, (segment, probe), routing_segments
+    def route_vertical_down(self, *args, **kwargs):
+        return self.route_vertical(*args, direction = self.VERTICAL_DOWN, **kwargs)
 
-    def route_below(self, segment, fallback_split=False, fallback_end_cap=False):
-        #
-        # ------------
-        # ++++++++++++
-        #
-        segment.allocate()
-        self.global_top_merge()
-        segment.deallocate()
-        route_element = segment.leftmost_segment(segment.below)
-        confirm, segments = route_element.split_top(1, max_width=segment.width)
-        route_segment = next(iter(segments))
-        confirm(self.qcb.segments)
+    def route_vertical(self, 
+                       segment, 
+                       x_coordinate, 
+                       direction):
+        '''
+            Given a coordinate draw a route up from this point
+            If it intersects with an existing route then it's a valid placement
+            Otherwise it's not, and rollback
+        '''
 
-        if route_segment.width == segment.width:
-        #
-        # ------------
-        # ++++++++++++
-        #
-            return (segment,), (route_segment,)  
-
+        if direction is self.VERTICAL_UP:
+            join_direction = Segment.bottom_to_top
+            next_element = lambda x: next(iter(x.above), None)
+        elif direction is self.VERTICAL_DOWN:
+            join_direction = Segment.top_to_bottom
+            next_element = lambda x: next(iter(x.below), None)
         else:
-            if not fallback_split:
-                return False, tuple()
-            #
-            # -----.
-            # +++++%
-            #
-            confirm, segments = segment.split_left(route_segment.width)
-            if confirm is None:
-                raise Exception("Failed to Split")
-            routable_segment, unroutable_segment = segments
-            confirm(self.qcb.segments)
-            
-            if fallback_end_cap is False: 
-                return (routable_segment,), (route_segment,)
-            #
-            # ----+.
-            # +++++%
-            #
-            segments, confirm = routeable_segment.split_right(1)
-            if confirm is None:
-                raise Exception("Failed to Split")
- 
-            routable_segment, end_cap = segments
-            return (routable_segment,), (route_segment, end_cap)
+            raise Exception("Invalid vertical routing direction")
 
-        return None, None
+        route_segments = []
+        curr_segment = segment
+        while curr_segment is not None:
+            print(f"Dropping on {curr_segment} {curr_segment.get_state()} {curr_segment.get_state() is SCPatch.NONE}")
+            # Unallocated, prepare to route
+            if curr_segment.get_state() is SCPatch.NONE:
+                # Cleave a width 1 column
+                confirm, segments = curr_segment.split(curr_segment.y_0, x_coordinate, segment.height, 1)
+                print(f"Cloven Segments {segments}")
+                if confirm is not None:
+                    route = next((seg for seg in segments if seg.x_0 == x_coordinate), None)
+                    if route is not None:
+                        route_segments.append(route)
+                    else:
+                        return False, None
+                else:
+                    return False, None
+                confirm(self.qcb.segments)
+                print(f"Route: {route} {route.width}")
+          
+                # Check if this is a terminating condition
+                joining_route = next((seg for seg 
+                                     in join_direction(route.left | route.right)
+                                        if seg.get_state() is SCPatch.ROUTE), None)
 
+                print("Join: ", joining_route)
+                print(tuple((x, x.get_state()) for x in route.left | route.right))
+
+                if joining_route is not None: 
+                    # We've found the routing network
+                    if direction is self.VERTICAL_UP:
+                        # Handle join in upwards direction
+                        if joining_route.y_1 > route.y_1: # Route extends beyond this one
+                            # Join extends below this segment
+                            confirm, segments = route.split_bottom(1)
+                            joining_segment = next((seg for seg in segments if seg.y_1 == route.y_1), None)
+                        else:
+                            # Join extends above this segment
+                            confirm, segments = route.split_bottom(joining_route.y_1 - route.y_1 + 1)
+                            joining_segment = next((seg for seg in segments if seg.y_1 == route.y_1), None)
+                    else:
+                        # Handle join in downwards direction
+                        if joining_route.y_0 > route.y_0:
+                            # Join extends above this segment
+                            confirm, segments = route.split_top(joining_route.y_0 - route.y_0 + 1)
+                            joining_segment = next((seg for seg in segments if seg.y_0 == route.y_0), None)
+                        else: 
+                            # Join extends below this segment
+                            confirm, segments = route.split_top(1)
+                            joining_segment = next((seg for seg in segments if seg.y_0 == route.y_0), None)
+                    print(f"JOIN TO ROUTE {route}, {joining_segment}")
+                    confirm(self.qcb.segments)
+                    route_segments.append(joining_segment)
+                    return True, route_segments 
+                else:
+                    # If this is None then we have hit the top or the bottom of the QCB
+                    route_segments.append(route)
+                    curr_segment = next_element(route)# Width 1 so single element
+
+            # Found an existing route
+            elif segment.get_state() is SCPatch.ROUTE:
+                return True, route_segments 
+
+            # Was either another extern, a register, halt
+            else:
+                return False, None
+        # Found the top without a route
+        return False, None
 
 
 ###############################################33
@@ -702,7 +769,7 @@ class Allocator:
             Attempt an optimisation
         '''
         dag = self.qcb.operations
-        if not self.get_free_segments(self.qcb):
+        if not self.get_free_segments():
             return False
         
         def heuristic(new_msf):
@@ -750,7 +817,7 @@ class Allocator:
         self.global_top_merge()
         self.global_left_merge()
 
-        free = self.get_free_segments(self.qcb)
+        free = self.get_free_segments()
         if free:
             last = next((s for s in free 
                          if s.x_1 == self.width - 1 
@@ -772,7 +839,7 @@ class Allocator:
 
         self.global_merge_tl()
         # Add routing to flood fill 
-        for seg in self.get_free_segments(self.qcb):
+        for seg in self.get_free_segments():
             if not all(left_node.state.state == SCPatch.ROUTE for left_node in seg.left):
                 (left, *main), confirm = seg.alloc(seg.height, 1)
                 confirm(self.qcb.segments)
@@ -782,7 +849,7 @@ class Allocator:
             self.tikz_str += self.qcb.__tikz__()
 
         # TODO add reg before flood
-        while self.get_free_segments(self.qcb):
+        while self.get_free_segments():
             self.global_merge_tl()
             regs = self.place_reg()
             for r in regs:
@@ -826,7 +893,7 @@ class Allocator:
         if self.io_width == 0:
             return
 
-        segs, confirm = self.get_free_segments(self.qcb)[0].split(self.height - 1, 0, 1,  self.io_width)
+        segs, confirm = self.get_free_segments()[0].split(self.height - 1, 0, 1,  self.io_width)
         if not confirm:
             raise AllocatorError("IO placement failed")
 
@@ -857,7 +924,7 @@ class Allocator:
     def try_place_msf(self, msf, fringe: Tuple[int, int]) \
             -> Tuple[bool, Tuple[int, int]]:
         
-        first = next((s for s in self.get_free_segments(self.qcb) if s.y_position() > fringe), None)
+        first = next((s for s in self.get_free_segments() if s.y_position() > fringe), None)
         if not first:
             raise AllocatorError(f"Extern placement failed: all blocks exhausted for {msf}")
         
@@ -1097,7 +1164,7 @@ class Allocator:
         out = []
 
         self.global_left_merge()
-        seg = self.get_free_segments(self.qcb)[0]
+        seg = self.get_free_segments()[0]
 
         # Abandon if seg width is 1
         if seg.width == 1:
@@ -1190,7 +1257,7 @@ class Allocator:
 
 
     def place_reg(self) -> List[Segment]:
-        seg = next(iter(self.get_free_segments(self.qcb)), None)
+        seg = next(iter(self.get_free_segments()), None)
         if not seg:
             raise AllocatorError('No free space for registers left')
 
@@ -1207,7 +1274,7 @@ class Allocator:
             return self.place_reg_route_below(seg)
         
         self.global_top_merge()
-        seg = self.get_free_segments(self.qcb)[0]
+        seg = self.get_free_segments()[0]
 
         if all(s.state.state == SCPatch.ROUTE for s in seg.above):
             return self.place_reg_top_routable(seg)
@@ -1322,21 +1389,21 @@ class Allocator:
 
     def global_top_merge(self):
         offset = 0
-        queue = self.get_free_segments(self.qcb)
+        queue = self.get_free_segments()
         while offset < len(queue):
-            confirm, _ = queue[-offset-1].top_merge()
+            confirm, _ = queue[-offset - 1].top_merge()
             confirm(self.qcb.segments)
-            queue = self.get_free_segments(self.qcb)
+            queue = self.get_free_segments()
             offset += 1
 
     def global_left_merge(self):
         offset = 0
-        queue = self.get_free_segments(self.qcb)
+        queue = self.get_free_segments()
         queue.sort(key=lambda s: (s.x_0, s.y_0))
         while offset < len(queue):
-            confirm, _ = queue[-offset-1].left_merge()
+            confirm, _ = queue[-offset - 1].left_merge()
             confirm(self.qcb.segments)
-            queue = self.get_free_segments(self.qcb)
+            queue = self.get_free_segments()
             queue.sort(key=lambda s: (s.x_0, s.y_0))
             offset += 1
 

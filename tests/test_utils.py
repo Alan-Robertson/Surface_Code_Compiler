@@ -1,6 +1,23 @@
 from surface_code_routing.tree_slots import TreeSlots, TreeSlot, SegmentSlot
 from surface_code_routing.symbol import symbol_resolve
 
+class CompiledQCBInterface:
+
+    def __init__(self, symbol, height, width, n_cycles=10):
+        self.symbol= symbol_resolve(symbol)
+        self.height = height
+        self.width = width
+        self._n_cycles = n_cycles
+
+    def n_cycles(self):
+        return self._n_cycles
+
+    def is_extern(self):
+        return True
+
+    def get_symbol(self):
+        return self.symbol
+
 class TreeNodeInterface():
     def __init__(self, symbol, weight, slots, segment=None):
         self.symbol = symbol_resolve(symbol)

@@ -324,6 +324,13 @@ class Segment():
             SCEdge.LEFT: self.left}
         return {label:edge_dict[label] for label in labels}
 
+    def __eq__(self, other_segment):
+        return self.x_1 == other_segment.x_1 and self.y_1 == other_segment.y_1 and self.x_0 == other_segment.x_0 and self.y_0 == other_segment.y_0
+
+    def __hash__(self):
+        x = id(Segment) 
+        return x + self.x_0 * x ** 2 + self.y_0 * x ** 3 + self.y_1 * x ** 4 + self.x_1 * x ** 5
+
     def __repr__(self):
         return f"Segment({[self.y_0, self.x_0, self.y_1, self.x_1]})"
 
@@ -352,7 +359,11 @@ class Segment():
 
     def split_right(self, width, max_height=float('inf')):
         height = min(max_height, self.height)
-        return self.split(self.y_1 - width, self.x_0, height, width)
+        return self.split(self.y_1, self.x_0 - width + 1, height, width)
+
+    def split_bottom(self, height, max_width=float('inf')):
+        width = min(max_width, self.width)
+        return self.split(self.y_1 - height + 1, self.x_0, height, width)
 
 
     def split_top_left(self, height, width):
@@ -370,6 +381,7 @@ class Segment():
         assert(y >= self.y_0)
         assert(x + width <= self.x_1 + 1)
         assert(y + height <= self.y_1 + 1)
+
         # Define the possible sets of sub-segments
         positions_x_start = [self.x_0, x, x + width]
         positions_x_end = [x - 1, x + width - 1, self.x_1]
@@ -515,8 +527,8 @@ class Segment():
     def _confirm_local_merge(self, segment: 'Segment', merged_segment: 'Segment'):
         for edge in merged_segment.edges().values():
             for block in edge:
-                block.replace(self, merged_segment)
-                block.replace(segment, merged_segment)
+                block._replace(self, merged_segment)
+                block._replace(segment, merged_segment)
 
     # Replace all occurrences of seg_a with seg_b in neighbour sets
     def _replace(self, seg_a: 'Segment', seg_b: 'Segment'):
@@ -794,34 +806,18 @@ class Segment():
                     return confirm, seg
         return None, None
 
-    def route_edge(self, edge, reverse=True):
-        """ 
-        Search left edge, True implies bottom to top, False implies top to bottom.
-        """
-        if len(edge) == 0:
-            # Nothing on this edge
-            return False, None
+    @classmethod
+    def bottom_to_top(cls, edge):
+        return sorted(edge, key=lambda x: x.y_0, reverse=True)
 
-        route_segments = []
-        for segment in sorted(edge, key=lambda x: x.y_0, reverse=reverse):
-            if segment.get_state() is SCPatch.NONE:
-                # Unallocated, may be used for routing
-                confirm, routing_segments = segment.split_right(1)
-                routing_lane = next(seg in routing_segments if seg.x_0 == segment.x_1)
-                route_segments.append(segment)
-            elif segment.get_state() is SCPatch.ROUTE:
-                # Route, we've found the end
-                return True, route_segments
-            else:
-                # Non-routable element found, terminate
-                return False, None
-        # Reached top of object without finding routing node. Take a leap 
-        above_probe = next(iter(segment.above), None)
-        if above_probe is not None and above_probe.get_state() is SCPatch.ROUTE:
-            # Found a route above, join to it
-            return True, route_segments
-        # No route found, give up
-        return False, None
+    @classmethod
+    def top_to_bottom(cls, edge):
+        return sorted(edge, key=lambda x: x.y_0, reverse=False)
+    
+    @classmethod
+    def left_to_right(cls, edge):
+        return sorted(edge, key=lambda x: x.x_0, reverse=False)
+
 
 
 from surface_code_routing.dag import DAG
