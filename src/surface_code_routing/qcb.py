@@ -267,6 +267,13 @@ class Segment():
             for y in range(self.y_0, self.y_1 + 1):
                 yield y, x
 
+    def __gt__(self, other):
+        return (self.y_0, self.x_0) > (other.y_0, other.x_0)
+
+    def __lt__(self, other):
+        return (self.y_0, self.x_0) < (other.y_0, other.x_0)
+
+
     def get_n_slots(self):
         # How many distinct elements are in this patch
         if self.get_state() == SCPatch.EXTERN:
@@ -329,7 +336,7 @@ class Segment():
 
     def __hash__(self):
         x = id(Segment) 
-        return x + self.x_0 * x ** 2 + self.y_0 * x ** 3 + self.y_1 * x ** 4 + self.x_1 * x ** 5
+        return x + self.x_0 * x ** 2 + self.y_0 * x ** 3 
 
     def __repr__(self):
         return f"Segment({[self.y_0, self.x_0, self.y_1, self.x_1]})"
@@ -338,6 +345,8 @@ class Segment():
         return self.__repr__()
 
     def alloc(self, height: int, width: int) -> 'Tuple[None, None]|Tuple[List[Segment], Callable[[],]]':
+        if self.allocated:
+            raise Exception("{segment} is already allocated")
         if width > self.width or height > self.height:
             return None, None
 
@@ -373,6 +382,7 @@ class Segment():
         'Tuple[None, None]|Tuple[List[Segment], Callable[[Set[Segment]],]]':
 
         if self.allocated:
+            raise Exception("Cannot split allocated segment {segment}")
             return None, None
 
         assert(width > 0)
@@ -460,6 +470,7 @@ class Segment():
 
         # Alignment
         if self.allocated or segment.allocated:
+            raise Exception(f"Cannot merge allocated segment(s) {self} {segment}")
             return None, None
 
         if self.y_0 == segment.y_0 and self.y_1 == segment.y_1:
@@ -644,8 +655,8 @@ class Segment():
         if below_seg:
             segments.append(below_seg)
 
-        # Unnecessary?
-        # self.link_edges(segments)
+        # Unecessary?
+        self.link_edges(segments)
 
         def confirm(segs: 'Set[Segment]'):
             old = {self} | merged_segments
@@ -749,7 +760,7 @@ class Segment():
         if right_seg:
             segments.append(right_seg)
 
-        # Unnecessary?
+        # Unecessary?
         self.link_edges(segments)
 
         def confirm(segs: 'Set[Segment]'):
@@ -767,6 +778,7 @@ class Segment():
             segs.update(segments)
 
         return confirm, segments
+
     def _filter_mutual_neighbours(self, other: 'Segment', label: str):
         edge_dict = {
             SCEdge.ABOVE:self.above,
@@ -781,7 +793,7 @@ class Segment():
             Returns if an adjacent segment is contained by this segment from above
         """
         if segment not in self.below:
-            raise Exception("Segments not adjacent")
+            raise Exception(f"Segments not adjacent {self} {segment}")
         x_0 = max(self.x_0, segment.x_0)
         x_1 = min(self.x_1, segment.x_1)
         if x_0 != segment.x_0 or x_1 != segment.x_1:

@@ -186,11 +186,31 @@ class AllocatorTest(unittest.TestCase):
         extern_a = CompiledQCBInterface("TST", 2, 3)
         extern_b = CompiledQCBInterface("TST", 2, 3)
         g = DAG(Symbol('tst'))
-        g.add_gate(INIT(*[f'q_{i}' for i in range(1)]))
 
         qcb_base = QCB(7, 5, g)
 
         allocator = Allocator(qcb_base, extern_a, extern_b)
+    
+    def test_extern_right_drop_up_registers(self):
+        extern_a = CompiledQCBInterface("TST", 2, 3)
+        extern_b = CompiledQCBInterface("TST", 2, 3)
+        g = DAG(Symbol('tst'))
+        g.add_gate(INIT(*[f'q_{i}' for i in range(8)]))
+
+        qcb_base = QCB(7, 5, g)
+
+        allocator = Allocator(qcb_base, extern_a, extern_b)
+
+    def test_extern_right_drop_top_registers(self):
+        extern_a = CompiledQCBInterface("TST", 2, 3)
+        extern_b = CompiledQCBInterface("TST", 2, 2)
+        g = DAG(Symbol('tst'))
+        g.add_gate(INIT(*[f'q_{i}' for i in range(10)]))
+
+        qcb_base = QCB(7, 5, g)
+
+        allocator = Allocator(qcb_base, extern_a, extern_b)
+
 
 
 if __name__ == '__main__':

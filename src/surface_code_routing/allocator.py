@@ -17,7 +17,9 @@ class Allocator:
 
     EXTERN_INVARIANT_TIGHT = AddrBind("Extern Tight Placement")
     EXTERN_INVARIANT_RIGHT = AddrBind("Extern Right Edge Connection")
+    EXTERN_INVARIANT_LEFT = AddrBind("Extern Left Connection")
     EXTERN_INVARIANT_LEFT_DROP = AddrBind("Extern Left Drop Connection")
+    EXTERN_INVARIANT_BELOW = AddrBind("Extern First Placement")
 
     ROUTE_BLOCK = AddrBind("Route Block")
     REG_BLOCK = AddrBind("Reg Block")
@@ -56,9 +58,9 @@ class Allocator:
         self.n_channels = 1
 
         self.allocate()
-        if optimise:
-           self.optimise()
-        self.route_remainder()
+#        if optimise:
+#           self.optimise()
+#        self.route_remainder()
 
 
     def debug_print(self, *args):
@@ -91,14 +93,17 @@ class Allocator:
 
     def extern_invariant(self, extern):
         placed = False 
+        self.global_merge_tl()
         for free_segment in self.get_free_segments(): 
-           invariant, segment, routes = self.alloc_extern(extern, free_segment) 
-           self.debug_print(f"Attempting to allocate {extern} {segment}")
-           if invariant is not self.INVARIANT_FAILED:
-               self.place_extern_segment(segment, extern)
-               self.place_route_segments(*routes)
-               self.debug_print(f"Success: {extern} {segment}")
-               return True
+            self.debug_print(f"Attempting to allocate {extern} {free_segment}")
+            invariant, segment, routes = self.alloc_extern(extern, free_segment) 
+            if invariant is not self.INVARIANT_FAILED:
+                self.place_extern_segment(segment, extern)
+                self.place_route_segments(*routes)
+                self.debug_print(f"Success: {extern} {segment}\n\n")
+                return True
+            else:
+                self.global_merge_tl()
         if placed is not True:
             raise Exception(f"Could not allocate extern: {extern}, no valid placement")
 
@@ -121,6 +126,8 @@ class Allocator:
 
     
     def alloc_extern(self, extern, segment):
+        # Check extern fits
+        # TODO, grow this region
         if extern.height > segment.height or extern.width > segment.width:
             self.debug_print(f"Segment {segment} was too small to contain {extern}")
             return self.INVARIANT_FAILED, None, None
@@ -135,18 +142,45 @@ class Allocator:
                 all(seg.get_state() in self.ROUTEABLE for seg in extern_segment.below))
             ):
 
+            self.debug_print("First allocation")
             success, extern, below_route = self.route_below(extern_segment)
-            return success, extern[0], below_route
+            if success is not True:
+                return self.INVARIANT_FAILED, None, None
+            else:
+                return self.EXTERN_INVARIANT_BELOW, extern[0], below_route
 
-        success, _, below_route = self.route_below(extern_segment)
+        success, extern, below_route = self.route_below(extern_segment)
         if not success:
             # Cannot route below
-            return self.INVARIANT_FAILED, None
+            return self.INVARIANT_FAILED, None, None
+
+        # Check if already routed
+        # should be single right element as the route has height 1
+        left_probe = next(iter(Segment.leftmost_segment(below_route).left), None)
+
+        if left_probe is not None and left_probe.get_state() is SCPatch.ROUTE: 
+            # Connected to routing net from left
+            # TODO check that IO is routed
+            return self.EXTERN_INVARIANT_LEFT, extern_segment, below_route 
 
         # Need to do a drop, start with a right drop up
-        success, routes = self.route_right_drop_up(extern_segment)
-        if success:
-            return success, extern_segment, routes
+        success, _, routes = self.route_right_drop_up(extern_segment)
+        if success is not self.INVARIANT_FAILED:
+            return success, extern_segment, routes + below_route
+        self.debug_print(f"Right drop failed")
+
+        # Try a left drop up
+        success, _, routes = self.route_left_drop_up(extern_segment)
+        if success is not self.INVARIANT_FAILED:
+            return success, extern_segment, routes + below_route
+        self.debug_print(f"Left drop failed")
+
+        # Attempt a route down
+
+        # Shift segment and route on the left
+
+        return self.INVARIANT_FAILED, None, None
+
 
     def place_segment_of_type(self, seg_type, *segments):
         for segment in segments:
@@ -181,11 +215,11 @@ class Allocator:
         if below_probe.x_1 > segment.x_1:
             below_right_probe = below_probe
         else:
-            below_right_probe = below_probe.topmost_segment(below_probe.right)
+            below_right_probe = Segment.topmost_segment(below_probe.right)
 
         below_right_routeable = (
                 (below_right_probe is not None) 
-                or (below_right_probe.get_state() in SCPatch.ROUTEABLE)
+                and (below_right_probe.get_state() in self.ROUTEABLE)
                 )
         # Trying to find a viable right route
         if below_right_routeable:
@@ -199,10 +233,10 @@ class Allocator:
             # Try to route up the right hand side
             success, routes = self.route_vertical_up(below_right_route, segment.x_1 + 1)
             if success is True:
-                return success, routes + [below_right_route]
-        return False, None
+                return success, (segment, ), routes + [below_right_route]
+        return self.INVARIANT_FAILED, None, None
 
-    def route_extern_left_drop_up(extern_segment):
+    def route_left_drop_up(self, segment):
         '''
            +         
            +%%%%%%%%%
@@ -213,18 +247,18 @@ class Allocator:
            @@        
         '''
         # Not at the top, try a left drop
-        below_probe = extern_segment.leftmost_segment(extern_segment.below)
+        below_probe = segment.leftmost_segment(segment.below)
         # Probe extends beyond range of block
-        if below_probe.x_1 > extern_segment.x_1:
+        if below_probe.x_1 > segment.x_1:
             below_left_probe = below_probe
         else:
-            below_left_probe = next(
-            iter(below_probe.topmost_segment(below_probe.left)),
-            None)
+            below_left_probe = Segment.topmost_segment(below_probe.left)
+
         below_left_routeable = (
                 (below_left_probe != None) 
-                or (below_left_probe.get_state() in SCPatch.ROUTEABLE)
+                and (below_left_probe.get_state() in SCPatch.ROUTEABLE)
                 )
+
         # Trying to find a viable left route
         if below_left_routeable:
             # Routing is possible, create the corner
@@ -235,10 +269,10 @@ class Allocator:
                 and (seg.y_0 == segment.y_1 + 1)))
 
             # Try to route up the left hand side
-            success, routes = extern_segment.route_edge(extern_segment.left)
+            success, routes = segment.route_edge(segment.left)
             if success is True:
-                return success, routes + [below_left_route]
-        return False, None
+                return success, segment, routes + [below_left_route]
+        return self.INVARIANT_FAILED, None, None
 
 
     def route_extern_tight_below(extern_segment):
@@ -302,6 +336,7 @@ class Allocator:
         '''
         self.debug_print("Attempting to allocate Register")
         # Try the split to get a height 1 register
+        # TODO check below routable, split left and end cap
         confirm, segments = segment.split_top(1)
         if confirm is None:
             self.debug_print("Failed initial split")
@@ -310,7 +345,7 @@ class Allocator:
         # The segment to allocate as a register
         reg_segment = segments[0]
         if reg_segment.width == 1:
-            self.debug_print("Width 1 Segment")
+            self.debug_print(f"Width 1 Segment {reg_segment}")
             confirm(self.qcb.segments)
             return self.route_single_reg(reg_segment) 
 
@@ -326,9 +361,9 @@ class Allocator:
             # ++++++++++
             #
             confirm(self.qcb.segments)
-            success, segs, routes = self.route_below(reg_segment)
-            if success:
-                return self.REG_INVARIANT_ABOVE, segs, routes 
+            success, regs, routes = self.route_below(reg_segment)
+            if success is True:
+                return self.REG_INVARIANT_ABOVE, regs, routes 
             else:
                 return self.INVARIANT_FAILED, None, None
 
@@ -410,48 +445,83 @@ class Allocator:
         above = next(iter(segment.above), None)
         left = next(iter(segment.left), None)
         below = next(iter(segment.below), None)
+        if below is not None:
+            if below.x_0 < segment.x_0:
+                below_left = below
+            else:
+                below_left = Segment.topmost_segment(below.left)
+        else:
+            below_left = None
+        above_routeable, left_routeable, below_routeable, below_left_routeable = ((x is not None) and (x.get_state() in self.ROUTEABLE) for x in (above, left, below, below_left))
+
+        self.debug_print(f"Top Probe {above} : {above_routeable}\nLeft Probe {left} : {left_routeable}\nBottom Probe {below} : {below_routeable}\nBelow Left Probe {below_left} : {below_left_routeable}")
 
         if above is None:
             # Top of the QCB, route down
             success, routes = self.route_vertical_down(below, segment.x_0)
-            if success:
+            if success is True:
                 return self.REG_INVARIANT_DROP, (segment, ), routes 
        
-        if below.get_state() is SCPatch.ROUTE:
+        if below_routeable is True and below.get_state() is SCPatch.ROUTE:
+            # Already attached to a routing path
             return self.REG_BLOCK, (segment, ), None
 
-        if above.get_state() is SCPatch.ROUTE and left.get_state() is SCPatch.ROUTE:
+        if (above_routeable 
+            and left_routeable  
+            and (above.get_state() is SCPatch.ROUTE and left.get_state() is SCPatch.ROUTE)
+            ):
+            # These two routes must be already connected elsewhere
             return self.REG_BLOCK, (segment, ), None
 
-        if left.get_state() is SCPatch.ROUTE and below.get_state() in self.ROUTEABLE:
-            if below.x_0 < segment.x_0:
-                if below.get_state() is not SCPatch.ROUTE:
-                    # Construct a routing channel
-                    confirm, segments = below.split(segment.y_0 + 1, segment.x_0 - 1, 1, 2)
-                    below_route = next((seg for seg in segments if seg.x_0 == segment.x_0 - 1 and seg.y_0 == segment.y_0 + 1), None)
-                    confirm(self.qcb.segments)
-                    return self.REG_BLOCK, (segment, ), (below_route, )
-                else: 
-                    # No need, already routed and connected from below
-                    return self.REG_BLOCK, (segment, ), None
+        if (left_routeable and below_routeable and below_left_routeable and left.get_state() is SCPatch.ROUTE): 
+            # Left can be routed, if we can join via below left then we can route
+
+            if below_left is below:
+                # Below joins up with below left, create a route
+                # Below cannot already be a route as that was caught earlier
+                confirm, segments = below.split(segment.y_1 + 1, segment.x_0 - 1, 1, 2)
+                below_route = next((seg for seg in segments if seg.x_0 == segment.x_0 - 1 and seg.y_0 == segment.y_1 + 1), None)
+                confirm(self.qcb.segments)
+                return self.REG_BLOCK, (segment, ), (below_route, )
 
             else:
-                below_left = Segment.topmost_segment(below.left)
-                if below_left.get_state() in self.ROUTEABLE:
-                    routes = []
-                    if below_left.get_state() is not SCPatch.ROUTE:
-                        confirm, segments = below_left.split(segment.y_0 + 1, segment.x_0 - 1, 1, 1)
-                        below_left_route = next((seg for seg in segments if seg.x_0 == segment.x_0 - 1 and seg.y_0 == segment.y_0 + 1), None)
-                        confirm(self.qcb.segments)
-                        routes.append(below_left_route)
-                    if below.get_state() is not SCPatch.ROUTE:
-                        # Construct a routing channel
-                        confirm, segments = below.split(segment.y_0 + 1, segment.x_0 - 1, 1, 1)
-                        below_route = next((seg for seg in segments if seg.x_0 == segment.x_0 - 1 and seg.y_0 == segment.y_0 + 1), None)
-                        confirm(self.qcb.segments)
-                        routes.append(below_route)
+                # These are two separate blocks, create two routes
+                confirm, segments = below.split(segment.y_1 + 1, segment.x_0, 1, 1)
+                below_route = next((seg for seg in segments if seg.x_0 == segment.x_0 and seg.y_0 == segment.y_1 + 1), None)
+                confirm(self.qcb.segments)
 
-                    return self.REG_INVARIANT_ABOVE_LEFT, (segment, ), routes
+                # Below left route
+                if below_left.get_state() is SCPatch.NONE:
+                    confirm, segments = below_left.split(segment.y_1 + 1, segment.x_0 - 1, 1, 1)
+                    below_left_route = next((seg for seg in segments if seg.x_0 == segment.x_0 - 1 and seg.y_0 == segment.y_1 + 1), None)
+                    confirm(self.qcb.segments)
+                    return self.REG_BLOCK, (segment, ), (below_route, below_left_route)
+
+                else:
+                    # Below left is already a route, don't worry about it
+                    return self.REG_BLOCK, (segment, ), (below_route, )
+
+            return self.ROUTE_BLOCK, None, (segment, )
+
+#            else:
+#                # Below is bounded from above by the current segment
+#                self.debug_print('Below Left', below_left, below_left.get_state())
+#                if below_left is not None and below_left.get_state() in self.ROUTEABLE:
+#                    routes = []
+#                    if below_left.get_state() is SCPatch.ROUTE:
+#                    if below_left.get_state() is not SCPatch.ROUTE:
+#                        confirm, segments = below_left.split(segment.y_1 + 1, segment.x_0 - 1, 1, 1)
+#                        below_left_route = next((seg for seg in segments if seg.x_0 == segment.x_0 - 1 and seg.y_0 == segment.y_0 + 1), None)
+#                        confirm(self.qcb.segments)
+#                        routes.append(below_left_route)
+#                    if below.get_state() is not SCPatch.ROUTE:
+#                        # Construct a routing channel
+#                        confirm, segments = below.split(segment.y_1 + 1, segment.x_0, 1, 1)
+#                        below_route = next((seg for seg in segments if seg.x_0 == segment.x_0 - 1 and seg.y_0 == segment.y_0 + 1), None)
+#                        confirm(self.qcb.segments)
+#                        routes.append(below_route)
+#
+            return self.REG_INVARIANT_ABOVE_LEFT, (segment, ), routes
 
         return self.ROUTE_BLOCK, None, (segment, )
 
@@ -504,20 +574,22 @@ class Allocator:
         if len(potential_route_segment.left) > 0:
             # Check the left element, it should exist if the previous check passed
             left_element = next(iter(potential_route_segment.left))
+            self.debug_print("Trying Left Route")
             
             # The left edge must be routeable, otherwise fallback
             if left_element.get_state() is SCPatch.ROUTE:
                 # The routable left edge may either extend past the current y coordinate
-                if left_element.y_1 > segment.y_1:
-                     return self.REG_INVARIANT_ABOVE, segment, None 
+                if left_element.y_1 > reg_segment.y_1:
+                    self.debug_print("")
+                    return self.REG_INVARIANT_ABOVE, (reg_segment, ), None 
 
                 # Routable left edge is split vertically
                 # Two block case
                 else:
                     probe_existing_route = Segment.rightmost_segment(left_element.below)
                     if probe_existing_route is not None:
-                        if probe_existing_route.get_state() is SCPatch.ROUTE:
-                            return self.REG_INVARIANT_ABOVE,   segment, None 
+                        if probe_existing_route.get_state() in self.ROUTEABLE:
+                            return self.REG_INVARIANT_ABOVE, (reg_segment, ), None 
             # Both tests failed, fallback to routing through the probe
             return self.INVARIANT_FAILED, None, None 
         else:
@@ -536,9 +608,9 @@ class Allocator:
         #       %+
         #       ++
         probe = Segment.leftmost_segment(segment.below)
-        print(f"{probe}, {segment}")
+        print(f"Drop Left {probe}, {segment}")
         success, routes = self.route_vertical_down(probe, segment.x_0)
-        if success:
+        if success is True:
             success, regs, route_below = self.route_below(segment, exclude={routes[0]})
             return self.REG_INVARIANT_DROP, (segment, ), routes + route_below
 
@@ -554,14 +626,15 @@ class Allocator:
 
         routing_elements = list()
         for potential_route in Segment.left_to_right(segment.below):
-            print("Exclusions", potential_route, exclude, potential_route in exclude)
             # As routing below may impact other allocations we can exclude particular elements
             if potential_route in exclude:
+                self.debug_print("Excluded", potential_route, exclude, potential_route in exclude)
                 continue
 
             self.debug_print(f"Potential Route: {potential_route} {potential_route.get_state()}")
             if potential_route.get_state() not in self.ROUTEABLE:
                 if not fallback_split or len(routing_elements) == 0:
+                    self.debug_print("Not possible to route below")
                     # Nothing below was ever routable
                     # or don't fallback, just fail
                     return False, None, None
@@ -569,10 +642,14 @@ class Allocator:
 
             if potential_route.get_state() is SCPatch.NONE: 
                 route_length = min(potential_route.width, segment.x_1 - potential_route.x_0 + 1)
+                self.debug_print(f"Splitting for route: {potential_route} {route_length}")
                 confirm, segments = potential_route.split_top_left(1, route_length)
                 confirm(self.qcb.segments)
                 potential_route = next((seg for seg in segments if seg.y_0 == potential_route.y_0), None)
                 routing_elements.append(potential_route)
+
+            # If it's in routable but is not a route, then skip it
+        self.debug_print("Sucessfully routed below")
         return True, (segment, ), routing_elements 
     
     def route_vertical_up(self, *args, **kwargs):
@@ -607,7 +684,7 @@ class Allocator:
             # Unallocated, prepare to route
             if curr_segment.get_state() is SCPatch.NONE:
                 # Cleave a width 1 column
-                confirm, segments = curr_segment.split(curr_segment.y_0, x_coordinate, segment.height, 1)
+                confirm, segments = curr_segment.split(curr_segment.y_0, x_coordinate, curr_segment.height, 1)
                 print(f"Cloven Segments {segments}")
                 if confirm is not None:
                     route = next((seg for seg in segments if seg.x_0 == x_coordinate), None)
@@ -660,7 +737,7 @@ class Allocator:
                     curr_segment = next_element(route)# Width 1 so single element
 
             # Found an existing route
-            elif segment.get_state() is SCPatch.ROUTE:
+            elif curr_segment.get_state() is SCPatch.ROUTE:
                 return True, route_segments 
 
             # Was either another extern, a register, halt
@@ -918,8 +995,15 @@ class Allocator:
             confirm(self.qcb.segments)
 
     def get_free_segments(self):
-        return sorted((seg for seg in self.qcb.segments if not seg.allocated), key=Segment.y_position)
-
+        # Todo, discuss how to optimise this garbage
+        curr_segment = min((seg for seg in self.qcb.segments if not seg.allocated), default=None)
+        while curr_segment is not None:
+            yield curr_segment
+            curr_segment = min((
+                    seg for seg in self.qcb.segments 
+                    if not seg.allocated and seg > curr_segment),
+                    default=None)
+        return
 
     def try_place_msf(self, msf, fringe: Tuple[int, int]) \
             -> Tuple[bool, Tuple[int, int]]:
@@ -1389,21 +1473,22 @@ class Allocator:
 
     def global_top_merge(self):
         offset = 0
-        queue = self.get_free_segments()
+        curr_node = min(self.get_free_segments())
+        queue = list(self.get_free_segments())
         while offset < len(queue):
             confirm, _ = queue[-offset - 1].top_merge()
             confirm(self.qcb.segments)
-            queue = self.get_free_segments()
+            queue = list(self.get_free_segments())
             offset += 1
 
     def global_left_merge(self):
         offset = 0
-        queue = self.get_free_segments()
+        queue = list(self.get_free_segments())
         queue.sort(key=lambda s: (s.x_0, s.y_0))
         while offset < len(queue):
             confirm, _ = queue[-offset - 1].left_merge()
             confirm(self.qcb.segments)
-            queue = self.get_free_segments()
+            queue = list(self.get_free_segments())
             queue.sort(key=lambda s: (s.x_0, s.y_0))
             offset += 1
 
