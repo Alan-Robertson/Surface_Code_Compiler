@@ -1,3 +1,4 @@
+import numpy as np
 import unittest
 from functools import reduce
 
@@ -7,7 +8,7 @@ from surface_code_routing.mapper import QCBMapper
 from surface_code_routing.symbol import Symbol, ExternSymbol
 from surface_code_routing.scope import Scope
 from surface_code_routing.dag import DAG
-from surface_code_routing.allocator import Allocator
+from surface_code_routing.allocator import Allocator, AllocatorError
 
 from surface_code_routing.instructions import INIT, CNOT, Hadamard
 
@@ -202,7 +203,7 @@ class AllocatorTest(unittest.TestCase):
         allocator = Allocator(qcb_base, extern_a, extern_b)
 
     def test_extern_right_drop_top_registers(self):
-        extern_a = CompiledQCBInterface("TST", 2, 3)
+        extern_a = CompiledQCBInterface("TST", 1, 3)
         extern_b = CompiledQCBInterface("TST", 2, 2)
         g = DAG(Symbol('tst'))
         g.add_gate(INIT(*[f'q_{i}' for i in range(10)]))
@@ -211,7 +212,34 @@ class AllocatorTest(unittest.TestCase):
 
         allocator = Allocator(qcb_base, extern_a, extern_b)
 
+    def test_extern_left_drop_down(self):
+        extern_a = CompiledQCBInterface("TST", 1, 2)
+        extern_b = CompiledQCBInterface("TST", 3, 3)
+        g = DAG(Symbol('tst'))
+        g.add_gate(INIT(*[f'q_{i}' for i in range(5)]))
 
+        qcb_base = QCB(7, 5, g)
+
+        allocator = Allocator(qcb_base, extern_a, extern_b)
+
+
+    def test_random_externs(self):
+        for i in range(10):
+            rand_int = lambda: np.random.randint(1, 5)
+            rand_size = lambda: np.random.randint(7, 10)
+            extern_a = CompiledQCBInterface("TST", rand_int(), rand_int())
+            extern_b = CompiledQCBInterface("TST", rand_int(), rand_int())
+            g = DAG(Symbol('tst'))
+            g.add_gate(INIT(*[f'q_{i}' for i in range(5)]))
+            qcb_base = QCB(
+                    min(rand_size(), extern_a.height + extern_b.height + 2), 
+                    min(rand_size(), extern_a.width + extern_b.width + 1),
+                    g)
+
+            try:
+                allocator = Allocator(qcb_base, extern_a, extern_b)
+            except AllocatorError:
+                pass
 
 if __name__ == '__main__':
     unittest.main()
