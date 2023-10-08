@@ -242,6 +242,8 @@ class Segment():
         self.debug_name = ""
 
     def allocate(self):
+        if self.allocated:
+            raise Exception(f"Already Allocated {self}")
         self.allocated = True
 
     def deallocate(self):

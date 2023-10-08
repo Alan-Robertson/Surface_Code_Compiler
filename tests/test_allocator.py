@@ -177,7 +177,7 @@ class AllocatorTest(unittest.TestCase):
         extern_a = CompiledQCBInterface("TST", 2, 2)
         extern_b = CompiledQCBInterface("TST", 2, 2)
         g = DAG(Symbol('tst'))
-        g.add_gate(INIT(*[f'q_{i}' for i in range(10)]))
+        g.add_gate(INIT(*[f'q_{i}' for i in range(8)]))
 
         qcb_base = QCB(7, 5, g)
 
@@ -196,7 +196,27 @@ class AllocatorTest(unittest.TestCase):
         extern_a = CompiledQCBInterface("TST", 2, 3)
         extern_b = CompiledQCBInterface("TST", 2, 3)
         g = DAG(Symbol('tst'))
-        g.add_gate(INIT(*[f'q_{i}' for i in range(8)]))
+        g.add_gate(INIT(*[f'q_{i}' for i in range(7)]))
+
+        qcb_base = QCB(7, 5, g)
+
+        allocator = Allocator(qcb_base, extern_a, extern_b)
+
+    def test_extern_right_drop(self):
+        extern_a = CompiledQCBInterface("TST", 1, 3)
+        extern_b = CompiledQCBInterface("TST", 2, 2)
+        g = DAG(Symbol('tst'))
+        g.add_gate(INIT(*[f'q_{i}' for i in range(7)]))
+
+        qcb_base = QCB(7, 5, g)
+
+        allocator = Allocator(qcb_base, extern_a, extern_b)
+
+    def test_extern_right_drop_down(self):
+        extern_a = CompiledQCBInterface("TST", 1, 2)
+        extern_b = CompiledQCBInterface("TST", 3, 3)
+        g = DAG(Symbol('tst'))
+        g.add_gate(INIT(*[f'q_{i}' for i in range(5)]))
 
         qcb_base = QCB(7, 5, g)
 
@@ -206,21 +226,12 @@ class AllocatorTest(unittest.TestCase):
         extern_a = CompiledQCBInterface("TST", 1, 3)
         extern_b = CompiledQCBInterface("TST", 2, 2)
         g = DAG(Symbol('tst'))
-        g.add_gate(INIT(*[f'q_{i}' for i in range(10)]))
+        g.add_gate(INIT(*[f'q_{i}' for i in range(7)]))
 
         qcb_base = QCB(7, 5, g)
 
         allocator = Allocator(qcb_base, extern_a, extern_b)
 
-    def test_extern_left_drop_down(self):
-        extern_a = CompiledQCBInterface("TST", 1, 2)
-        extern_b = CompiledQCBInterface("TST", 3, 3)
-        g = DAG(Symbol('tst'))
-        g.add_gate(INIT(*[f'q_{i}' for i in range(5)]))
-
-        qcb_base = QCB(7, 5, g)
-
-        allocator = Allocator(qcb_base, extern_a, extern_b)
 
 
     def test_random_externs(self):
