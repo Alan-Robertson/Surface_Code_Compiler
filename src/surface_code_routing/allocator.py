@@ -29,7 +29,7 @@ class Allocator:
     VERTICAL_UP = AddrBind("Vertical Up")
     VERTICAL_DOWN = AddrBind("Vertical Down")
 
-    def __init__(self, qcb: QCB, *extern_templates, optimise=False, tikz_build=True, verbose=True, opt_space=False, opt_route=True):
+    def __init__(self, qcb: QCB, *extern_templates, optimise=False, tikz_build=True, verbose=False, opt_space=False, opt_route=True):
         self.qcb = qcb
         self.qcb.allocator = self
 
@@ -48,6 +48,8 @@ class Allocator:
         self.io_width = len(qcb.io)
         self.io_connected = False
         self.contains_io = self.io_width > 0
+        if not self.contains_io:
+            self.io_connected = True
         self.io_segment = None
 
         self.reg_allocated = 0
@@ -145,6 +147,8 @@ class Allocator:
         if not self.contains_io:
             self.debug_print("No IO Needed")
             return
+        if self.io_width > self.qcb.width:
+            raise AllocatorError("QCB is not wide enough to support IO channel")
 
         io_segment = next(
                 (seg for seg in self.get_free_segments() 
@@ -152,11 +156,11 @@ class Allocator:
                         and seg.x_0 == 0)),
                  None)
         if io_segment is None:
-           raise Exception("No room for IO")
+           raise AllocatorError("No room for IO")
 
         confirm, segments = io_segment.split(self.qcb.height - 2, 0, 2, self.io_width)
         if confirm is None: 
-            raise Exception("No room for IO")
+            raise AllocatorError("No room for IO")
         confirm(self.qcb.segments)
 
         io_chunk = next((seg for seg in segments 
@@ -209,6 +213,7 @@ class Allocator:
     def alloc_extern(self, extern, segment):
         # Check extern fits
         if extern.height > segment.height or extern.width > segment.width:
+            self.debug_print("Extern does not fit, attempting to grow")
             #Try to grow the region
             if extern.width > segment.width:
                 if extern.height <= segment.height:
@@ -221,6 +226,7 @@ class Allocator:
                 else:
                     segment = self.grow_segment(segment, right_first=False)
 
+            self.debug_print(f"New Segment: {segment}")
             # Tried to grow the region but it still didn't fit
             if segment is None or extern.height > segment.height or extern.width > segment.width:
                 self.debug_print(f"Segment {segment} was too small to contain {extern}")
@@ -252,6 +258,14 @@ class Allocator:
             # Cannot route below
             return self.INVARIANT_FAILED, None, None
 
+        # If already routed from below
+        if (self.io_connected 
+            and len(segment.below) > 0 
+            and any(seg.get_state() is SCPatch.ROUTE for seg in segment.below)
+            ):
+            # Connected to routing net from below
+            return self.EXTERN_INVARIANT_LEFT, extern_segment, below_route 
+
         # Check if already routed
         # should be single right element as the route has height 1
         left_seg = Segment.leftmost_segment(below_route)
@@ -259,11 +273,25 @@ class Allocator:
             left_probe = Segment.leftmost_segment(left_seg.left)
         else:
             left_probe = None
-
-        if left_probe is not None and left_probe.get_state() is SCPatch.ROUTE: 
+        
+        if (left_probe is not None and left_probe.get_state() is SCPatch.ROUTE): 
             # Connected to routing net from left
-            # TODO check that IO is routed
             return self.EXTERN_INVARIANT_LEFT, extern_segment, below_route 
+
+
+        # Try a right probe
+        right_seg = Segment.rightmost_segment(below_route)
+        if right_seg is not None:
+            right_probe = Segment.rightmost_segment(right_seg.right)
+        else:
+            right_probe = None
+        
+        if (right_probe is not None and right_probe.get_state() is SCPatch.ROUTE): 
+            # Connected to routing net from left
+            return self.EXTERN_INVARIANT_LEFT, extern_segment, below_route 
+
+
+
 
         # Need to do a drop, start with a right drop up
         success, _, routes = self.route_right_drop_up(extern_segment)
@@ -296,6 +324,13 @@ class Allocator:
 
     def place_route_segments(self, *segments):
         self.place_segment_of_type(SCPatch.ROUTE, *segments)
+        if not self.io_connected:
+            for segment in segments:
+                if ((self.qcb.height - 3 >= segment.y_0) 
+                    and (self.qcb.height - 3 <= segment.y_1) 
+                    and (segment.x_0 <= self.io_width)):
+                    self.debug_print("IO Connected")
+                    self.io_connected = True
 
     def place_io_segments(self, *segments):
         self.place_segment_of_type(SCPatch.IO, *segments)
@@ -416,35 +451,42 @@ class Allocator:
     def grow_segment(self, segment, right_first=True, only_right=False, only_below=False):
 
         # We aren't going to respect these variable names if the grow functions are reversed
-        bounded_right = (not only_below and len(segment.right) > 0 
+        unbounded_right = (not only_below and len(segment.right) > 0 
                          and all(seg.get_state() is SCPatch.NONE for seg in segment.right)        
                          )
-        bounded_below = (not only_right and len(segment.below) > 0 
+        unbounded_below = (not only_right and len(segment.below) > 0 
                          and all(seg.get_state() is SCPatch.NONE for seg in segment.below)        
                          )
         merged_segment = None
-        while not bounded_right or not bounded_below:
+        self.debug_print(f"Unbound Right: {unbounded_right}\tUnbound Below: {unbounded_below}")
+        while unbounded_right or unbounded_below:
             if right_first:
-                if not bounded_right:
+                if unbounded_right:
+                    self.debug_print("Attempting to grow right")
                     merged_segment = self.grow_segment_right(segment)
                     if merged_segment is not None:
                         segment = merged_segment
+                        self.debug_print(f"New Segment {segment}")
                     else:
-                        bounded_right = True
-            if not bounded_below:
+                        unbounded_right = False
+            if unbounded_below:
+                self.debug_print("Attempting to grow below")
                 merged_segment = self.grow_segment_below(segment)
                 if merged_segment is not None:
                     segment = merged_segment
+                    self.debug_print(f"New Segment {segment}")
                 else:
-                    bounded_below = True
+                    unbounded_below = False
             if not right_first:
-                if not bounded_right:
+                if unbounded_right:
+                    self.debug_print("Attempting to grow right")
                     merged_segment = self.grow_segment_right(segment)
                     if merged_segment is not None:
                         segment = merged_segment
+                        self.debug_print(f"New Segment {segment}")
                     else:
-                        bounded_right = True
-        return merged_segment
+                        unbounded_right = False
+        return segment
 
 
     def grow_segment_right(self, segment):
@@ -455,7 +497,7 @@ class Allocator:
             for seg in segment.right:
                 min_height = max(seg.y_0, segment.y_0)
                 max_height = min(seg.y_1, segment.y_1)
-                confirm, segments = seg.split(min_height, seg.segment.x_1 + 1, max_height - min_height + 1, extra_width)  
+                confirm, segments = seg.split(min_height, segment.x_1 + 1, max_height - min_height + 1, extra_width)  
                 confirm(self.qcb.segments)
                 merging_segments.append(next(iter(seg for seg in segments if seg.x_0 == segment.x_1 + 1 and seg.y_0 == min_height), None))
            
@@ -471,10 +513,11 @@ class Allocator:
 
     def grow_segment_below(self, segment):
         # Possible to grow below
-        if len(segment.right) > 0 and all(seg.get_state() is SCPatch.NONE for seg in segment.right):
+        if len(segment.below) > 0 and all(seg.get_state() is SCPatch.NONE for seg in segment.below):
             extra_height = min(seg.y_1 for seg in segment.below) - segment.y_1
+            self.debug_print(f"Growing Height: {extra_height}")
             merging_segments = []
-            for seg in segment.below:
+            for seg in list(segment.below):
                 min_width = max(seg.x_0, segment.x_0)
                 max_width = min(seg.x_1, segment.x_1)
                 confirm, segments = seg.split(segment.y_1 + 1, min_width, extra_height, max_width - min_width + 1)  
@@ -488,61 +531,10 @@ class Allocator:
                 else:               
                     confirm, merged_segment = merged_segment.horizontal_merge(seg)
                     confirm(self.qcb.segments)
+            confirm, merged_segment = segment.vertical_merge(merged_segment)
+            confirm(self.qcb.segments)
             return merged_segment
         return None
-
-
-    def route_extern_tight_below(extern_segment):
-        # Find all nodes below that need routing
-        # This function is not called unless all nodes below are routes or unallocated
-
-        # Above is the top, no need to route up
-        route = list()
-        if (extern_segment.y_0 == 0):
-            # Top left corner is the first placement so we don't need to worry about anything
-            self.debug_print("Top Row")
-            if extern.segment.x_0 < 0:
-                # Instead this means it's not the first placement
-                # Hence there should be something to the left
-                
-                # Try left and above
-                left_drop, route = self.route_extern_left_drop_up(extern_segment)
-                self.debug_print("Trying Left Drop") 
-                if left_drop is False:
-                    # Try left and below
-                    drop_down_left, route = self.route_extern_left_drop_down(extern_segment) 
-                    self.debug_print("Trying Drop Down Left")
-                    if drop_down_left is False:
-                        # Could not connect to any routes
-                        return self.INVARIANT_FAILED, None, None
-
-        else:
-            # We're not on top and hence are concerned with the state of the routing network
-            right_drop, route = self.route_extern_right_drop(extern_segment)
-
-            if right_drop is False:
-                # Can't connect on the right, try the left
-                left_drop, route = self.route_extern_left_drop(extern_segment)
-             
-                if left_drop is False:
-                    # Cannot connect from left up, try dropping down
-                    drop_down_left, route = self.route_extern_drop_down_left(extern_segment) 
-
-                    if drop_down_left is False:
-                        # Cannot connect to the routing network from here
-                        return self.INVARIANT_FAILED, None, None
-
-        # Having established that we can connect to the routing network
-        # We can now route below our extern 
-        confirm(self.qcb.segments)
-        for route_element in (x for x in extern_segment.below if x.get_state() is not SCPatch.ROUTE):
-            confirm, route = extern_segment.split_contains_below(route_element)
-            if confirm is not None:
-                confirm(self.qcb.segments)
-            route.append(route)
-
-        # If you can't route from below with a tight fit then you can't route this block 
-        return self.INVARIANT_FAILED, None, None
 
 
 
@@ -632,7 +624,7 @@ class Allocator:
         
         self.debug_print(f"Top Probe {top_probe} : {top_probe_routable}\nLeft Probe {left_probe} : {left_probe_routable}\nBottom Probe {bottom_probe} : {bottom_probe_routable}")
 
-        if left_probe_routable: 
+        if left_probe_routable and len(left_probe.below) > 0: 
             #      *%%%%%%%%%%
             #      +@---------
             #      ?
@@ -969,13 +961,13 @@ class Allocator:
                         joining_segment = next((seg for seg in segments if seg.y_1 == route.y_1), None)
                     else:
                         # Join extends above this segment
-                        confirm, segments = route.split_bottom(joining_route.y_1 - route.y_1 + 1)
+                        confirm, segments = route.split_bottom(abs(joining_route.y_1 - route.y_1) + 1)
                         joining_segment = next((seg for seg in segments if seg.y_1 == route.y_1), None)
                 else:
                     # Handle join in downwards direction
                     if joining_route.y_0 > route.y_0:
                         # Join extends above this segment
-                        confirm, segments = route.split_top(joining_route.y_0 - route.y_0 + 1)
+                        confirm, segments = route.split_top(abs(joining_route.y_0 - route.y_0) + 1)
                         joining_segment = next((seg for seg in segments if seg.y_0 == route.y_0), None)
                     else: 
                         # Join extends below this segment
