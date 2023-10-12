@@ -82,7 +82,6 @@ class ScopeTest(unittest.TestCase):
         init = INIT('a', 'b', 'c')
         
         g.add_gate(init)
-
         
         g.add_gate(T('a'))
         t_1 = g.gates[-3].symbol

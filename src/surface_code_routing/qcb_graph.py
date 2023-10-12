@@ -124,7 +124,7 @@ class QCBPrune:
             return False, fringe
 
         if len(seg.above) > 1:
-            for s in seg.above:
+            for s in tuple(seg.above):
                 self.prune_edges(s)
 
             left_top = min((s for s in seg.above), key=lambda s: s.x_0)

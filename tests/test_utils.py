@@ -21,8 +21,14 @@ class CompiledQCBInterface:
     def get_symbol(self):
         return self.symbol
 
+    def satisfies(self, other):
+        return self.symbol.satisfies(other)
+
     def instantiate(self):
         return CompiledQCBInterface(self.symbol, self.height, self.width, self._n_cycles)
+
+    def __repr__(self):
+        return f"Extern Inferface: {self.symbol}"
 
 class TreeNodeInterface():
     def __init__(self, symbol, weight, slots, segment=None):

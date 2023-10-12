@@ -1,5 +1,5 @@
-from scope import Scope
-from symbol import Symbol
+from surface_code_routing.scope import Scope
+from surface_code_routing.symbol import Symbol
 import unittest
 
 class ScopeTest(unittest.TestCase):

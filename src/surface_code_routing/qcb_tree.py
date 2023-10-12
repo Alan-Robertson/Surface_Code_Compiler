@@ -20,7 +20,6 @@ class QCBTree():
             constructor = self.selector(vertex)
 
             if constructor is not None:
-
                 # Construct the tree node
                 tree_node = constructor(vertex)
                 

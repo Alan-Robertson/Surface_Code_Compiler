@@ -260,7 +260,8 @@ class Segment():
         return self.state.get_symbol()
 
     def set_state(self, state):
-        return self.state.set_state(state)
+        self.state = SCPatch(state)
+        #return self.state.set_state(state)
 
     def get_slot(self):
         return self.state.get_slot()

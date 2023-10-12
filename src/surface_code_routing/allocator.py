@@ -60,7 +60,7 @@ class Allocator:
         self.verbose = verbose
 
         # optimise variables
-        self.msfs = []
+        self.externs = []
         self.n_channels = 1
 
         self.allocate()
@@ -86,7 +86,11 @@ class Allocator:
             invariant = self.extern_invariant(extern)
             self.build_tikz_str()
             if invariant is self.INVARIANT_FAILED:
-                raise AllocatorError("Not enough space for registers")
+                raise AllocatorError(f"Not enough space for Extern {extern}")
+            
+            self.externs.append(extern.instantiate())
+
+
         if len(self.extern_templates) > 0:
             self.io_route_invariant()
     
@@ -109,46 +113,36 @@ class Allocator:
             self.build_tikz_str()
             if invariant is self.INVARIANT_FAILED:
                 raise AllocatorError("Not enough space for registers")
+        self.debug_print(f"Registers: {self.reg_allocated} / {self.reg_quota}\n")
+        return
+
 
     def optimise(self):
         # Attempts to allocate either an extern or a new channel
         dag = self.qcb.operations
-        self.debug_print("Attempting to optimise remaining space")
+        self.debug_print("Attempting to optimise remaining space\n")
         while self.optimise_invariant() is True:
-            if self.tikz_build:
-                self.tikz_str += self.qcb.__tikz__()
+            self.build_tikz_str()
             self.global_merge_tl()
+            self.debug_print('\n')
 
+        self.debug_print("Allocating Additional Channels")
         # Splits remaining blocks
         try:
             while self.allocate_channel() is True:
                 self.n_channels += 1
-                if self.tikz_build:
-                    self.tikz_str += self.qcb.__tikz__()
+                self.build_tikz_str()
         except AllocatorError:
             pass
 
         # Set final compilation in the QCB
-        n_layers, compiled_layers = dag.compile(self.n_channels, *self.msfs)
+        n_layers, compiled_layers = dag.compile(self.n_channels, *self.externs)
         #self.qcb.compiled_layers = compiled_layers
 
         self.global_top_merge()
         self.global_left_merge()
 
-        free = self.get_free_segments()
-        if free:
-            last = next((s for s in free 
-                         if s.x_1 == self.width - 1 
-                         and s.y_1 == self.height - 1), None)
-            if last and last.height >= 2:
-                confirm, (bottom_block, *_) = last.split_bottom(2)
-                confirm(self.qcb.segments)
-                
-                confirm, (route, reg) = bottom_block.split_top(1)
-                confirm(self.qcb.segments)
-                
-                self.place_route_segments(route)
-                self.place_reg_segments(reg)
+                # Droppings routes and regs
 
         if self.tikz_build:
             self.tikz_str += self.qcb.__tikz__()
@@ -156,7 +150,7 @@ class Allocator:
         self.global_merge_tl()
         self.optimise_flood_fill()
 
-    def extern_invariant(self, extern):
+    def extern_invariant(self, extern, speculative=False):
         placed = False 
         self.global_merge_tl()
         for free_segment in self.get_free_segments(): 
@@ -169,8 +163,9 @@ class Allocator:
                 return True
             else:
                 self.global_merge_tl()
-        if placed is not True:
+        if not speculative:
             raise AllocatorError(f"Could not allocate extern: {extern}, no valid placement")
+        return False
 
     def reg_invariant(self, segment, fallback_route=True):
         self.debug_print(f"\nAttempting to allocate a register at {segment}")
@@ -179,7 +174,7 @@ class Allocator:
         self.debug_print(invariant, regs, routes, '\n')
         if invariant is not self.INVARIANT_FAILED:
             if regs is None and routes is None:
-                return self.INVARIANT_FAILED
+                return invariant, None
             if regs is not None:
                 self.place_reg_segments(*regs)
             if routes is not None:
@@ -265,33 +260,35 @@ class Allocator:
         if not self.get_free_segments():
             return False
         
-        def heuristic(new_msf):
-            if new_msf:
-                return (new_msf, dag.compile(self.n_channels, *self.msfs, new_msf)[0])
+        def heuristic(new_extern):
+            if new_extern:
+                return (new_extern, dag.compile(self.n_channels, *self.externs, new_extern)[0])
             else:
-                return (new_msf, dag.compile(self.n_channels + 1, *self.msfs)[0])
+                return (new_extern, dag.compile(self.n_channels + 1, *self.externs)[0])
 
-        options = [new_msf.instantiate() for new_msf in self.extern_templates]
+        options = [new_extern.instantiate() for new_extern in self.extern_templates]
         options.append(None)
         options = sorted(map(heuristic, options), key=lambda opt:opt[1])
         self.debug_print(options)
-        curr_score = dag.compile(self.n_channels, *self.msfs)[0]
+        curr_score = dag.compile(self.n_channels, *self.externs)[0]
 
         options = [opt[0] for opt in options if opt[1] < curr_score]
 
-        for new_msf in options:
-            if not new_msf and self.try_opt_channel():
+        for new_extern in options:
+            if not new_extern and self.allocate_channel():
                 self.n_channels += 1
                 return True
-            elif new_msf and self.try_opt_new_msf(new_msf):
-                self.msfs.append(new_msf)
+            elif new_extern and self.extern_invariant(new_extern):
+                self.externs.append(new_extern)
                 return True
         return False
+
 
     def optimise_flood_fill(self):
         '''
         Flood remaining areas
         '''
+        self.debug_print("Flood Filling")
         flood_segments = []
         while (segment := next(self.get_free_segments(), None)) is not None:
             self.debug_print(f"Attempting to flood fill {segment}")
@@ -364,34 +361,37 @@ class Allocator:
         confirm(self.qcb.segments)
         extern_segment = next((seg for seg in segments if seg.x_0 == segment.x_0 and seg.y_0 == segment.y_0), None)
 
+        self.debug_print(f"Testing Segment: {extern_segment}")
+
+        if len(extern_segment.below) == 0:
+            self.debug_print("Could not route below")
+            return self.INVARIANT_FAILED, None, None
+
 
         if ((extern_segment.x_0 == 0 and extern_segment.y_0 == 0) # First allocation, just place below
             or (any(seg.get_state() is SCPatch.ROUTE for seg in extern_segment.below) and # Already routable from below 
                 all(seg.get_state() in self.ROUTEABLE for seg in extern_segment.below))
             ):
 
-            self.debug_print("First allocation")
+            self.debug_print("First allocation, or routeable from below")
             success, extern, below_route = self.route_below(extern_segment)
             if success is not True:
                 return self.INVARIANT_FAILED, None, None
             else:
                 return self.EXTERN_INVARIANT_BELOW, extern[0], below_route
 
-        if len(extern_segment.below) == 0:
-            self.debug_print("Could not route below")
-            return self.INVARIANT_FAILED, None, None
-
         success, extern, below_route = self.route_below(extern_segment)
         if not success:
             # Cannot route below
             return self.INVARIANT_FAILED, None, None
-
+        
         # If already routed from below
         if (self.io_connected 
-            and len(segment.below) > 0 
-            and any(seg.get_state() is SCPatch.ROUTE for seg in segment.below)
+            and len(extern_segment.below) > 0 
+            and any(seg.get_state() is SCPatch.ROUTE for seg in extern_segment.below)
             ):
             # Connected to routing net from below
+            self.debug_print(f"Connected from below: {list(seg for seg in segment.below if seg.get_state() is SCPatch.ROUTE)}")
             return self.EXTERN_INVARIANT_LEFT, extern_segment, below_route 
 
         # Check if already routed
@@ -422,18 +422,21 @@ class Allocator:
 
 
         # Need to do a drop, start with a right drop up
+        self.debug_print(f"Attempting Right Drop Up")
         success, _, routes = self.route_right_drop_up(extern_segment)
         if success is not self.INVARIANT_FAILED:
             return success, extern_segment, routes + below_route
         self.debug_print(f"Right drop failed")
 
         # Try a left drop up
+        self.debug_print(f"Attempting Left Drop Up")
         success, _, routes = self.route_left_drop_up(extern_segment)
         if success is not self.INVARIANT_FAILED:
-            return success, extern_segment, routes[1:] + below_route
+            return success, extern_segment, list(set(routes + below_route))
         self.debug_print(f"Left drop up failed")
 
         # Attempt a route down
+        self.debug_print(f"Attempting Left Drop Down")
         success, _, routes = self.route_left_drop_down(extern_segment)
         if success is not self.INVARIANT_FAILED:
             return success, extern_segment, routes + below_route
@@ -469,35 +472,48 @@ class Allocator:
 
         self.debug_print(f"Registers to split for channel: {affected_regs}")
 
-        if len(affected_regs) == 0:
+        # Number of registers that we're going to lose to the channel
+        n_reg_split = len(affected_regs)
+        if n_reg_split == 0:
             return False # Nothing to split
 
-        new_req = self.reg_allocated - self.reg_quota - len(affected_regs)
-
-        while new_req < 0 and (segment := next(self.get_free_segments(),  None)) is not None:
+        allocated_segments = []
+        while ((self.reg_allocated - n_reg_split < self.reg_quota) 
+               and (segment := next(self.get_free_segments(),  None)) is not None):
+            self.debug_print(f"Registers: ({self.reg_allocated} - {n_reg_split} / {self.reg_quota})")
             invariant, regs, routes = self.alloc_reg(segment)
             self.debug_print(f"Reg to support channel {invariant}, {regs}, {routes}")
 
             if invariant is self.INVARIANT_FAILED:
+                # Failed to place enough registers
+                self.debug_print("Not enough registers to create channels")
+                for segment in allocated_segments:
+                    segment.free()
                 return False
             
             if regs is not None:
                 self.place_reg_segments(*regs)
+                allocated_segments += regs
             if routes is not None:
                 self.place_route_segments(*routes)
+                allocated_segments += routes
 
-            # Number of registers we still need to allocate
-            new_req = self.reg_allocated - self.reg_quota - len(affected_regs)
+        self.debug_print(f"Registers: ({self.reg_allocated} - {n_reg_split} / {self.reg_quota})")
+        if self.reg_allocated - n_reg_split < self.reg_quota:
+            # Ran out of cells before getting enough routes
+            for segment in allocated_segments:
+                segment.free()
+            return False
 
         for register in affected_regs:
             register.free()
+            self.reg_allocated -= register.width
             confirm, (route, *segments) = register.split(register.y_0, split_x, 1, 1)
             confirm(self.qcb.segments)
 
             self.place_route_segments(route)
             self.place_reg_segments(*segments)
-
-            self.reg_allocated -= 1
+        self.debug_print("\n")
         return True
 
     def place_segment_of_type(self, seg_type, *segments):
@@ -525,7 +541,7 @@ class Allocator:
             self.reg_allocated += segment.height * segment.width
 
     def place_extern_segment(self, segment, extern):
-        segment.set_state(SCPatch.EXTERN)
+        segment.state = SCPatch(extern)
         segment.allocate()
 
     def place_local_segments(self, *segments):
@@ -599,7 +615,6 @@ class Allocator:
                 )
 
         self.debug_print(f"Below: {below_probe} {below_probe.get_state() in self.ROUTEABLE}\nBelow Left: {below_left_probe} {below_left_routeable}")
-
         # Trying to find a viable left route
         if below_left_routeable is True:
             # If the below left probe was in ROUTE then it would have been caught by an earlier case, hence this implies that it is in NONE 
@@ -781,12 +796,15 @@ class Allocator:
             #
             confirm(self.qcb.segments)
             invariant, regs, routes = self.route_reg_from_above(reg_segment) 
-            return self.REG_INVARIANT_ABOVE, regs, routes
+            if invariant is not self.INVARIANT_FAILED:
+                return self.REG_INVARIANT_ABOVE, regs, routes
+
+        # Clearing the bottom row as a special case as it cannot be routed from below
+        if (segment.y_0 > self.qcb.height - 2):
+            invariant, regs, _ = self.route_reg_final_row(reg_segment)
+            return self.REG_INVARIANT_ABOVE, regs, None
 
         # From here on out we assume you can be routed from below
-        if (segment.y_0 > self.qcb.height - 2):
-            invariant, regs, routes = self.route_reg_last_row(reg_segment)
-            return self.INVARIANT_FAILED, None, None
 
         ####  
         # Segment cannot be routed from above
@@ -812,6 +830,7 @@ class Allocator:
         top_probe_routable = ((top_probe is not None) 
                               and (top_probe.get_state() is SCPatch.ROUTE) 
                               ) 
+
         if left_probe is None:
             bottom_probe = None
             bottom_probe_routable = False
@@ -821,6 +840,10 @@ class Allocator:
                 bottom_probe_routable = True
             else:
                 bottom_probe_routable = False
+
+        routeable_below = (len(reg_segment.below) > 0 and (all(seg.get_state() in self.ROUTEABLE for seg in reg_segment.below)))
+        if not routeable_below:
+            return self.INVARIANT_FAILED, None, None
         
         self.debug_print(f"Top Probe {top_probe} : {top_probe_routable}\nLeft Probe {left_probe} : {left_probe_routable}\nBottom Probe {bottom_probe} : {bottom_probe_routable}")
 
@@ -914,10 +937,8 @@ class Allocator:
                 else:
                     # Below left is already a route, don't worry about it
                     return self.REG_BLOCK, (segment, ), (below_route, )
-
-            return self.ROUTE_BLOCK, None, (segment, )
-
-        return self.ROUTE_BLOCK, None, (segment, )
+        self.place_local_segments(segment)
+        return self.ROUTE_BLOCK, None, None
 
 
     def route_reg_from_left(self, left_probe, probe, segment): 
@@ -955,17 +976,14 @@ class Allocator:
                    below_left_probe = next((seg for seg in segments if seg.x_0 == below_probe.x_0 - 1 and seg.y_0 == below_probe.y_0), None)
                    return reg_segments, route_segments + [below_left_probe]
 
+         # Can dip in to route
+         ###
+         #      **%%%%%%%%%
+         #      ++---------
+         #      *++++++++++
+         success, reg_segments, route_segments = self.route_below(segment) 
+         return reg_segments, [probe] + route_segments
 
-            elif below_left_probe is not None: 
-                # Can dip in to route
-                ###
-                #      **%%%%%%%%%
-                #      ++---------
-                #      *++++++++++
-                success, reg_segments, route_segments = self.route_below(segment) 
-                return reg_segments, [probe] + route_segments
-
-         return reg_segments, route_segments
 
     def route_reg_from_top_left(self, probe, segment):
         # Above of probe is routable
@@ -1026,31 +1044,38 @@ class Allocator:
                 else:
                     confirm(self.qcb.segments)
                     probe_existing_route = Segment.rightmost_segment(left_element.below)
-                    if probe_existing_route is not None:
-                        if probe_existing_route.get_state() in self.ROUTEABLE:
-                            return self.REG_INVARIANT_ABOVE, (reg_segment, ), None 
-            # Both tests failed, fallback to routing through the probe
-            return self.INVARIANT_FAILED, None, None 
-        else:
+#                    if probe_existing_route is not None:
+                    if probe_existing_route is None or probe_existing_route.get_state() in self.ROUTEABLE:
+                        return self.REG_INVARIANT_ABOVE, (potential_route_segment, reg_segment), None 
+            else:
+                confirm(self.qcb.segments)
         # Can't route from right, have to use route through the probe
         #       *++++++++++
         #       %@---------
         #       %
+        else:
             confirm(self.qcb.segments)
-            return self.REG_INVARIANT_ABOVE, (reg_segment,), (potential_route_segment,) 
+        return self.REG_INVARIANT_ABOVE, (reg_segment,), (potential_route_segment,) 
    
 
     def route_reg_final_row(self, segment):
         # Segment should be 1 high on the bottom row
         reg_segments = []
         local_segments = []
-        for seg in segment.above:
-            confirm, (probe, segment) = segment.split_left(min(segment.x_1, seg.x_1))
+        prev_seg = None
+        while (seg := Segment.leftmost_segment(segment.above)) is not prev_seg:
+            confirm, segments = segment.split_left(min(segment.x_1, seg.x_1) - segment.x_0 + 1)
             confirm(self.qcb.segments)
-            if seg.get_state() is SCPatch.ROUTE:
-                self.reg_segments.append(probe)
+            if len(segments) == 2:
+                probe, segment = segments
             else:
-                self.place_local_segment(probe)
+                probe = segments[0]
+            if seg.get_state() is SCPatch.ROUTE:
+                reg_segments.append(probe)
+            else:
+                self.place_local_segments(probe)
+                prev_seg = seg
+            prev_seg = seg
         return self.REG_INVARIANT_ABOVE, reg_segments, None
 
     def route_below(self, segment, fallback_split=False, fallback_end_cap=False, exclude=None):
@@ -1193,21 +1218,6 @@ class Allocator:
 
 
     
-    def try_opt_new_msf(self, new_msf) -> bool:
-        try:
-            fringe = (float('-inf'), float('-inf'))
-
-            success, position = self.try_place_msf(new_msf, fringe)
-            while not success:
-                self.global_top_merge()
-                self.global_left_merge()
-                fringe = position
-                success, position = self.try_place_msf(new_msf, fringe)
-
-        except AllocatorError:
-            return False
-        return True
-
 
 
     def route_remainder(self):
@@ -1228,19 +1238,31 @@ class Allocator:
                     default=None)
         return
 
-    def check_reachable(self, seg):
-        return any(s 
-               for s in set.union(*seg.edges().values()) 
-               if s.state.state == SCPatch.ROUTE)
+    def assert_reg_valid(self, seg):
+        return ((
+                len(segment.above) > 0
+                and all(seg.get_state() is SCPatch.ROUTE for seg in segment.above)) 
+            or 
+                (
+                len(segment.below) > 0
+                and all(seg.seg_state() is SCPatch.ROUTE for seg in segment.below))
+            )
+   
+    def assert_route_valid(self, segment):
+        return any(seg.get_state() is SCPatch.ROUTE for seg in segment.neighbours())
 
-    def check_reg_valid(self, seg):
-        return ((seg.above and all(s.state.state == SCPatch.ROUTE for s in seg.above)) or 
-                (seg.below and all(s.state.state == SCPatch.ROUTE for s in seg.below)))
+    def assert_extern_valid(self, segment):
+        return (
+                len(segment.below) > 0
+                and all(seg.get_state() is SCPatch.ROUTE for seg in segment.below)
+               ) 
 
-    def check_free_reachable(self, seg):
-        confirm, (row, *_) = seg.alloc(1, seg.width)
-        return self.check_reachable(row)
-    
+    def assert_io_valid(self, segment):
+        return (
+                len(segment.above) > 0
+                and all(seg.get_state() is SCPatch.ROUTE for seg in segment.above)
+               ) 
+
     #################
 
     def global_merge_tl(self):

@@ -14,7 +14,6 @@ from surface_code_routing.instructions import INIT, CNOT, Hadamard
 
 from test_utils import CompiledQCBInterface
 
-
 from surface_code_routing.qcb import QCB, Segment, SCPatch
 
 class SegmentTest(unittest.TestCase):
@@ -223,129 +222,182 @@ class AllocatorTest(unittest.TestCase):
 
         allocator = Allocator(qcb_base, extern_a, extern_b)
 
-#    def test_extern_right_drop_top_registers(self):
-#        extern_a = CompiledQCBInterface("TST", 1, 3)
-#        extern_b = CompiledQCBInterface("TST", 2, 2)
-#        g = DAG(Symbol('tst'))
-#        g.add_gate(INIT(*[f'q_{i}' for i in range(7)]))
-#
-#        qcb_base = QCB(7, 5, g)
-#
-#        allocator = Allocator(qcb_base, extern_a, extern_b)
-#
-#    def test_merge_unallocated_blocks(self):
-#        extern_a = CompiledQCBInterface("TST", 1, 4)
-#        extern_b = CompiledQCBInterface("TST", 6, 1)
-#        g = DAG(Symbol('tst'))
-#        g.add_gate(INIT(*[f'q_{i}' for i in range(6)]))
-#
-#        qcb_base = QCB(7, 5, g)
-#
-#        allocator = Allocator(qcb_base, extern_a, extern_b)
-#
-#    def test_random_externs(self):
-#        for i in range(10):
-#            rand_int = lambda: np.random.randint(1, 5)
-#            rand_size = lambda: np.random.randint(7, 10)
-#            extern_a = CompiledQCBInterface("TST", rand_int(), rand_int())
-#            extern_b = CompiledQCBInterface("TST", rand_int(), rand_int())
-#            g = DAG(Symbol('tst'))
-#            g.add_gate(INIT(*[f'q_{i}' for i in range(5)]))
-#            qcb_base = QCB(
-#                    min(rand_size(), extern_a.height + extern_b.height + 2), 
-#                    min(rand_size(), extern_a.width + extern_b.width + 1),
-#                    g)
-#
-#            try:
-#                allocator = Allocator(qcb_base, extern_a, extern_b)
-#            except AllocatorError:
-#                pass
-#
-#
-#    def test_random_externs_with_io(self):
-#        for i in range(10):
-#            rand_int = lambda: np.random.randint(1, 5)
-#            rand_size = lambda: np.random.randint(7, 10)
-#            extern_a = CompiledQCBInterface("TST", rand_int(), rand_int())
-#            extern_b = CompiledQCBInterface("TST", rand_int(), rand_int())
-#            # Random size of IO channel
-#            g = DAG(Symbol('tst', list(str(i) for i in range(rand_int()))))
-#            g.add_gate(INIT(*[f'q_{i}' for i in range(5)]))
-#            qcb_base = QCB(
-#                    min(rand_size(), extern_a.height + extern_b.height + 2), 
-#                    min(rand_size(), extern_a.width + extern_b.width + 1),
-#                    g)
-#
-#            try:
-#                allocator = Allocator(qcb_base, extern_a, extern_b)
-#            except AllocatorError:
-#                pass
-#
-##    def test_larger_random_with_io(self):
-##         for i in range(10):
-##            rand_int = lambda: np.random.randint(1, 5)
-##            rand_size = lambda: np.random.randint(45, 60)
-##            n_externs = 10
-##            externs = [CompiledQCBInterface("TST", rand_int(), rand_int()) for _ in range(n_externs)]
-##            io_width = rand_int()
-##            # Random size of IO channel
-##            g = DAG(Symbol('tst', list(str(i) for i in range(io_width))))
-##            g.add_gate(INIT(*[f'q_{i}' for i in range(3)]))
-##            qcb_base = QCB(
-##                    rand_size(),
-##                    rand_size(),
-##                    g)
-##            try:
-##                allocator = Allocator(qcb_base, *externs)
-##            except AllocatorError:
-##                pass
-#
-#    def test_large_right_drop_up(self):
-#        extern_sizes = [(8, 6), (9, 5), (5, 8), (8, 6), (6, 6), (9, 8), (7, 9), (9, 5), (9, 9), (5, 9)] 
-#        externs = list(map(lambda x: CompiledQCBInterface("TST", *x), extern_sizes))
-#        io_width = 8
-#        g = DAG(Symbol('tst', list(str(i) for i in range(io_width))))
-#        g.add_gate(INIT(*[f'q_{i}' for i in range(3)]))
-#        qcb_base = QCB(47, 58, g)
-#        allocator = Allocator(qcb_base, *externs)
-#
-#    def test_large_right_drop_up(self):
-#        extern_sizes = [(7, 8), (9, 8), (5, 7), (6, 7), (6, 7), (8, 6)] 
-#        externs = list(map(lambda x: CompiledQCBInterface("TST", *x), extern_sizes))
-#        io_width = 8
-#        g = DAG(Symbol('tst', list(str(i) for i in range(io_width))))
-#        g.add_gate(INIT(*[f'q_{i}' for i in range(3)]))
-#        qcb_base = QCB(47, 58, g)
-#        allocator = Allocator(qcb_base, *externs)
-#
-#
-#    def test_lots_of_growing(self):
-#        extern_sizes = [(7, 8), (9, 8), (5, 7), (6, 7), (6, 7), (8, 6)]
-#        externs = list(map(lambda x: CompiledQCBInterface("TST", *x), extern_sizes))
-#        io_width = 8
-#        g = DAG(Symbol('tst', list(str(i) for i in range(io_width))))
-#        g.add_gate(INIT(*[f'q_{i}' for i in range(3)]))
-#        qcb_base = QCB(47, 58, g)
-#        allocator = Allocator(qcb_base, *externs)
-#
-#    def test_lots_of_growing(self):
-#        extern_sizes = [(5, 6), (8, 7), (9, 5), (5, 9), (9, 8), (6, 7), (5, 5), (6, 9), (7, 5), (9, 7)]
-#        externs = list(map(lambda x: CompiledQCBInterface("TST", *x), extern_sizes))
-#        io_width = 9
-#        g = DAG(Symbol('tst', list(str(i) for i in range(io_width))))
-#        g.add_gate(INIT(*[f'q_{i}' for i in range(3)]))
-#        qcb_base = QCB(47, 46, g)
-#        allocator = Allocator(qcb_base, *externs)
-#
-#    def test_right_probe(self):
-#        extern_sizes = [(9, 7), (9, 7), (9, 8), (9, 9), (5, 8), (8, 7), (5, 9), (9, 6), (7, 8), (6, 8)]
-#        externs = list(map(lambda x: CompiledQCBInterface("TST", *x), extern_sizes))
-#        io_width = 7
-#        g = DAG(Symbol('tst', list(str(i) for i in range(io_width))))
-#        g.add_gate(INIT(*[f'q_{i}' for i in range(3)]))
-#        qcb_base = QCB(49, 50, g)
-#        allocator = Allocator(qcb_base, *externs)
+    def test_extern_right_drop_top_registers(self):
+        extern_a = CompiledQCBInterface("TST", 1, 3)
+        extern_b = CompiledQCBInterface("TST", 2, 2)
+        g = DAG(Symbol('tst'))
+        g.add_gate(INIT(*[f'q_{i}' for i in range(7)]))
 
+        qcb_base = QCB(7, 5, g)
+
+        allocator = Allocator(qcb_base, extern_a, extern_b)
+
+    def test_merge_unallocated_blocks(self):
+        extern_a = CompiledQCBInterface("TST", 1, 4)
+        extern_b = CompiledQCBInterface("TST", 6, 1)
+        g = DAG(Symbol('tst'))
+        g.add_gate(INIT(*[f'q_{i}' for i in range(6)]))
+
+        qcb_base = QCB(7, 5, g)
+
+        allocator = Allocator(qcb_base, extern_a, extern_b)
+
+    def test_narrow_qcb(self):
+        extern_a = CompiledQCBInterface("TST", 4, 1)
+        extern_b = CompiledQCBInterface("TST", 2, 1)
+        g = DAG(Symbol('tst'))
+        g.add_gate(INIT(*[f'q_{i}' for i in range(6)]))
+
+        qcb_base = QCB(8, 3, g)
+
+        allocator = Allocator(qcb_base, extern_a, extern_b)
+
+    def test_right_single_placement(self):
+        extern_a = CompiledQCBInterface("TST", 3, 1)
+        extern_b = CompiledQCBInterface("TST", 2, 2)
+        g = DAG(Symbol('tst'))
+        g.add_gate(INIT(*[f'q_{i}' for i in range(5)]))
+
+        qcb_base = QCB(7, 4, g)
+
+        allocator = Allocator(qcb_base, extern_a, extern_b)
+
+    def test_random_externs(self):
+        for i in range(10):
+            rand_int = lambda: np.random.randint(1, 5)
+            rand_size = lambda: np.random.randint(7, 10)
+            extern_a = CompiledQCBInterface("TST", rand_int(), rand_int())
+            extern_b = CompiledQCBInterface("TST", rand_int(), rand_int())
+            g = DAG(Symbol('tst'))
+            g.add_gate(INIT(*[f'q_{i}' for i in range(5)]))
+            qcb_base = QCB(
+                    min(rand_size(), extern_a.height + extern_b.height + 2), 
+                    min(rand_size(), extern_a.width + extern_b.width + 1),
+                    g)
+
+            try:
+                allocator = Allocator(qcb_base, extern_a, extern_b)
+            except AllocatorError:
+                pass
+
+    def test_io_right_spare_space(self):
+        extern_a = CompiledQCBInterface("TST", 4, 2)
+        extern_b = CompiledQCBInterface("TST", 2, 4)
+        g = DAG(Symbol('tst', list(str(i) for i in range(4))))
+        g.add_gate(INIT(*[f'q_{i}' for i in range(5)]))
+        qcb_base = QCB(8, 7, g)
+        allocator = Allocator(qcb_base, extern_a, extern_b)
+
+    def test_io_externs_disjoint(self):
+        extern_a = CompiledQCBInterface("TST", 3, 3)
+        extern_b = CompiledQCBInterface("TST", 2, 3)
+        g = DAG(Symbol('tst', list(str(i) for i in range(4))))
+        g.add_gate(INIT(*[f'q_{i}' for i in range(5)]))
+        qcb_base = QCB(7, 7, g)
+        allocator = Allocator(qcb_base, extern_a, extern_b)
+
+    
+    def test_io_near_full_width(self):
+        extern_a = CompiledQCBInterface("TST", 4, 2)
+        extern_b = CompiledQCBInterface("TST", 1, 2)
+        g = DAG(Symbol('tst', list(str(i) for i in range(4))))
+        g.add_gate(INIT(*[f'q_{i}' for i in range(5)]))
+        qcb_base = QCB(7, 5, g)
+        allocator = Allocator(qcb_base, extern_a, extern_b)
+
+
+    def test_random_externs_with_io(self):
+        for i in range(10):
+            rand_int = lambda: np.random.randint(1, 5)
+            rand_size = lambda: np.random.randint(7, 10)
+            extern_a = CompiledQCBInterface("TST", rand_int(), rand_int())
+            extern_b = CompiledQCBInterface("TST", rand_int(), rand_int())
+            # Random size of IO channel
+            g = DAG(Symbol('tst', list(str(i) for i in range(rand_int()))))
+            g.add_gate(INIT(*[f'q_{i}' for i in range(5)]))
+            qcb_base = QCB(
+                    min(rand_size(), extern_a.height + extern_b.height + 2), 
+                    min(rand_size(), extern_a.width + extern_b.width + 1),
+                    g)
+
+            try:
+                allocator = Allocator(qcb_base, extern_a, extern_b)
+            except AllocatorError:
+                pass
+
+    def test_larger_random_with_io(self):
+         for i in range(10):
+            rand_int = lambda: np.random.randint(1, 5)
+            rand_size = lambda: np.random.randint(45, 60)
+            n_externs = 10
+            externs = [CompiledQCBInterface("TST", rand_int(), rand_int()) for _ in range(n_externs)]
+            io_width = rand_int()
+            # Random size of IO channel
+            g = DAG(Symbol('tst', list(str(i) for i in range(io_width))))
+            g.add_gate(INIT(*[f'q_{i}' for i in range(3)]))
+            qcb_base = QCB(
+                    rand_size(),
+                    rand_size(),
+                    g)
+            try:
+                allocator = Allocator(qcb_base, *externs)
+            except AllocatorError:
+                pass
+
+    def test_large_right_drop_up(self):
+        extern_sizes = [(8, 6), (9, 5), (5, 8), (8, 6), (6, 6), (9, 8), (7, 9), (9, 5), (9, 9), (5, 9)] 
+        externs = list(map(lambda x: CompiledQCBInterface("TST", *x), extern_sizes))
+        io_width = 8
+        g = DAG(Symbol('tst', list(str(i) for i in range(io_width))))
+        g.add_gate(INIT(*[f'q_{i}' for i in range(3)]))
+        qcb_base = QCB(47, 58, g)
+        allocator = Allocator(qcb_base, *externs)
+
+    def test_large_right_drop_up(self):
+        extern_sizes = [(7, 8), (9, 8), (5, 7), (6, 7), (6, 7), (8, 6)] 
+        externs = list(map(lambda x: CompiledQCBInterface("TST", *x), extern_sizes))
+        io_width = 8
+        g = DAG(Symbol('tst', list(str(i) for i in range(io_width))))
+        g.add_gate(INIT(*[f'q_{i}' for i in range(3)]))
+        qcb_base = QCB(47, 58, g)
+        allocator = Allocator(qcb_base, *externs)
+
+
+    def test_lots_of_growing(self):
+        extern_sizes = [(7, 8), (9, 8), (5, 7), (6, 7), (6, 7), (8, 6)]
+        externs = list(map(lambda x: CompiledQCBInterface("TST", *x), extern_sizes))
+        io_width = 8
+        g = DAG(Symbol('tst', list(str(i) for i in range(io_width))))
+        g.add_gate(INIT(*[f'q_{i}' for i in range(3)]))
+        qcb_base = QCB(47, 58, g)
+        allocator = Allocator(qcb_base, *externs)
+
+    def test_lots_of_growing(self):
+        extern_sizes = [(5, 6), (8, 7), (9, 5), (5, 9), (9, 8), (6, 7), (5, 5), (6, 9), (7, 5), (9, 7)]
+        externs = list(map(lambda x: CompiledQCBInterface("TST", *x), extern_sizes))
+        io_width = 9
+        g = DAG(Symbol('tst', list(str(i) for i in range(io_width))))
+        g.add_gate(INIT(*[f'q_{i}' for i in range(3)]))
+        qcb_base = QCB(47, 46, g)
+        allocator = Allocator(qcb_base, *externs)
+
+    def test_right_probe(self):
+        extern_sizes = [(9, 7), (9, 7), (9, 8), (9, 9), (5, 8), (8, 7), (5, 9), (9, 6), (7, 8), (6, 8)]
+        externs = list(map(lambda x: CompiledQCBInterface("TST", *x), extern_sizes))
+        io_width = 7
+        g = DAG(Symbol('tst', list(str(i) for i in range(io_width))))
+        g.add_gate(INIT(*[f'q_{i}' for i in range(3)]))
+        qcb_base = QCB(49, 50, g)
+        allocator = Allocator(qcb_base, *externs)
+
+    def test_narrow_u(self):
+        # This one also tests the connectivity from below rules
+        extern_sizes = [(3, 3), (1, 2), (3, 1)]
+        externs = list(map(lambda x: CompiledQCBInterface("TST", *x), extern_sizes))
+        g = DAG(Symbol('tst'))
+        g.add_gate(INIT(*[f'q_{i}' for i in range(3)]))
+        qcb_base = QCB(5, 7, g)
+        allocator = Allocator(qcb_base, *externs)
 
 
 
