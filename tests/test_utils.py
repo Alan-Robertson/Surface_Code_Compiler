@@ -12,11 +12,17 @@ class CompiledQCBInterface:
     def n_cycles(self):
         return self._n_cycles
 
+    def n_pre_warm_cycles(self):
+        return 0
+
     def is_extern(self):
         return True
 
     def get_symbol(self):
         return self.symbol
+
+    def instantiate(self):
+        return CompiledQCBInterface(self.symbol, self.height, self.width, self._n_cycles)
 
 class TreeNodeInterface():
     def __init__(self, symbol, weight, slots, segment=None):

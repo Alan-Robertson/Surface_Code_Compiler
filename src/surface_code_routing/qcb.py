@@ -241,6 +241,9 @@ class Segment():
         self.state = SCPatch()
         self.debug_name = ""
 
+    def neighbours(self):
+        return self.left | self.right | self.above | self.below
+
     def allocate(self):
         if self.allocated:
             raise Exception(f"Already Allocated {self}")
@@ -248,7 +251,11 @@ class Segment():
 
     def deallocate(self):
         self.allocated = False
-    
+   
+    def free(self):
+        self.deallocate()
+        self.set_state(SCPatch.NONE)
+
     def get_symbol(self):
         return self.state.get_symbol()
 
