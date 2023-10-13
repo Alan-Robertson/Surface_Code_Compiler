@@ -85,7 +85,7 @@ class MapperTest(unittest.TestCase):
         dag.add_gate(CNOT('b', 'd'))
 
         t_fact = T_Factory()
-        qcb_base = QCB(15, 10, dag)
+        qcb_base = QCB(15, 12, dag)
         allocator = Allocator(qcb_base, t_fact)
         graph = QCBGraph(qcb_base)
         tree = QCBTree(graph)

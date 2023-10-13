@@ -8,6 +8,10 @@ from surface_code_routing.qcb_graph import QCBGraph
 from surface_code_routing.qcb_tree import QCBTree
 from surface_code_routing.router import QCBRouter
 from surface_code_routing.mapper import QCBMapper
+from surface_code_routing.circuit_model import PatchGraph
+from surface_code_routing.inject_rotations import RotationInjector
+
+from surface_code_routing.bind import RouteBind
 
 from surface_code_routing.lib_instructions import T_Factory, T, Toffoli
 
@@ -19,54 +23,78 @@ class RouterTest(unittest.TestCase):
 
     def test_simple_route(self):
         dag = DAG(Symbol('Test'))
-        dag.add_gate(INIT('a', 'b', 'c', 'd'))
+        dag.add_gate(INIT('a', 'b'))
         dag.add_gate(CNOT('a', 'b'))
 
-        segments = [
-            QCBSegmentInterface(0, 0, 0, 0, SCPatch.REG),
-            QCBSegmentInterface(0, 1, 0, 1, SCPatch.ROUTE),
-            QCBSegmentInterface(0, 2, 0, 2, SCPatch.REG)
-            ]
+        qcb = QCB(4, 4, dag)
+        allocator = Allocator(qcb)
+        qcb.allocator = allocator
 
-        mapper = MapperInterface(
-                {Symbol('a'):segments[0],
-                  Symbol('b'):segments[1]}
-                )
+        graph = QCBGraph(qcb)
+        tree = QCBTree(graph)
+        mapper = QCBMapper(dag, tree)
 
-        qcb = QCBInterface(
-            1, 3,
-            *segments
-            )
-
-        router = QCBRouter(qcb, dag, mapper, auto_route=False)
-
-        route_found, route = router.find_route(GateInterface(Symbol('gate')), [[0, 0], [0, 2]])
-        assert route_found
-        assert route == [router.graph[0, 0], router.graph[0, 1], router.graph[0, 2]]
+        circuit_model = PatchGraph(qcb.shape, mapper, None)
+        rot_injector = RotationInjector(dag, mapper, qcb, graph=circuit_model)
+        router = QCBRouter(qcb, dag, mapper, graph=circuit_model, auto_route=False)
+    
+        for gate in dag.gates:
+            bound_gate = RouteBind(gate, mapper[gate])
+            address = mapper[gate]
+            route_found, route = router.find_route(bound_gate, address)
+            assert route_found
 
     def test_two_routes(self):
         dag = DAG(Symbol('Test'))
         dag.add_gate(INIT('a', 'b', 'c', 'd'))
         dag.add_gate(CNOT('a', 'b'))
+        dag.add_gate(CNOT('a', 'c'))
+        dag.add_gate(CNOT('a', 'd'))
+        dag.add_gate(CNOT('b', 'c'))
+        dag.add_gate(CNOT('b', 'd'))
+        dag.add_gate(CNOT('c', 'd'))
+       
+        qcb = QCB(3, 3, dag)
+        allocator = Allocator(qcb)
+        qcb.allocator = allocator
 
-        segments = [
-                QCBSegmentInterface(0, 0, 0, 0, SCPatch.REG),
-                QCBSegmentInterface(0, 1, 0, 1, SCPatch.ROUTE),
-                QCBSegmentInterface(0, 2, 0, 2, SCPatch.REG), 
-                QCBSegmentInterface(1, 0, 1, 0, SCPatch.REG),
-                QCBSegmentInterface(1, 1, 1, 1, SCPatch.ROUTE),
-                QCBSegmentInterface(1, 2, 1, 2, SCPatch.REG)
-                ]
+        graph = QCBGraph(qcb)
+        tree = QCBTree(graph)
+        mapper = QCBMapper(dag, tree)
 
-        mapper = MapperInterface({Symbol('a'):segments[0],
-                  Symbol('b'):segments[2],
-                  Symbol('c'):segments[3],
-                  Symbol('d'):segments[5]
-                  })
-                 
-        qcb = QCBInterface(2, 3, *segments)
+        circuit_model = PatchGraph(qcb.shape, mapper, None)
+        rot_injector = RotationInjector(dag, mapper, qcb, graph=circuit_model)
+        router = QCBRouter(qcb, dag, mapper, graph=circuit_model, auto_route=False)
+    
+        for gate in dag.gates:
+            bound_gate = RouteBind(gate, mapper[gate])
+            address = mapper[gate]
+            route_found, route = router.find_route(bound_gate, address)
+            assert route_found
 
-        router = QCBRouter(qcb, dag, mapper, auto_route=False)
+    def test_lock_unlock(self):
+        dag = DAG(Symbol('Test'))
+        dag.add_gate(INIT('a', 'b', 'c', 'd'))
+        dag.add_gate(CNOT('a', 'b'))
+
+        qcb = QCB(2, 3, dag)
+        allocator = Allocator(qcb)
+        qcb.allocator = allocator
+
+        graph = QCBGraph(qcb)
+        tree = QCBTree(graph)
+        mapper = QCBMapper(dag, tree)
+
+        circuit_model = PatchGraph(qcb.shape, mapper, None)
+        rot_injector = RotationInjector(dag, mapper, qcb, graph=circuit_model)
+        router = QCBRouter(qcb, dag, mapper, graph=circuit_model, auto_route=False)
+    
+        for gate in dag.gates:
+            bound_gate = RouteBind(gate, mapper[gate])
+            address = mapper[gate]
+            route_found, route = router.find_route(bound_gate, address)
+            assert route_found
+
 
         gate_a = GateInterface(Symbol('gate_a'))
         route_found, route = router.find_route(gate_a, [[0, 0], [0, 2]])
@@ -78,28 +106,6 @@ class RouterTest(unittest.TestCase):
         route_found, route = router.find_route(gate_b, [[1, 0], [1, 2]])
         assert route_found
         assert route == [router.graph[1, 0], router.graph[1, 1], router.graph[1, 2]]
-
-    def test_lock_unlock(self):
-        dag = DAG(Symbol('Test'))
-        dag.add_gate(INIT('a', 'b', 'c', 'd'))
-
-        segments = [
-            QCBSegmentInterface(1, 1, 1, 1, SCPatch.ROUTE),
-            QCBSegmentInterface(1, 0, 1, 0, SCPatch.REG),
-            QCBSegmentInterface(1, 2, 1, 2, SCPatch.REG), 
-            QCBSegmentInterface(0, 1, 0, 1, SCPatch.REG),
-            QCBSegmentInterface(2, 1, 2, 1, SCPatch.REG)
-            ]
-
-        mapper = MapperInterface({Symbol('a'):segments[1],
-                  Symbol('b'):segments[2],
-                  Symbol('c'):segments[3],
-                  Symbol('d'):segments[4]
-                  })
-                 
-        qcb = QCBInterface(3, 3, *segments)
-
-        router = QCBRouter(qcb, dag, mapper, auto_route=False)
 
         gate_a = GateInterface(Symbol('gate_a'))
         route_found, route = router.find_route(gate_a, [[1, 0], [1, 2]])

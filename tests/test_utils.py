@@ -1,5 +1,52 @@
+import numpy as np
+
 from surface_code_routing.tree_slots import TreeSlots, TreeSlot, SegmentSlot
 from surface_code_routing.symbol import symbol_resolve
+
+from surface_code_routing.instructions import INIT, CNOT, Hadamard, PREP, MEAS, X
+from surface_code_routing.lib_instructions import T, T_Factory
+
+
+def random_gates(dag, n_registers, io_width, seed=None):
+    if seed is not None:
+        np.random.seed(seed)
+
+    gate_chance = lambda x: (np.random.randint(1, x) == 1)
+
+    for i in range(20):
+        if gate_chance(10):
+            targ = np.random.randint(0, n_registers)
+            dag.add_gate(T(f"reg_{i}"))
+
+        if gate_chance(10):
+            targ = np.random.randint(0, io_width)
+            dag.add_gate(T(f"io_{i}"))
+
+        if gate_chance(5):
+            targ = np.random.randint(0, io_width)
+            dag.add_gate(Hadamard(f"io_{i}"))
+
+        if gate_chance(5):
+            targ = np.random.randint(0, n_registers)
+            dag.add_gate(Hadamard(f"reg_{i}"))
+
+        if gate_chance(8):
+            ctrl = np.random.randint(0, n_registers)
+            targ = np.random.randint(0, io_width)
+            dag.add_gate(CNOT(ctrl, targ))
+
+        if gate_chance(8):
+            ctrl = np.random.randint(0, n_registers)
+            targ = np.random.randint(0, n_registers)
+            dag.add_gate(CNOT(ctrl, targ))
+
+        if gate_chance(8):
+            ctrl = np.random.randint(0, io_width)
+            targ = np.random.randint(0, io_width)
+            dag.add_gate(CNOT(ctrl, targ))
+
+
+
 
 class CompiledQCBInterface:
 
@@ -7,6 +54,7 @@ class CompiledQCBInterface:
         self.symbol= symbol_resolve(symbol)
         self.height = height
         self.width = width
+        self.shape = (height, width)
         self._n_cycles = n_cycles
 
     def n_cycles(self):
@@ -81,6 +129,8 @@ class GraphNodeInterface:
     def __init__(self, symbol, n_slots=1):
         self.symbol = symbol
         self.n_slots = n_slots
+        self.x_0 = int(hash(self)) 
+        self.y_0 = int(hash(self)) 
 
     def get_symbol(self):
         return self.symbol
@@ -141,6 +191,9 @@ class QCBInterface():
         self.width = width
         self.height = height
         self.segments = segments
+        self.shape = (height, width)
+    def __iter__(self):
+        return iter(self.segments)
 
 class QCBSegmentInterface():
     def __init__(self, x_0, y_0, x_1, y_1, slot):
@@ -151,6 +204,9 @@ class QCBSegmentInterface():
         self.slot = slot
 
     def get_slot(self):
+        return self.slot
+
+    def get_state(self):
         return self.slot
 
     def range(self):
@@ -167,10 +223,14 @@ class GateInterface():
     def n_ancillae(self):
         return self.__n_ancillae
 
+    def get_symbol(self):
+        return self.symbol
+
 
 class MapperInterface():
-    def __init__(self, mapping_dict):
+    def __init__(self, mapping_dict, qcb=None):
         self.map = mapping_dict
+        self.qcb = qcb
 
     def __getitem__(self, key):
         return self.map[key]

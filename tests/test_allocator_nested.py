@@ -1,4 +1,5 @@
 import numpy as np
+
 import unittest
 from functools import reduce
 
@@ -13,7 +14,6 @@ from surface_code_routing.allocator import Allocator, AllocatorError
 from surface_code_routing.instructions import INIT, CNOT, Hadamard, PREP, MEAS, X
 from surface_code_routing.lib_instructions import T, T_Factory
 
-
 from surface_code_routing.dag import DAG
 from surface_code_routing.qcb import QCB, SCPatch
 from surface_code_routing.allocator import Allocator
@@ -26,48 +26,12 @@ from surface_code_routing.inject_rotations import RotationInjector
 
 from surface_code_routing.compiled_qcb import CompiledQCB
 
-from test_utils import CompiledQCBInterface
+from test_utils import CompiledQCBInterface, random_gates
 
 
 class SegmentTest(unittest.TestCase):
 
-    def random_gates(self, dag):
-        gate_chance = lambda x: (np.random.randint(1, x) == 1)
-
-        for i in range(20):
-            if gate_chance(10):
-                targ = np.random.randint(0, n_registers)
-                dag.add_gate(T(f"reg_{i}"))
-
-            if gate_chance(10):
-                targ = np.random.randint(0, io_width)
-                dag.add_gate(T(f"io_{i}"))
-
-            if gate_chance(5):
-                targ = np.random.randint(0, io_width)
-                dag.add_gate(Hadamard(f"io_{i}"))
-
-            if gate_chance(5):
-                targ = np.random.randint(0, n_registers)
-                dag.add_gate(Hadamard(f"reg_{i}"))
-
-            if gate_chance(8):
-                ctrl = np.random.randint(0, n_registers)
-                targ = np.random.randint(0, io_width)
-                dag.add_gate(CNOT(ctrl, targ))
-
-            if gate_chance(8):
-                ctrl = np.random.randint(0, n_registers)
-                targ = np.random.randint(0, n_registers)
-                dag.add_gate(CNOT(ctrl, targ))
-
-            if gate_chance(8):
-                ctrl = np.random.randint(0, io_width)
-                targ = np.random.randint(0, io_width)
-                dag.add_gate(CNOT(ctrl, targ))
-
-
-
+    
     def test_construct_T(self):
         dag = DAG(Symbol('T_Factory', 'factory_out'))
         dag.add_gate(INIT(*['q_{i}'.format(i=i) for i in range(4)]))
@@ -124,11 +88,11 @@ class SegmentTest(unittest.TestCase):
 
 
         factory = T_Factory(height=5, width=7)
-        externs = [CompiledQCBInterface(f"TST_{i}", *extern_size) for extern_size in extern_sizes]
+        externs = [CompiledQCBInterface(f"TST", *extern_size) for extern_size in extern_sizes]
 
         g = DAG(Symbol('tst', list(f"io_{i}" for i in range(io_width))))
         g.add_gate(INIT(*[f'reg_{i}' for i in range(n_registers)]))
-        self.random_gates(g)
+        random_gates(g, n_registers, io_width)
         qcb = QCB(*qcb_shape, g)
         allocator = Allocator(qcb, factory, *externs)
 
@@ -140,18 +104,16 @@ class SegmentTest(unittest.TestCase):
         qcb_shape = [48, 53]
 
         factory = T_Factory(height=5, width=7)
-        externs = [CompiledQCBInterface(f"TST_{i}", *extern_size) for extern_size in extern_sizes]
+        externs = [CompiledQCBInterface(f"TST", *extern_size) for extern_size in extern_sizes]
 
         g = DAG(Symbol('tst', list(f"io_{i}" for i in range(io_width))))
         g.add_gate(INIT(*[f'reg_{i}' for i in range(n_registers)]))
-        self.random_gates(g)
+        random_gates(g, n_registers, io_width)
         qcb = QCB(*qcb_shape, g)
         allocator = Allocator(qcb, factory, *externs)
 
-
-
     def test_random_externs(self): 
-        
+        import numpy as np
         for i in range(10):
             height = np.random.randint(6, 12)
             width = np.random.randint(6, 12)
@@ -171,7 +133,9 @@ class SegmentTest(unittest.TestCase):
             # Random size of IO channel
             g = DAG(Symbol('tst', list(f"io_{i}" for i in range(io_width))))
             g.add_gate(INIT(*[f'reg_{i}' for i in range(n_registers)]))
-            self.random_gates(g)
+            import numpy as np
+
+            random_gates(g, n_registers, io_width)
             qcb_base = QCB(
                     rand_size(),
                     rand_size(),

@@ -1,5 +1,5 @@
-from symbol import Symbol, ExternSymbol
-from scope import Scope
+from surface_code_routing.symbol import Symbol, ExternSymbol
+from surface_code_routing.scope import Scope
 import unittest
 
 class SymbolTest(unittest.TestCase):

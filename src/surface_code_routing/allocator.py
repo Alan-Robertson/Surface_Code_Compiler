@@ -278,7 +278,7 @@ class Allocator:
             if not new_extern and self.allocate_channel():
                 self.n_channels += 1
                 return True
-            elif new_extern and self.extern_invariant(new_extern):
+            elif new_extern and self.extern_invariant(new_extern, speculative=True):
                 self.externs.append(new_extern)
                 return True
         return False

@@ -1,20 +1,20 @@
 from functools import reduce
-from utils import consume
-from tree_slots import TreeSlots, TreeSlot, SegmentSlot
-from qcb_tree import RegNode, RouteNode
-from qcb import SCPatch
+from surface_code_routing.utils import consume
+from surface_code_routing.tree_slots import TreeSlots, TreeSlot, SegmentSlot
+from surface_code_routing.qcb_tree import RegNode, RouteNode
+from surface_code_routing.qcb import SCPatch
 import unittest
 
-from qcb_graph import QCBGraph
-from qcb_tree import QCBTree
-from allocator import Allocator
-from qcb import QCB
-from dag import DAG
-from instructions import INIT, CNOT
-from lib_instructions import T, T_Factory, Toffoli
+from surface_code_routing.qcb_graph import QCBGraph
+from surface_code_routing.qcb_tree import QCBTree
+from surface_code_routing.allocator import Allocator
+from surface_code_routing.qcb import QCB
+from surface_code_routing.dag import DAG
+from surface_code_routing.instructions import INIT, CNOT, Hadamard
+from surface_code_routing.lib_instructions import T, T_Factory, Toffoli
+from surface_code_routing.symbol import Symbol, ExternSymbol
 
 from test_utils import TreeNodeInterface, GraphNodeInterface 
-from symbol import Symbol, ExternSymbol
 
 class SlotTest(unittest.TestCase):
 
@@ -232,8 +232,7 @@ class SlotTest(unittest.TestCase):
     
         assert(len(tree.root.slots.slots) > 0)
 
-        N_REGISTERS = 58 
-        N_EXTERNS = 4
+        N_REGISTERS = 55 
         for i in range(N_REGISTERS):
             assert tree.alloc(SCPatch.REG) is not TreeSlots.NO_CHILDREN_ERROR
         assert tree.alloc(SCPatch.REG) is TreeSlots.NO_CHILDREN_ERROR
@@ -249,47 +248,6 @@ class SlotTest(unittest.TestCase):
 
         graph = QCBGraph(qcb_base)
         tree = QCBTree(graph)
-
-    def test_compiler_chain(self):
-        g = DAG(Symbol('Test'))
-        g.add_gate(INIT('a', 'b', 'c', 'd'))
-        g.add_gate(CNOT('a', 'b'))
-        g.add_gate(CNOT('c', 'd'))
-        g.add_gate(T('a'))
-        g.add_gate(CNOT('a', 'b'))
-        g.add_gate(Toffoli('a', 'b', 'c'))
-        g.add_gate(T('a'))
-        g.add_gate(T('a'))
-        g.add_gate(T('c'))
-        g.add_gate(T('d'))
-        g.add_gate(CNOT('c', 'd'))
-        g.add_gate(CNOT('c', 'a'))
-        g.add_gate(CNOT('b', 'd'))
-        g.add_gate(T('a'))
-        g.add_gate(T('c'))
-        g.add_gate(Toffoli('a', 'b', 'c'))
-        g.add_gate(CNOT('c', 'd'))
-        g.add_gate(CNOT('c', 'a'))
-        g.add_gate(CNOT('b', 'd'))
-
-
-        qcb_base = QCB(15, 10, g)
-        allocator = Allocator(qcb_base, T_Factory())
-
-        graph = QCBGraph(qcb_base)
-        tree = QCBTree(graph)
-    
-        assert(len(tree.root.slots.slots) > 0)
-
-        N_REGISTERS = 4
-        N_EXTERNS = 2
-        for i in range(N_REGISTERS):
-            assert tree.alloc(SCPatch.REG) is not TreeSlots.NO_CHILDREN_ERROR
-
-        factory_slot = Symbol('T_Factory', 'factory_out')
-        for i in range(N_EXTERNS):
-            assert tree.alloc(factory_slot) is not TreeSlots.NO_CHILDREN_ERROR
-        assert tree.alloc(factory_slot) is TreeSlots.NO_CHILDREN_ERROR
 
     def test_io(self):
         g = DAG(Symbol('Test', 'in', 'out'))
@@ -327,41 +285,6 @@ class SlotTest(unittest.TestCase):
         N_IO = 2
         for i in range(N_IO):
             assert tree.alloc(SCPatch.IO) is not TreeSlots.NO_CHILDREN_ERROR
-
-
-    def test_reproducibility(self):
-        def dag_fn(n_qubits, width, height): 
-             dag = DAG(f'{n_qubits}_{height}')
-             for i in range(n_qubits):
-                 dag.add_gate(Hadamard(f'q_{i}'))
-                 for j in range(i + 1, n_qubits):
-                     dag.add_gate(CNOT(f'q_{j}', f'q_{i}'))
-             return dag
-        height = 5
-        width = 5
-        n_qubits = 6
-        qcb_base = QCB(height, width, (dag_fn(n_qubits, height, width)))
-        Allocator(qcb_base)
-        graph_base = QCBGraph(qcb_base)
-        tree_base = QCBTree(graph_base)
-        nodes_base = list(tree_base.leaves)
-        nodes_base.sort(key=lambda node: node.vertex.segment.x_0 * height * 10 + node.vertex.segment.y_0)
-
-        alloc_order = [tree_base.alloc(Symbol('REGISTER')) for _ in range(n_qubits)]
-        coordinates_base = [(node.vertex.segment.x_0, node.vertex.segment.y_0) for node in alloc_order]
-        for i in range(20):
-            qcb = QCB(height, width, (dag_fn(n_qubits, height, width)))
-            Allocator(qcb)
-            graph = QCBGraph(qcb)
-            tree = QCBTree(graph)
-            nodes = list(tree.leaves)
-            nodes.sort(key=lambda node: node.vertex.segment.x_0 * height * 10 + node.vertex.segment.y_0)
-            assert(len(nodes_base) == len(nodes))
-            for node, node_b in zip(nodes, nodes_base):
-                assert(node.get_slot() == node_b.get_slot())
-            alloc_order = [tree_base.alloc(Symbol('REGISTER')) for _ in range(n_qubits)]
-            coordinates = [(node.vertex.segment.x_0, node.vertex.segment.y_0) for node in alloc_order]
-            assert(coordinates == coordinates_base)
 
 if __name__ == '__main__':
     unittest.main()

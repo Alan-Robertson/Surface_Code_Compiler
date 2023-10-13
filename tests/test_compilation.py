@@ -3,15 +3,8 @@ from surface_code_routing.instructions import INIT, CNOT, PREP, MEAS, X
 from surface_code_routing.lib_instructions import T, T_Factory,  Toffoli
 from surface_code_routing.symbol import Symbol, ExternSymbol
 
-from surface_code_routing.allocator import Allocator
-from surface_code_routing.qcb import QCB
-from surface_code_routing.mapper import QCBMapper
-from surface_code_routing.qcb_graph import QCBGraph
-from surface_code_routing.qcb_tree import QCBTree
+from surface_code_routing.compiled_qcb import CompiledQCB, compile_qcb
 
-from surface_code_routing.compiled_qcb import CompiledQCB
-
-from surface_code_routing.router import QCBRouter
 import unittest
 
 class CompilerTests(unittest.TestCase):
@@ -32,65 +25,28 @@ class CompilerTests(unittest.TestCase):
             'factory_out'))
         dag.add_gate(X('factory_out'))
 
-        qcb = QCB(5, 9, dag)
-        allocator = Allocator(qcb)
-
-        graph = QCBGraph(qcb)
-        tree = QCBTree(graph)
-
-        mapper = QCBMapper(dag, tree)
-        router = QCBRouter(qcb, dag, mapper)
-
-        compiled_t_factory = CompiledQCB(qcb, router, dag) 
+        qcb = compile_qcb(dag, 5, 9)
 
 
     def test_io(self):
-        dag_a = DAG(Symbol('T_Factory', 'factory_out'))
-        dag_a.add_gate(INIT('a')) 
-        dag_a.add_gate(CNOT('factory_out', 'a'))
+        dag = DAG(Symbol('T_Factory', 'factory_out'))
+        dag.add_gate(INIT('a')) 
+        dag.add_gate(CNOT('factory_out', 'a'))
 
-        qcb_base = QCB(4, 4, dag_a)
-        allocator = Allocator(qcb_base)
-
-        graph = QCBGraph(qcb_base)
-        tree = QCBTree(graph)
-
-        mapper = QCBMapper(dag_a, tree)
-        router = QCBRouter(qcb_base, dag_a, mapper)
-    
-        dag_b = DAG(Symbol('Test 2'))
-        dag_b.add_gate(INIT('x', 'y', 'z'))
-        dag_b.add_gate(T('x'))
+        qcb = compile_qcb(dag, 5, 9)
 
 
     def test_compiled_qcb(self):
         # Dummy T Factory
         dag = DAG(Symbol('T_Factory', 'factory_out'))
         dag.add_gate(INIT('a', 'b', 'c', 'd'))
-
-        qcb = QCB(4, 4, dag)
-        allocator = Allocator(qcb)
-
-        graph = QCBGraph(qcb)
-        tree = QCBTree(graph)
-
-        mapper = QCBMapper(dag, tree)
-        router = QCBRouter(qcb, dag, mapper)
-
-        t_factory = CompiledQCB(qcb, router, dag)
+        t_factory = compile_qcb(dag, 4, 4)
         
         dag = DAG(Symbol('Test'))
         dag.add_gate(INIT('a'))
         dag.add_gate(T('a'))
 
-        qcb_base = QCB(6, 6, dag)  
-        allocator = Allocator(qcb_base, t_factory)
-
-        graph = QCBGraph(qcb_base)
-        tree = QCBTree(graph)
-
-        mapper = QCBMapper(dag, tree)
-        router = QCBRouter(qcb_base, dag, mapper)
+        qcb_comp = compile_qcb(dag, 6, 6, t_factory)
 
 if __name__ == '__main__':
     unittest.main()
