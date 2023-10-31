@@ -6,11 +6,13 @@ from functools import reduce
 
 import sys
 
+
 # This gets triggered by deep copy in some areas
 sys.setrecursionlimit(10000)
 
+
 class DAGNode():
-    def __init__(self, symbol, *args, scope=None, externs=None, n_cycles=1, n_ancillae=0, rotation=False):
+    def __init__(self, symbol, *args, scope=None, externs=None, n_cycles=1, n_ancillae=0, rotation=False, ancillae_type=None):
         symbol = symbol_resolve(symbol)
         if externs is None:
             externs = dict()
@@ -35,6 +37,7 @@ class DAGNode():
 
         self.__n_cycles = n_cycles
         self.n_ancillae = n_ancillae
+        self.ancillae_type = ancillae_type
         self.__rotates = rotation
         self.gates = [self]
         self.layers = [self]

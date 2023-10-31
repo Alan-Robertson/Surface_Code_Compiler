@@ -210,3 +210,5 @@ class RouteBind(Bind):
     
     def n_ancillae(self):
         return self.obj.n_ancillae
+    def ancillae_type(self):
+        return self.obj.ancillae_type

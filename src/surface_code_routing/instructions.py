@@ -2,6 +2,7 @@ from functools import partial
 from itertools import chain
 from surface_code_routing.symbol import Symbol, ExternSymbol, symbol_map, symbol_resolve
 from surface_code_routing.scope import Scope
+from surface_code_routing.constants import SINGLE_ANCILLAE, ELBOW_ANCILLAE
 
 def in_place_factory(fn, **kwargs):
     '''
@@ -172,10 +173,10 @@ MEAS = non_local_factory('MEAS', n_cycles=1)
 PREP = in_place_factory_mult('PREP')
 
 HADAMARD_SYMBOL = Symbol('H')
-Hadamard = in_place_factory('H', n_cycles=3, n_ancillae=1)
+Hadamard = in_place_factory('H', n_cycles=3, n_ancillae=1, ancillae_type=ELBOW_ANCILLAE)
 
 ROTATION_SYMBOL = Symbol('Rotation')
-Rotation = in_place_factory('Rotation', n_cycles=3, n_ancillae=1, rotation=True)
+Rotation = in_place_factory('Rotation', n_cycles=3, n_ancillae=1, ancillae_type=SINGLE_ANCILLAE, rotation=True)
 MOVE_SYMBOL = Symbol('MOVE')
 MOVE = non_local_factory("MOVE", n_cycles=1, max_args=2) 
 

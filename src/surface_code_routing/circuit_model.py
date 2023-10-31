@@ -6,6 +6,7 @@ from surface_code_routing.tikz_utils import tikz_patch_graph
 from surface_code_routing.utils import debug_print
 from surface_code_routing.bind import AddrBind
 
+from surface_code_routing.constants import SINGLE_ANCILLAE, ELBOW_ANCILLAE
 
 class PatchGraphNode():
 
@@ -206,7 +207,10 @@ class PatchGraph():
 
     def ancillae(self, gate, start, n_ancillae):
         # Currently supports a single ancillae
-        return self.single_ancillae(gate, start)
+        if gate.ancillae_type() == SINGLE_ANCILLAE:
+            return self.single_ancillae(gate, start)
+        if gate.ancillae_type() == ELBOW_ANCILLAE:
+            return self.elbow_ancillae(gate, start)
 
     def single_ancillae(self, gate, start):
         potential_ancillae = start.adjacent(gate, bound=False)
@@ -215,12 +219,48 @@ class PatchGraph():
                 return [anc]
         return self.NO_PATH_FOUND
 
+    def elbow_ancillae(self, gate, start):
+        '''
+            ## #   # ##
+            #  ## ##  #
+        '''
+        # Try vertical ancillae first
+        potential_ancillae = start.adjacent(gate, vertical=True, horizontal=False)
+        for anc in potential_ancillae:
+            if anc.lock_state is not gate:
+                ancillae = []
+                curr_ancillae = anc
+                while curr_ancillae is not None:
+                    ancillae.append(curr_ancillae)
+                    # Check horizontal ancillae
+                    horizontal_ancillae = curr_ancillae.adjacent(
+                            gate, vertical=False, horizontal=True) 
+
+                    for h_anc in horizontal_ancillae:
+                        # Found one, we're done
+                        if h_anc.lock_state is not gate:
+                            ancillae.append(h_anc)
+                            return ancillae
+                    # Could not found one, check next vertical
+                    vertical_ancillae = anc.adjacent(
+                        gate, vertical=True, horizontal=False) 
+                    for v_anc in vertical_ancillae:
+                        if v_anc is not curr_ancillae and v_anc.lock_state is not gate:
+                            curr_ancillae = v_anc
+                            break
+                    else:
+                        # No legal ancillae
+                        curr_ancillae = None
+
+        return self.NO_PATH_FOUND
+
 
     def l_ancillae(self, gate, start):
         potential_ancillae = start.adjacent(gate, bound=False)
         for anc in potential_ancillae:
             if anc.lock_state is not gate:
                 return [anc]
+
         return self.NO_PATH_FOUND
 
     @staticmethod

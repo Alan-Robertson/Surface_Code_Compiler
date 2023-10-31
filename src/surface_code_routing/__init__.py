@@ -15,3 +15,4 @@ from surface_code_routing import compiled_qcb
 from surface_code_routing import lib_instructions
 from surface_code_routing import gate_synthesis
 from surface_code_routing import inject_rotations
+from surface_code_routing import constants 
