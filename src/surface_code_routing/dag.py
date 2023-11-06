@@ -6,6 +6,8 @@ from functools import reduce
 
 import sys
 
+from surface_code_routing import utils
+
 
 # This gets triggered by deep copy in some areas
 sys.setrecursionlimit(10000)
@@ -95,10 +97,11 @@ class DAGNode():
 
 
 class DAG(DAGNode):
-    def __init__(self, symbol, scope=None):
+    def __init__(self, symbol, scope=None, verbose=False):
 
         symbol = symbol_resolve(symbol)
         self.symbol = symbol
+        self.verbose = verbose
 
         if scope is None:
             scope = Scope()
@@ -140,6 +143,11 @@ class DAG(DAGNode):
                 self.last_layer[obj] = init_node
                 self.update_layer(init_node)
                 self.update_dependencies(init_node)
+
+
+    def debug_print(self, *args):
+        return utils.debug_print(*args, debug=self.verbose)
+
 
     def extern(self):
         return self.symbol.extern() 
@@ -343,17 +351,14 @@ class DAG(DAGNode):
         # Check that all externs are mapped
         assert(all(any(map(lambda i: i.satisfies(extern), externs)) for extern in self.externs.keys()))
 
-        # Magic state factory data
-        idle_externs = list(externs)
-        idle_externs.sort(key=extern_minimise)
-
         # Map of extern binds
         extern_map = dict(zip(externs, map(ExternBind, externs)))
         extern_gate_to_bind = lambda gate: extern_map[self.externs[gate.get_unary_symbol()]]
 
         # Currently unallocated externs
         idle_externs = list(extern_map.values())
-        
+        idle_externs.sort(key=extern_minimise)
+
         # Active and waiting gates
         active = set()
         waiting = list()
@@ -386,6 +391,7 @@ class DAG(DAGNode):
 
         # Keep running until all gates are resolved
         while len(active) > 0 or len(waiting) > 0:
+            self.debug_print(f"Active: {active}\n Waiting: {waiting}\nIdle:{idle_externs}")
             layers.append([])
             n_cycles += 1
             
@@ -439,6 +445,7 @@ class DAG(DAGNode):
 
                     # Unlock Externs For Reallocation
                     if gate.get_symbol() == RESET_SYMBOL:
+                        self.debug_print(f"RESET {gate}")
                         reset_extern = gate.get_unary_symbol()
                         extern_bind = extern_map[self.externs[reset_extern]]
                         extern_bind.reset()                        

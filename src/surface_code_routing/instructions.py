@@ -180,7 +180,7 @@ Rotation = in_place_factory('Rotation', n_cycles=3, n_ancillae=1, ancillae_type=
 MOVE_SYMBOL = Symbol('MOVE')
 MOVE = non_local_factory("MOVE", n_cycles=1, max_args=2) 
 
-Phase = in_place_factory('P')
+Phase = in_place_factory('P', n_ancillae=1, ancillae_type=SINGLE_ANCILLAE)
 X = in_place_factory('X')
 Y = in_place_factory('Y')
 Z = in_place_factory('Z')

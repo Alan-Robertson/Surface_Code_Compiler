@@ -1,10 +1,10 @@
 import unittest
-from utils import consume
+from surface_code_routing.utils import consume
 from functools import reduce
-from symbol import Symbol
-
-from qcb_tree import RouteNode, RegNode, ExternRegNode, IntermediateRegWrapper, IntermediateRegNode
-from qcb import SCPatch
+from surface_code_routing.symbol import Symbol
+      
+from surface_code_routing.qcb_tree import RouteNode, RegNode, ExternRegNode, IntermediateRegWrapper, IntermediateRegNode
+from surface_code_routing.qcb import SCPatch
 from test_utils import GraphNodeInterface
 
 
