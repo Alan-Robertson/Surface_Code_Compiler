@@ -22,6 +22,7 @@ class PatchGraphNode():
         self.y = i
         self.x = j
         self.state = SCPatch.ROUTE
+        self.last_used = -1
 
         if orientation is None:
             orientation = self.X_ORIENTED

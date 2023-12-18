@@ -9,6 +9,8 @@ COLOUR_NONE = 'black!20'
 COLOUR_DEBUG = 'yellow!30'
 COLOUR_JOIN = 'red!40!yellow!30'
 COLOUR_GRID = 'black!50!white'
+COLOUR_TELEPORT = 'cyan!40'
+
 
 colour_map = {
     SCPatch.IO : COLOUR_IO,
@@ -387,7 +389,10 @@ def tikz_route(route, router):
     curr_node = None
     while (element := next(element_iter, STOP_ITERATION)) is not STOP_ITERATION:
         if curr_node is not None:
-            tikz_str += tikz_path(hex(id(curr_node)), hex(id(element)), **{'double distance': '0.7cm', 'double': COLOUR_JOIN})
+            colour = COLOUR_JOIN
+            if (abs(curr_node.x - element.x) + abs(curr_node.y - element.y)) > 1:
+                colour = COLOUR_TELEPORT
+            tikz_str += tikz_path(hex(id(curr_node)), hex(id(element)), **{'double distance': '0.7cm', 'double': colour})
         curr_node = element
 
     return tikz_str

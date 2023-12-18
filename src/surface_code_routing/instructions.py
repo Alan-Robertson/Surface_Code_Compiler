@@ -17,6 +17,19 @@ def in_place_factory(fn, **kwargs):
         return dag
     return instruction
 
+def pure_ancillae_instruction_factory(fn, **kwargs):
+    '''
+        Instructions that target only ancillae and have no impact on the named registers
+    '''
+    def instruction():
+        sym = Symbol(fn)
+        scope = Scope({})
+        dag = DAG(sym, scope=scope)
+        dag.add_node(sym, **kwargs)
+        return dag
+    return instruction
+
+
 def in_place_factory_mult(fn, singular_instruction=None, **kwargs):
     '''
     Factory method for generating in place gates
@@ -180,9 +193,8 @@ Rotation = in_place_factory('Rotation', n_cycles=3, n_ancillae=1, ancillae_type=
 MOVE_SYMBOL = Symbol('MOVE')
 MOVE = non_local_factory("MOVE", n_cycles=1, max_args=2) 
 
-Phase = in_place_factory('P', n_ancillae=1, ancillae_type=SINGLE_ANCILLAE)
+Phase = in_place_factory('P', n_ancillae=1, ancillae_type=SINGLE_ANCILLAE, n_cycles=2)
 X = in_place_factory('X')
-Y = in_place_factory('Y')
 Z = in_place_factory('Z')
 
 JOINT_MEASURE = non_local_factory('MEAS ANC', n_cycles=1, max_args=2)

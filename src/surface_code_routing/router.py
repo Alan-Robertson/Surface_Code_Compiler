@@ -13,8 +13,10 @@ from surface_code_routing.utils import consume
 from surface_code_routing.tikz_utils import tikz_router
 from surface_code_routing.instructions import RESET_SYMBOL, ROTATION_SYMBOL, HADAMARD_SYMBOL, Rotation
 
+from surface_code_routing.inject_teleportation_routes import TeleportInjector
+
 class QCBRouter:
-    def __init__(self, qcb:QCB, dag:DAG, mapper:QCBMapper, graph=None, auto_route=True, verbose=False):
+    def __init__(self, qcb:QCB, dag:DAG, mapper:QCBMapper, graph=None, auto_route=True, verbose=False, teleport=True):
         '''
             Initialise the router
         '''
@@ -39,23 +41,28 @@ class QCBRouter:
         self.finished: 'List[DAGNode]' = []
 
         # This acts as a lock over the externs
-
         self.resolved: set[DAGNode] = set()
 
+        if teleport:
+            self.teleport_injector = TeleportInjector(self)
+
+        self.layers = []
         if auto_route:
-            self.layers = self.route()
+            # Fills layers
+            self.route()
 
     def route(self):
         self.active_gates = set()
         waiting = list(map(lambda x: RouteBind(x, self.mapper[x]), self.dag.layers[0]))
         resolved = set()
       
-        layers = []
+        layers = self.layers 
         extern_queue = []
         extern_lock = {i:None for i in self.dag.physical_externs}
         unlocked_externs = len(self.dag.physical_externs)
 
         while len(waiting) > 0 or len(self.active_gates) > 0:
+            curr_layer = len(layers)
             debug_print(waiting, self.active_gates, unlocked_externs, extern_lock, debug=self.verbose) 
             layers.append(list())
 
@@ -133,11 +140,22 @@ class QCBRouter:
                 if gate.non_local() or gate.n_ancillae() > 0:
                     route_exists, route_addresses = self.find_route(gate, addresses)
                     addresses = route_addresses
+                    if route_exists and self.teleport_injector is not None:
+                        self.teleport_injector(gate, addresses, curr_layer)
+                else:
+                    addresses = tuple(map(self.graph.__getitem__, addresses))
+
 
                 # Route exists, all nodes are free
                 if route_exists:
                     self.routes[AddrBind(gate)] = addresses 
                     self.active_gates.add(gate)
+
+                    for patch in addresses:
+                        # This patch will be locked for this duration
+                        # Storing this information in advance helps with ALAP vs ASAP scheduling
+                        patch.last_used = curr_layer + gate.n_cycles()
+
                     for physical_extern, argument in externs_acquired:
                         unlocked_externs -= 1
                         extern_lock[physical_extern] = argument
@@ -210,5 +228,3 @@ class QCBRouter:
     def rotate(self, dag_node, addresses):
         for address in addresses:
             self.graph[address].rotate()
-
-
