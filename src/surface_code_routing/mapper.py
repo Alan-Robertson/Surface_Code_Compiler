@@ -38,7 +38,8 @@ class QCBMapper():
 
         # Handle Externs
         for extern in self.dag.physical_externs: 
-            self.segment_maps[extern.symbol.predicate] = ExternSegmentMap(extern) 
+            if extern.symbol.predicate not in self.segment_maps:
+                self.segment_maps[extern.symbol.predicate] = ExternSegmentMap(extern) 
 
         for symbol, extern in self.dag.externs.items():
             segment_map = self.segment_maps[symbol.predicate]
@@ -189,6 +190,7 @@ class ExternSegmentMap():
     def __init__(self, extern):
         self.segments = dict()
         self.map = extern.io
+        self.extern = extern
 
     def alloc(self, symbol, segment):
         if segment not in self.segments:
@@ -199,9 +201,6 @@ class ExternSegmentMap():
             for coordinate in segment.range():
                 yield coordinate
     
-    def get_segment(self):
-        return self.segment
-
     def get_state(self):
         return SCPatch.EXTERN
 
@@ -214,7 +213,7 @@ class ExternSegmentMap():
         return segment.y_1, segment.x_0 + offset
 
     def __hash__(self):
-        return self.segment.__hash__()
+        return self.extern.__hash__()
 
     def __eq__(self, other):
         return self.segment == other.segment

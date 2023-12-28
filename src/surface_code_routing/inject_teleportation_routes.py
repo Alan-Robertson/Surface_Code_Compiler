@@ -52,6 +52,7 @@ class TeleportInjector():
 
     def teleport(self, computational_gate, addresses, curr_cycle):
         teleport_operations = []
+        address_locks = dict((address, False) for address in addresses)
         if computational_gate.non_local() and computational_gate.n_ancillae() == 0:
             for address in addresses:
                 success, teleport_operation = self.switches.get(address, self.DEFAULT_INTERSECTION)(addresses, curr_cycle)
@@ -59,8 +60,17 @@ class TeleportInjector():
                     self.debug_print(f"Injecting Teleport: {computational_gate} {teleport_operation} {addresses}")
                     teleport_operation.schedule(self.scheduler)
                     teleport_operations.append(teleport_operation)
+                    for address in teleport_operation.intersection:
+                        address_locks[address] = True
 
+        # Merge simultaneous adjacent teleport operations
         teleport_operations = self.merge_teleportations(teleport_operations)
+       
+        # Check no-operations were subsumed across different cycles, there's almost certainly a neater way to do this
+        teleport_operations = filter(lambda teleport: all(map(lambda address: not address_locks[address], 
+                                                          teleport.endpoints)), 
+                                     teleport_operations)
+
         for operation in teleport_operations:
             operation.inject_teleportation(computational_gate, self.router.routes, self.router.layers)
 

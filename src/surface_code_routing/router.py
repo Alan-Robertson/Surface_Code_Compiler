@@ -45,6 +45,8 @@ class QCBRouter:
 
         if teleport:
             self.teleport_injector = TeleportInjector(self)
+        else:
+            self.teleport_injector = None
 
         self.layers = []
         if auto_route:

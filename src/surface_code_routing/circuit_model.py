@@ -128,7 +128,7 @@ class PatchGraph():
 
     NO_PATH_FOUND = object()
 
-    def __init__(self, shape, mapper, environment, default_orientation = PatchGraphNode.X_ORIENTED, verbose=False):
+    def __init__(self, shape, mapper, environment, default_orientation=PatchGraphNode.X_ORIENTED, verbose=False):
         self.shape = shape
         self.environment = environment
         self.mapper = mapper
@@ -136,16 +136,20 @@ class PatchGraph():
 
         self.verbose = verbose
 
-        self.graph = np.array([[PatchGraphNode(self, i, j, orientation=self.default_orientation, verbose=False) for j in range(shape[1])] for i in range(shape[0])])
+        self.graph = np.array(
+                    [[PatchGraphNode(self, i, j, orientation=self.default_orientation, verbose=self.verbose) 
+                      for j in range(shape[1])] 
+                      for i in range(shape[0])
+                ])
 
         for segment in self.mapper.map.values():
             for coordinates in segment.range():
                 if self.graph[coordinates].state == SCPatch.ROUTE: 
                     self.graph[coordinates].set_underlying(segment.get_slot())
-                else:
+#                else:
                     # Skip if this has been mapped already
                     # This happens for externs that are aliased
-                    break
+                    #break
 
         local_patches = []
         for segment in self.mapper.qcb:
@@ -323,8 +327,8 @@ class PatchGraph():
         return self.NO_PATH_FOUND
 
     @staticmethod
-    def heuristic(a, b):
-        return abs(a.x - b.x) + 1.01 * abs(a.y - b.y)
+    def heuristic(a, b, bias = 1 + 1e-7):
+        return abs(a.x - b.x) + bias * abs(a.y - b.y)
 
     def __tikz__(self):
         return tikz_patch_graph(self)
