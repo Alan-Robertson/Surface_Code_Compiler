@@ -34,8 +34,13 @@ class DAGNode():
                 externs[sym] = None
         
         self.predicates = set()
+        # Predicate factories to inject
         self.antecedents = set()
         self.externs = externs
+
+        # To be injected if all other predicates are resolved
+        self.predicate_factories = set()
+        self.__is_factory = None
 
         self.__n_cycles = n_cycles
         self.n_ancillae = n_ancillae
@@ -80,6 +85,17 @@ class DAGNode():
     def __contains__(self, other):
         return other in self.symbol.io
 
+
+    def is_factory(self):
+        # Factories are externs with no inputs
+        # By design, all factories must eventually have a non-extern antecedent
+        # If this isn't possible then the factory should be rolled into the scope of the anteceding extern
+        if self.__is_factory is None:
+            self.__is_factory = self.is_extern() and (sum(i is not self.symbol for i in self.symbol.io_in) == 0)
+
+        return self.__is_factory
+
+
     def non_local(self):
         return len(self.symbol.io) > 1
 
@@ -120,6 +136,8 @@ class DAG(DAGNode):
         self.predicates = set()
         self.antecedents = set()
 
+        self.predicate_factories = set()
+
         self.forward_edges = dict()
         self.back_edges = dict()
 
@@ -144,10 +162,8 @@ class DAG(DAGNode):
                 self.update_layer(init_node)
                 self.update_dependencies(init_node)
 
-
     def debug_print(self, *args):
         return utils.debug_print(*args, debug=self.verbose)
-
 
     def extern(self):
         return self.symbol.extern() 
@@ -223,7 +239,19 @@ class DAG(DAGNode):
                 predicate.antecedents.add(gate)
                 gate.predicates.add(predicate)
                 self.last_layer[dep] = gate
+
         self.update_layer(gate)
+
+        # Propagate factories till non_local operation
+        for dep in gate.predicates:
+            if not dep.non_local() and not dep.is_factory():
+                gate.predicate_factories |= dep.predicate_factories
+            if dep.is_factory():
+               gate.predicate_factories.add(dep)
+        # Non-local gates implies more than zero predicates
+        if len(gate.predicates) > 0 and gate.non_local() and all(map(lambda x: (not x.non_local()) and (len(x.predicate_factories) > 0), gate.predicates)):
+            raise Exception("Cannot Depend on multiple externs directly, wrap the extern dependencies within the original extern, or introduce a register within the current scope")
+
         return
         
     def update_layer(self, gate):
@@ -365,6 +393,9 @@ class DAG(DAGNode):
 
         # Initially active gates
         for gate in self.layers[0]:
+            if gate.is_factory():
+                continue 
+
             if gate.is_extern():
                 index, binding = next(
                     ((index, extern) for index, extern in enumerate(idle_externs) if extern.satisfies(gate)),
@@ -380,6 +411,7 @@ class DAG(DAGNode):
                     waiting.append(ExternBind(gate))
             else:
                 active.add(DAGBind(gate))
+        self.debug_print(f"Initial Gates: {active}\nWaiting: {waiting}")
 
         # Gates that have finished, how many cycles this took, what happened in each layer
         resolved = set() 
@@ -425,8 +457,19 @@ class DAG(DAGNode):
                     for antecedent in gate.antecedents():
                         all_resolved = True
 
+                        # Resolve factories first
+                        # Each factory will appear in a single topmost unresolved predicate_factory
+                        for predicate_factory in antecedent.predicate_factories:
+                            # Yet to be allocated
+                            if self.externs[predicate_factory.get_unary_symbol()] is None:
+                                self.debug_print(f"\tCaught Factory {predicate_factory} from gate {gate}")
+                                waiting.append(ExternBind(predicate_factory))
+                                all_resolved = False
+                        if all_resolved is False:
+                           continue 
+
                         # Check the predicate of each antecedent
-                        for predicate in antecedent.predicates:       
+                        for predicate in antecedent.predicates: 
                             # Catches nodes that are externs
                             # Ensure that the predicate has been mapped
                             if predicate.is_extern() and self.externs[predicate.get_unary_symbol()] is not None:

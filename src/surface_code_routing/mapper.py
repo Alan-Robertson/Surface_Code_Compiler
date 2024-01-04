@@ -2,9 +2,10 @@ import math as maths
 from surface_code_routing.qcb import SCPatch
 from surface_code_routing.tree_slots import TreeSlots
 from surface_code_routing.tikz_utils import tikz_mapper
+from surface_code_routing.extern_patch_allocator_static import ExternPatchAllocatorStatic 
 
 class QCBMapper():
-    def __init__(self, dag, mapping_tree):
+    def __init__(self, dag, mapping_tree, extern_allocation_method='static'):
         self.dag = dag
         self.mapping_tree = mapping_tree
         self.qcb = mapping_tree.graph.qcb
@@ -16,9 +17,21 @@ class QCBMapper():
             if not symbol.is_extern():
                 self.map[symbol] = None
 
-        self.construct_map()
-           
-    def construct_map(self):
+        self.construct_register_map()
+
+        if extern_allocation_method == 'static':
+            self.extern_allocator = ExternPatchAllocatorStatic(self)
+        elif extern_allocation_method == 'dynamic':
+            self.extern_allocator = ExternPatchAllocatorDynamic(self)
+        else:
+            raise Exception(f"Unknown Allocator Method {extern_allocation}")
+
+        self.extern_allocation_method = extern_allocation_method
+
+    def alloc_extern(self, symbol):
+        pass
+
+    def construct_register_map(self):
         for symbol in self.map:
             if symbol in self.dag.io():
                 leaf = self.mapping_tree.alloc(SCPatch.IO)
@@ -36,22 +49,6 @@ class QCBMapper():
             if leaf == TreeSlots.NO_CHILDREN_ERROR:
                 raise Exception(f"Could not allocate {symbol}")
 
-        # Handle Externs
-        for extern in self.dag.physical_externs: 
-            if extern.symbol.predicate not in self.segment_maps:
-                self.segment_maps[extern.symbol.predicate] = ExternSegmentMap(extern) 
-
-        for symbol, extern in self.dag.externs.items():
-            segment_map = self.segment_maps[symbol.predicate]
-            if extern not in segment_map.segments:
-                leaf = self.mapping_tree.alloc(symbol.predicate)
-                segment = leaf.get_segment
-                segment_map.alloc(extern, leaf.get_segment())
-                segment_map.alloc(symbol, leaf.get_segment())
-            else:
-                segment_map.alloc(symbol, segment_map.segments[extern])
-            self.map[symbol] = segment_map 
-
     def dag_node_to_symbol_map(self, dag_node):
         for symbol in dag_node.scope:
             yield symbol, self.dag_symbol_to_coordinates(symbol)
@@ -62,6 +59,7 @@ class QCBMapper():
     def dag_symbol_to_coordinates(self, symbol):
         segment_map = self.map[symbol]
         if segment_map.get_state() == SCPatch.EXTERN:
+            # Allocator triggered here
             return segment_map[symbol]
         elif symbol.io_element is not None:
             offset = segment.get_slot().io[node.io_element]
@@ -152,7 +150,7 @@ class RegSegmentMap():
 
 class IOSegmentMap():
     '''
-        This handles placement within registers
+        This handles placement for the IO
     '''
     def __init__(self, symbol, segment):
         self.segment = segment
@@ -183,43 +181,4 @@ class IOSegmentMap():
     def __repr__(self):
         return self.map.__repr__()
 
-class ExternSegmentMap():
-    '''
-        This handles placement within registers
-    '''
-    def __init__(self, extern):
-        self.segments = dict()
-        self.map = extern.io
-        self.extern = extern
 
-    def alloc(self, symbol, segment):
-        if segment not in self.segments:
-            self.segments[symbol] = segment
-
-    def range(self):
-        for segment in self.segments.values():
-            for coordinate in segment.range():
-                yield coordinate
-    
-    def get_state(self):
-        return SCPatch.EXTERN
-
-    def get_slot(self):
-        return SCPatch.EXTERN
-
-    def __getitem__(self, symbol):
-        segment = self.segments[symbol]
-        offset = self.map.get(symbol.io_element, 0)
-        return segment.y_1, segment.x_0 + offset
-
-    def __hash__(self):
-        return self.extern.__hash__()
-
-    def __eq__(self, other):
-        return self.segment == other.segment
-
-    def __repr__(self):
-        return self.map.__repr__()
-
-    def __in__(self, other):
-        return other in self.segments

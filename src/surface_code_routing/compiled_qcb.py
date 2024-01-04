@@ -22,7 +22,7 @@ def compile_qcb(dag, height, width, *externs, verbose=False):
 
     if verbose:
         print(f"\tAllocating QCB...")
-    allocator = Allocator(qcb, *externs, tikz_build=True)
+    allocator = Allocator(qcb, *externs, tikz_build=True, verbose=verbose)
     qcb.allocator = allocator
 
     if verbose:

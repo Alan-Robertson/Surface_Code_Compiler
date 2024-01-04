@@ -16,7 +16,7 @@ from surface_code_routing.instructions import RESET_SYMBOL, ROTATION_SYMBOL, HAD
 from surface_code_routing.inject_teleportation_routes import TeleportInjector
 
 class QCBRouter:
-    def __init__(self, qcb:QCB, dag:DAG, mapper:QCBMapper, graph=None, auto_route=True, verbose=False, teleport=True):
+    def __init__(self, qcb:QCB, dag:DAG, mapper:QCBMapper, graph=None, auto_route=True, verbose=True, teleport=True):
         '''
             Initialise the router
         '''
@@ -53,19 +53,21 @@ class QCBRouter:
             # Fills layers
             self.route()
 
+    def debug_print(self, *args, **kwargs):
+        debug_print(*args, debug=self.verbose, **kwargs)
+
     def route(self):
         self.active_gates = set()
-        waiting = list(map(lambda x: RouteBind(x, self.mapper[x]), self.dag.layers[0]))
+        waiting = list(map(lambda x: RouteBind(x, self.mapper[x]), filter(lambda x: not x.is_factory(), self.dag.layers[0])))
         resolved = set()
       
         layers = self.layers 
-        extern_queue = []
         extern_lock = {i:None for i in self.dag.physical_externs}
         unlocked_externs = len(self.dag.physical_externs)
 
         while len(waiting) > 0 or len(self.active_gates) > 0:
             curr_layer = len(layers)
-            debug_print(waiting, self.active_gates, unlocked_externs, extern_lock, debug=self.verbose) 
+            self.debug_print(waiting, self.active_gates, unlocked_externs, extern_lock) 
             layers.append(list())
 
             recently_resolved = list()
@@ -77,12 +79,13 @@ class QCBRouter:
 
                     # Release an extern allocation
                     if gate.get_symbol() == RESET_SYMBOL:
+                        self.debug_print(f"Releasing Extern {gate}")
                         extern_lock[self.dag.externs[gate.get_unary_symbol()]] = None
                         unlocked_externs += 1
                     layers[-1].append(gate)
 
                 if len(recently_resolved) == 0:
-                    # No gates resolved, state of the system does not change, fastfoward
+                    # No gates resolved, state of the system does not change, fastforward
                     continue
 
             self.active_gates = set(filter(lambda x: not x.resolved(), self.active_gates))
@@ -93,12 +96,22 @@ class QCBRouter:
                 # Should only trigger when the final antecedent is resolved
                 for antecedent in gate.antecedents():
                     all_resolved = True
+
+                    for predicate_factory in antecedent.predicate_factories:
+                        # Yet to be allocated
+                        if predicate_factory not in resolved and predicate_factory not in self.active_gates:
+                            self.debug_print(f"\tCaught Factory {predicate_factory} from gate {gate}")
+                            waiting.append(RouteBind(predicate_factory, None))
+                            all_resolved = False
+                    if all_resolved is False:
+                          continue 
+
                     for predicate in antecedent.predicates:
                         if RouteBind(predicate, None) not in resolved:
                             all_resolved = False
                             break
                     if all_resolved:
-                        waiting.append(RouteBind(antecedent, addresses))
+                        waiting.append(RouteBind(antecedent, None))
             
             waiting.sort()
             waiting_clear = list()
@@ -167,6 +180,7 @@ class QCBRouter:
 
             # Not the most elegant approach, could reorder some things
             if len(layers[-1]) == 0:
+                self.debug_print("Layer Quashed")
                 layers.pop()
              
         return layers
