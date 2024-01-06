@@ -212,3 +212,8 @@ class RouteBind(Bind):
         return self.obj.n_ancillae
     def ancillae_type(self):
         return self.obj.ancillae_type
+    def is_extern(self):
+        return self.obj.is_extern()
+    def is_factory(self):
+        return self.obj.is_factory()
+

@@ -62,17 +62,21 @@ class RotationInjector():
         rotation_targs = list()
         dag_symbol = dag_node.get_symbol()
         for argument in dag_symbol.z:
+            if argument.is_extern():
+                continue
             address = self.mapper.dag_symbol_to_coordinates(argument)
             graph_node = self.graph[address]
-            if graph_node.route_or_hadamard(graph_node.Z_ORIENTED) is graph_node.SUGGEST_ROTATE:
+            if graph_node.route_or_rotate(graph_node.Z_ORIENTED) is graph_node.SUGGEST_ROTATE:
                 debug_print(dag_node, graph_node, graph_node.orientation, 'ROTATE', debug=self.verbose)
                 rotation_targs.append(argument)
             else:
                 debug_print(dag_node, graph_node, graph_node.orientation, 'ROUTE', debug=self.verbose)
         for argument in dag_symbol.x:
+            if argument.is_extern():
+                continue
             address = self.mapper.dag_symbol_to_coordinates(argument)
             graph_node = self.graph[address]
-            if graph_node.route_or_hadamard(graph_node.X_ORIENTED) is graph_node.SUGGEST_ROTATE:
+            if graph_node.route_or_rotate(graph_node.X_ORIENTED) is graph_node.SUGGEST_ROTATE:
                 debug_print(dag_node, graph_node, graph_node.orientation, 'ROTATE', debug=self.verbose)
                 rotation_targs.append(argument)
             else:
@@ -88,7 +92,7 @@ class RotationInjector():
             dag_index = self.dag.gates.index(dag_node)
             predicate_gate = dag_node.back_edges[symbol]
 
-            if predicate_gate.symbol == HADAMARD_SYMBOL or predicate_gate.symbol == INIT_SYMBOL:
+            if predicate_gate.symbol == INIT_SYMBOL:
                 predicate_gate.rotate()
                 rotation_gate = predicate_gate
             else:
@@ -123,7 +127,4 @@ class RotationInjector():
         if dag_node.rotates():
             for address in addresses:
                 self.graph[address].rotate()
-
-            
-
 

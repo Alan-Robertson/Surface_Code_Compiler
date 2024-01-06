@@ -3,6 +3,7 @@ from surface_code_routing.qcb import SCPatch
 from surface_code_routing.tree_slots import TreeSlots
 from surface_code_routing.tikz_utils import tikz_mapper
 from surface_code_routing.extern_patch_allocator_static import ExternPatchAllocatorStatic 
+from surface_code_routing.constants import COULD_NOT_ALLOCATE
 
 class QCBMapper():
     def __init__(self, dag, mapping_tree, extern_allocation_method='static'):
@@ -13,6 +14,8 @@ class QCBMapper():
         self.map = dict()
         self.segment_maps = dict()
         
+        self.router = None
+
         for symbol in dag.lookup():
             if not symbol.is_extern():
                 self.map[symbol] = None
@@ -29,7 +32,20 @@ class QCBMapper():
         self.extern_allocation_method = extern_allocation_method
 
     def alloc_extern(self, symbol):
-        pass
+        return self.extern_allocator.alloc(symbol)
+
+    def free(self, gate):
+        self.extern_allocator.free(gate.get_unary_symbol())
+
+    def lock(self, gate):
+        if gate.get_symbol().is_extern():
+            self.extern_allocator.lock(gate.get_unary_symbol())
+
+    def first_free_cycle(self, gate):
+        return self.extern_allocator.first_free_cycle(gate.get_unary_symbol())
+
+    def get_extern_coordinate(self, symbol):
+        return self.extern_allocator[symbol]
 
     def construct_register_map(self):
         for symbol in self.map:
@@ -60,7 +76,11 @@ class QCBMapper():
         segment_map = self.map[symbol]
         if segment_map.get_state() == SCPatch.EXTERN:
             # Allocator triggered here
-            return segment_map[symbol]
+            allocation_result = self.alloc_extern(symbol)
+            if allocation_result is COULD_NOT_ALLOCATE:
+                return COULD_NOT_ALLOCATE
+            else:
+                return self.get_extern_coordinate(symbol)
         elif symbol.io_element is not None:
             offset = segment.get_slot().io[node.io_element]
             return (segment.y_1, segment.x_0 + offset)
@@ -68,8 +88,23 @@ class QCBMapper():
             return segment_map[symbol]
 
     def dag_node_to_coordinates(self, dag_node):
-        return [self.dag_symbol_to_coordinates(symbol) for symbol in dag_node.scope]
-            
+        coordinates = list()
+        for symbol in dag_node.scope:
+            coordinate = self.dag_symbol_to_coordinates(symbol) 
+            if coordinate is COULD_NOT_ALLOCATE:
+                return COULD_NOT_ALLOCATE
+            coordinates.append(coordinate)
+        return coordinates 
+
+    def lock_externs(self, dag_node):
+        # Two stage attempt to acquire and rollback 
+        # Problem dealing with partial locking
+        for symbol in dag_node.scope:
+            coordinate = self.dag_symbol_to_coordinates(symbol) 
+            if coordinate is COULD_NOT_ALLOCATE:
+                return COULD_NOT_ALLOCATE
+            coordinates.append(coordinate)
+
     def __getitem__(self, dag_node):
         return self.dag_node_to_coordinates(dag_node)
 

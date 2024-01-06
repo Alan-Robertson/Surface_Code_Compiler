@@ -15,8 +15,10 @@ from surface_code_routing.instructions import RESET_SYMBOL, ROTATION_SYMBOL, HAD
 
 from surface_code_routing.inject_teleportation_routes import TeleportInjector
 
+from surface_code_routing.constants import COULD_NOT_ALLOCATE
+
 class QCBRouter:
-    def __init__(self, qcb:QCB, dag:DAG, mapper:QCBMapper, graph=None, auto_route=True, verbose=True, teleport=True):
+    def __init__(self, qcb:QCB, dag:DAG, mapper:QCBMapper, graph=None, auto_route=True, verbose=False, teleport=True):
         '''
             Initialise the router
         '''
@@ -29,6 +31,7 @@ class QCBRouter:
         self.dag = dag
         self.qcb = qcb
         self.mapper = mapper
+        mapper.router = self
 
         self.verbose = verbose
         self.routes = dict()
@@ -40,7 +43,6 @@ class QCBRouter:
         self.active: 'PriorityQueue[Tuple[int, Any, DAGNode]]' = PriorityQueue()
         self.finished: 'List[DAGNode]' = []
 
-        # This acts as a lock over the externs
         self.resolved: set[DAGNode] = set()
 
         if teleport:
@@ -58,17 +60,14 @@ class QCBRouter:
 
     def route(self):
         self.active_gates = set()
+        # Non-factory gates in the first layer are queued
         waiting = list(map(lambda x: RouteBind(x, self.mapper[x]), filter(lambda x: not x.is_factory(), self.dag.layers[0])))
-        resolved = set()
-      
-        layers = self.layers 
-        extern_lock = {i:None for i in self.dag.physical_externs}
-        unlocked_externs = len(self.dag.physical_externs)
-
+        resolved = self.resolved
+        
         while len(waiting) > 0 or len(self.active_gates) > 0:
-            curr_layer = len(layers)
-            self.debug_print(waiting, self.active_gates, unlocked_externs, extern_lock) 
-            layers.append(list())
+            curr_layer = len(self.layers)
+            self.debug_print(waiting, self.active_gates)
+            self.layers.append(list())
 
             recently_resolved = list()
             if len(self.active_gates) > 0:
@@ -79,10 +78,9 @@ class QCBRouter:
 
                     # Release an extern allocation
                     if gate.get_symbol() == RESET_SYMBOL:
-                        self.debug_print(f"Releasing Extern {gate}")
-                        extern_lock[self.dag.externs[gate.get_unary_symbol()]] = None
-                        unlocked_externs += 1
-                    layers[-1].append(gate)
+                        self.mapper.free(gate)
+                        self.debug_print(f"\tReleasing Extern {gate}")
+                    self.layers[-1].append(gate)
 
                 if len(recently_resolved) == 0:
                     # No gates resolved, state of the system does not change, fastforward
@@ -100,7 +98,7 @@ class QCBRouter:
                     for predicate_factory in antecedent.predicate_factories:
                         # Yet to be allocated
                         if predicate_factory not in resolved and predicate_factory not in self.active_gates:
-                            self.debug_print(f"\tCaught Factory {predicate_factory} from gate {gate}")
+                            self.debug_print(f"\tCaught Factory {predicate_factory} from edge {gate} -> {antecedent}")
                             waiting.append(RouteBind(predicate_factory, None))
                             all_resolved = False
                     if all_resolved is False:
@@ -117,32 +115,14 @@ class QCBRouter:
             waiting_clear = list()
             # Initially active gates
             for gate in waiting:
+
+                # The mapper will also check if it can do an extern allocation
+                # The mapper is constrained that if the next call to the mapper is a lock on the same gate that those same addresses should be locked
                 addresses = self.mapper[gate]
 
-                # Attempt to acquire locks for externs
-                externs_acquired = list()
-                extern_requirements_satisfied = True
-                for argument in gate.get_symbol().io:
-                    if argument.is_extern():
-
-                        # If all externs locked just skip checks and keep going
-                        if unlocked_externs == 0:
-                            break
-
-                        logical_extern = argument
-                        physical_extern = self.dag.externs[argument]
-
-                        # Unlocked, potentially acquire lock
-                        lock_state = extern_lock[physical_extern]
-                        if lock_state is None:
-                            # Unlocked, potentially acquire the lock
-                            externs_acquired.append((physical_extern, argument))
-                        elif lock_state != argument:
-                            # Resource already locked, give up
-                            extern_requirements_satisfied = False
-                            break
-                        # Final case assumes that the lock state is the argument and the lock is already held
-                if not extern_requirements_satisfied:
+                # Could not obtain addresses for an extern 
+                if addresses is COULD_NOT_ALLOCATE: 
+                    self.debug_print(f"\tFailed to allocate extern for {gate}")
                     continue
                             
                 # Check that all addresses are free
@@ -156,7 +136,7 @@ class QCBRouter:
                     route_exists, route_addresses = self.find_route(gate, addresses)
                     addresses = route_addresses
                     if route_exists and self.teleport_injector is not None:
-                        self.teleport_injector(gate, addresses, curr_layer)
+                        self.teleport_injector(gate, addresses, curr_layer, )
                 else:
                     addresses = tuple(map(self.graph.__getitem__, addresses))
 
@@ -166,24 +146,30 @@ class QCBRouter:
                     self.routes[AddrBind(gate)] = addresses 
                     self.active_gates.add(gate)
 
+                    # Lock any extern patches involved
+                    self.mapper.lock(gate)
+
+                    # Rollback factories
+                    if gate.is_factory():
+                        first_free_cycle = self.mapper.first_free_cycle(gate)
+                        gate.cycles_completed = min(gate.n_cycles(), curr_layer - first_free_cycle - 1)
+                        for i in range(first_free_cycle, curr_layer):
+                            self.layers[i].append(gate)
+
                     for patch in addresses:
                         # This patch will be locked for this duration
                         # Storing this information in advance helps with ALAP vs ASAP scheduling
                         patch.last_used = curr_layer + gate.n_cycles()
 
-                    for physical_extern, argument in externs_acquired:
-                        unlocked_externs -= 1
-                        extern_lock[physical_extern] = argument
 
             # Update the waiting list 
             waiting = list(filter(lambda x: x not in self.active_gates and x not in resolved and x not in waiting_clear, waiting))
 
             # Not the most elegant approach, could reorder some things
-            if len(layers[-1]) == 0:
+            if len(self.layers[-1]) == 0:
                 self.debug_print("Layer Quashed")
-                layers.pop()
-             
-        return layers
+                self.layers.pop()
+        return 
 
     def probe_address(self, dag_node, address):
         return self.graph[address].probe(dag_node)
@@ -204,6 +190,14 @@ class QCBRouter:
             end_symbol, end_node = end
             end_node = self.graph[end_node]
             end_orientation = orientations[end_symbol in gate_symbol.x]
+
+            # Orientation of extern IO nodes can be handled by the internal routing channel
+            if start_symbol.is_extern():
+                start_orientation = start_node.orientation 
+
+            if end_symbol.is_extern():
+                end_orientation = end_node.orientation 
+
             path = self.graph.route(start_node, end_node, gate, start_orientation=start_orientation, end_orientation=end_orientation)
             if path is not PatchGraph.NO_PATH_FOUND:
                 paths += path

@@ -108,7 +108,7 @@ class PatchGraphNode():
             self.lock_state = dag_node
         return probe
 
-    def route_or_hadamard(self, orientation):
+    def route_or_rotate(self, orientation):
         if orientation == self.orientation:
             debug_print('MATCHING ORIETATION', self, debug=self.verbose)
             return self.SUGGEST_ROUTE

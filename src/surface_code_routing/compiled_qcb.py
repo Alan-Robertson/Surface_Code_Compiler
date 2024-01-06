@@ -55,9 +55,13 @@ class CompiledQCB:
         self.io = qcb.symbol.io
         self.io_in = self.dag.symbol.io_in
         self.io_out = self.dag.symbol.io_out
+        self.__is_factory = (sum(i is not self.symbol for i in self.symbol.io_in) == 0)
     
     def is_extern(self):
         return True
+
+    def is_factory(self):
+        return self.__is_factory 
 
     def instantiate(self):
         return CompiledQCB(self.qcb, self.router, self.dag) 

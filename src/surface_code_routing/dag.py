@@ -419,6 +419,7 @@ class DAG(DAGNode):
         layers = []
 
         # This is a semaphore
+        queued_factories = set()
         active_non_local_gates = 0
 
         # Keep running until all gates are resolved
@@ -461,9 +462,10 @@ class DAG(DAGNode):
                         # Each factory will appear in a single topmost unresolved predicate_factory
                         for predicate_factory in antecedent.predicate_factories:
                             # Yet to be allocated
-                            if self.externs[predicate_factory.get_unary_symbol()] is None:
-                                self.debug_print(f"\tCaught Factory {predicate_factory} from gate {gate}")
+                            if self.externs[predicate_factory.get_unary_symbol()] is None and predicate_factory not in queued_factories:
+                                self.debug_print(f"\tCaught Factory {predicate_factory} from edge {gate} -> {antecedent}")
                                 waiting.append(ExternBind(predicate_factory))
+                                queued_factories.add(predicate_factory)
                                 all_resolved = False
                         if all_resolved is False:
                            continue 

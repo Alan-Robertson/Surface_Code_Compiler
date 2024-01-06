@@ -1,8 +1,9 @@
 from surface_code_routing.bind import AddrBind
 from surface_code_routing.constants import COULD_NOT_ALLOCATE  
+from surface_code_routing.extern_patch_allocator import ExternPatchAllocator 
 
-class ExternPatchAllocatorDynamic():
-   
+
+class ExternPatchAllocatorDynamic(ExternPatchAllocator):
 
     def __init__(self, externs, patches):
         self.patches = list(map(ExternPatch, patches))

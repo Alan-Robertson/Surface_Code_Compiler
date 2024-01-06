@@ -16,5 +16,6 @@ from surface_code_routing import lib_instructions
 from surface_code_routing import gate_synthesis
 from surface_code_routing import inject_rotations
 from surface_code_routing import inject_teleportation_routes
+from surface_code_routing import extern_patch_allocator
 from surface_code_routing import extern_patch_allocator_static 
 from surface_code_routing import constants 

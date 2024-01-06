@@ -178,7 +178,7 @@ def XYZ_PI_4(X, Y, Z):
     return dag
 
 
-CNOT_BASE = ZX_factory('CNOT', n_cycles=3)
+CNOT_BASE = ZX_factory('CNOT', n_cycles=2)
 def CNOT(ctrl, *targs):
    return CNOT_BASE((ctrl,), targs) 
 
@@ -186,10 +186,17 @@ MEAS = non_local_factory('MEAS', n_cycles=1)
 PREP = in_place_factory_mult('PREP')
 
 HADAMARD_SYMBOL = Symbol('H')
-Hadamard = in_place_factory('H', n_cycles=3, n_ancillae=1, ancillae_type=ELBOW_ANCILLAE)
+Hadamard = in_place_factory('H', n_cycles=1, rotation=True)
+
+# Elbow style Hadamard
+#Hadamard = in_place_factory('H', n_cycles=3, n_ancillae=1, ancillae_type=ELBOW_ANCILLAE)
 
 ROTATION_SYMBOL = Symbol('Rotation')
 Rotation = in_place_factory('Rotation', n_cycles=3, n_ancillae=1, ancillae_type=SINGLE_ANCILLAE, rotation=True)
+
+# Rotation for elements of the extern IO. It is assumed that the internal routes are uses for the appropriate ancillae
+EXTERN_IO_ROTATION = in_place_factory('Rotation', n_cycles=3, rotation=True)
+
 MOVE_SYMBOL = Symbol('MOVE')
 MOVE = non_local_factory("MOVE", n_cycles=1, max_args=2) 
 
