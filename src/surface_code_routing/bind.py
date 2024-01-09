@@ -103,6 +103,9 @@ class ExternBind(Bind):
             return True
         return False
 
+    def is_factory(self):
+        return self.obj.obj.is_factory()
+
     def __repr__(self):
         return f"{repr(self.obj)} {hex(id(self.obj.obj.symbol))}: {self.curr_cycle()} {self.n_cycles()}"
 

@@ -2,6 +2,7 @@ import math as maths
 from surface_code_routing.qcb import SCPatch
 from surface_code_routing.tree_slots import TreeSlots
 from surface_code_routing.tikz_utils import tikz_mapper
+from surface_code_routing.extern_patch_allocator_dynamic import ExternPatchAllocatorDynamic
 from surface_code_routing.extern_patch_allocator_static import ExternPatchAllocatorStatic 
 from surface_code_routing.constants import COULD_NOT_ALLOCATE
 
@@ -22,6 +23,7 @@ class QCBMapper():
 
         self.construct_register_map()
 
+        self.extern_allocation_method = extern_allocation_method
         if extern_allocation_method == 'static':
             self.extern_allocator = ExternPatchAllocatorStatic(self)
         elif extern_allocation_method == 'dynamic':
@@ -29,17 +31,11 @@ class QCBMapper():
         else:
             raise Exception(f"Unknown Allocator Method {extern_allocation}")
 
-        self.extern_allocation_method = extern_allocation_method
-
     def alloc_extern(self, symbol):
         return self.extern_allocator.alloc(symbol)
 
     def free(self, gate):
         self.extern_allocator.free(gate.get_unary_symbol())
-
-    def lock(self, gate):
-        if gate.get_symbol().is_extern():
-            self.extern_allocator.lock(gate.get_unary_symbol())
 
     def first_free_cycle(self, gate):
         return self.extern_allocator.first_free_cycle(gate.get_unary_symbol())
@@ -65,33 +61,42 @@ class QCBMapper():
             if leaf == TreeSlots.NO_CHILDREN_ERROR:
                 raise Exception(f"Could not allocate {symbol}")
 
-    def dag_node_to_symbol_map(self, dag_node):
+    def dag_node_to_symbol_map(self, dag_node, rollback=False):
         for symbol in dag_node.scope:
-            yield symbol, self.dag_symbol_to_coordinates(symbol)
-
+            coords, rollback =  self.dag_symbol_to_coordinates(symbol)
+            if rollback:
+                yield symbol, coords, rollback 
+            else:
+                yield symbol, coords
     def dag_symbol_to_segment(self, symbol):
         return self.map[symbol].get_segment()
 
     def dag_symbol_to_coordinates(self, symbol):
-        segment_map = self.map[symbol]
-        if segment_map.get_state() == SCPatch.EXTERN:
+        if symbol.is_extern():
             # Allocator triggered here
-            allocation_result = self.alloc_extern(symbol)
+            allocation_result, rollback = self.alloc_extern(symbol)
             if allocation_result is COULD_NOT_ALLOCATE:
-                return COULD_NOT_ALLOCATE
+                return COULD_NOT_ALLOCATE, None
             else:
-                return self.get_extern_coordinate(symbol)
-        elif symbol.io_element is not None:
+                return self.get_extern_coordinate(symbol), rollback
+
+        segment_map = self.map[symbol]
+        if symbol.io_element is not None:
             offset = segment.get_slot().io[node.io_element]
-            return (segment.y_1, segment.x_0 + offset)
+            return (segment.y_1, segment.x_0 + offset), None
         else:
-            return segment_map[symbol]
+            return segment_map[symbol], None
 
     def dag_node_to_coordinates(self, dag_node):
         coordinates = list()
+        rollback_alloc = list()
         for symbol in dag_node.scope:
-            coordinate = self.dag_symbol_to_coordinates(symbol) 
+            coordinate, rollback = self.dag_symbol_to_coordinates(symbol) 
+            if rollback is not None:
+                rollback_alloc.append(rollback)
             if coordinate is COULD_NOT_ALLOCATE:
+                for rollback in rollback_alloc:
+                    rollback()
                 return COULD_NOT_ALLOCATE
             coordinates.append(coordinate)
         return coordinates 

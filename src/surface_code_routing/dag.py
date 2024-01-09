@@ -150,6 +150,7 @@ class DAG(DAGNode):
                     self.externs[sym] = None
 
         self.layers = []
+        self.compiled_layers = []
         self.layer = 0
         self.slack = float('inf')
 
@@ -382,6 +383,7 @@ class DAG(DAGNode):
         # Map of extern binds
         extern_map = dict(zip(externs, map(ExternBind, externs)))
         extern_gate_to_bind = lambda gate: extern_map[self.externs[gate.get_unary_symbol()]]
+        externs_first_free_cycle = {extern:0 for extern in extern_map.values()}
 
         # Currently unallocated externs
         idle_externs = list(extern_map.values())
@@ -406,6 +408,7 @@ class DAG(DAGNode):
                     self.externs[gate.symbol] = binding.get_obj()
                     self.scope[gate.symbol] = binding.get_obj()
                     active.add(ExternBind(gate))
+
                 else:
                     # Cannot find a binding, add it to the wait list
                     waiting.append(ExternBind(gate))
@@ -437,11 +440,6 @@ class DAG(DAGNode):
                 if gate.is_extern():
                     extern_gate_to_bind(gate).cycle()
                 
-            # Update each extern
-            for extern in idle_externs:
-                if extern.pre_warm():
-                    layers[-1].append(extern)
-
             recently_resolved = list(filter(lambda x: x.resolved(), active))
             active = set(filter(lambda x: not x.resolved(), active))
 
@@ -495,6 +493,7 @@ class DAG(DAGNode):
                         extern_bind = extern_map[self.externs[reset_extern]]
                         extern_bind.reset()                        
                         idle_externs.append(extern_bind)
+                        externs_first_free_cycle[extern_bind] = len(layers)
 
             # Sort the waiting list based on the current slack
             waiting.sort()
@@ -509,10 +508,18 @@ class DAG(DAGNode):
                          )
 
                     if binding is not None:
-                        idle_externs.pop(index)
+                        extern = idle_externs.pop(index)
                         self.externs[gate.get_symbol()] = binding.get_obj()
                         self.scope[gate.get_symbol()] = binding.get_obj()
                         active.add(gate)
+
+                        if gate.is_factory():
+                            last_free_cycle = externs_first_free_cycle[extern]
+                            previous_cycles = min(gate.n_cycles(), len(layers) - last_free_cycle) 
+                            gate.cycles_completed = previous_cycles
+                            for layer in layers[last_free_cycle:]:
+                                layer.append(gate)
+
 
                 else:
                     # Gate is purely local, add it
@@ -537,7 +544,8 @@ class DAG(DAGNode):
                 print("CYCLE {n_cycles}")
                 print(f"\tACTIVE {active}\n\t WAITING {waiting}\n\t IDLE {idle_externs}\n\tCHANNELS {active_non_local_gates} / {n_channels}\n\t{resolved}")
                 print("####\n")
-    
+
+        self.compiled_layers = layers
         return n_cycles, layers
 
     def __tikz__(self):

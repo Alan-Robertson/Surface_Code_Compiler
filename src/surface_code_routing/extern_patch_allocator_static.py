@@ -3,9 +3,10 @@ from surface_code_routing.constants import COULD_NOT_ALLOCATE
 from surface_code_routing.qcb import SCPatch 
 
 from surface_code_routing.utils import debug_print
+from surface_code_routing.extern_patch_allocator import ExternPatchAllocator
+from functools import partial
 
-
-class ExternPatchAllocatorStatic():
+class ExternPatchAllocatorStatic(ExternPatchAllocator):
    
     def __init__(self, mapper, verbose=False):
         self.mapper = mapper
@@ -42,11 +43,11 @@ class ExternPatchAllocatorStatic():
             This takes the unary symbol from the gate and uses the predicate to generalise to the symbol's unique instance
         '''
         dag_extern = self.dag.externs[symbol]
-        return self.mapper.segment_maps[symbol.predicate].alloc(symbol, dag_extern, speculative=True)
+        return self.mapper.segment_maps[symbol.predicate].alloc(symbol, dag_extern)
 
     def lock(self, symbol):
         dag_extern = self.dag.externs[symbol]
-        return self.mapper.segment_maps[symbol.predicate].alloc(symbol, dag_extern, speculative=False)
+        return self.mapper.segment_maps[symbol.predicate].alloc(symbol, dag_extern)
 
     def free(self, symbol):
         dag_extern = self.dag.externs[symbol]
@@ -83,27 +84,27 @@ class ExternSegmentMap():
             self.__first_free_cycle[segment] = 0
             self.debug_print(f"Added Lock: {segment}")
 
-    def alloc(self, symbol, dag_extern, speculative=True):
+    def alloc(self, symbol, dag_extern):
         '''
             Attempts to allocate a segment for a symbol 
             If speculative then it does not perform a lock
         '''
         segment = self.segments.get(dag_extern, COULD_NOT_ALLOCATE)
         if segment is COULD_NOT_ALLOCATE:
-            raise Exception(f"{symbol} has yet to be assigned a segment")
+            raise Exception(f"{symbol} has yet to be assigned a segment for a static allocation")
 
         lock_state = self.locks[segment]
         if lock_state is None:
-            if speculative is False:
-                self.n_unlocked_segments -= 1
-                self.locks[segment] = symbol
-                self.segments[symbol] = segment
-                self.debug_print(f"\tLocked {segment} on {hex(id(symbol.predicate))}")
-
-            return segment
+            self.n_unlocked_segments -= 1
+            self.locks[segment] = symbol
+            self.segments[symbol] = segment
+            self.debug_print(f"\tLocked {segment} on {hex(id(symbol.predicate))}")
+            rollback = partial(self.free, symbol, dag_extern)
+            
+            return segment, rollback 
         if lock_state == symbol:
-            return segment
-        return COULD_NOT_ALLOCATE 
+            return segment, None
+        return COULD_NOT_ALLOCATE, None
 
     def first_free_cycle(self, symbol):
         segment = self.segments.get(symbol, None)

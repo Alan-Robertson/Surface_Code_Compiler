@@ -64,7 +64,7 @@ class RotationInjector():
         for argument in dag_symbol.z:
             if argument.is_extern():
                 continue
-            address = self.mapper.dag_symbol_to_coordinates(argument)
+            address, rollback = self.mapper.dag_symbol_to_coordinates(argument)
             graph_node = self.graph[address]
             if graph_node.route_or_rotate(graph_node.Z_ORIENTED) is graph_node.SUGGEST_ROTATE:
                 debug_print(dag_node, graph_node, graph_node.orientation, 'ROTATE', debug=self.verbose)
@@ -74,7 +74,7 @@ class RotationInjector():
         for argument in dag_symbol.x:
             if argument.is_extern():
                 continue
-            address = self.mapper.dag_symbol_to_coordinates(argument)
+            address, rollback = self.mapper.dag_symbol_to_coordinates(argument)
             graph_node = self.graph[address]
             if graph_node.route_or_rotate(graph_node.X_ORIENTED) is graph_node.SUGGEST_ROTATE:
                 debug_print(dag_node, graph_node, graph_node.orientation, 'ROTATE', debug=self.verbose)

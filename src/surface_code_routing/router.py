@@ -146,9 +146,6 @@ class QCBRouter:
                     self.routes[AddrBind(gate)] = addresses 
                     self.active_gates.add(gate)
 
-                    # Lock any extern patches involved
-                    self.mapper.lock(gate)
-
                     # Rollback factories
                     if gate.is_factory():
                         first_free_cycle = self.mapper.first_free_cycle(gate)

@@ -35,7 +35,7 @@ def compile_qcb(dag, height, width, *externs, verbose=False):
         print(f"\tRouting...")
     circuit_model = PatchGraph(qcb.shape, mapper, None)
     rot_injector = RotationInjector(dag, mapper, qcb, graph=circuit_model)
-    router = QCBRouter(qcb, dag, mapper, graph=circuit_model)
+    router = QCBRouter(qcb, dag, mapper, graph=circuit_model, verbose=verbose)
     compiled_qcb = CompiledQCB(qcb, router, dag)
     return compiled_qcb
 
