@@ -146,11 +146,7 @@ class PatchGraph():
             for coordinates in segment.range():
                 if self.graph[coordinates].state == SCPatch.ROUTE: 
                     self.graph[coordinates].set_underlying(segment.get_slot())
-#                else:
-                    # Skip if this has been mapped already
-                    # This happens for externs that are aliased
-                    #break
-
+        
         local_patches = []
         for segment in self.mapper.qcb:
             if segment.get_state() == SCPatch.LOCAL_ROUTE:
@@ -171,6 +167,9 @@ class PatchGraph():
                 else:
                     uncleared_patches.append(local_patch)
             local_patches = uncleared_patches
+
+    def debug_print(self, *args, **kwargs):
+        debug_print(*args, **kwargs, debug=self.verbose)
 
 
     def __getitem__(self, coords):

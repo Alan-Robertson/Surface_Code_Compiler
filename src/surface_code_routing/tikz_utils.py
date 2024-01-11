@@ -323,7 +323,7 @@ def tikz_mapper_no_header(mapper, qcb=True, tree=True):
                              leaf_draw_fn = lambda x: "") 
     for symbol in mapper.map:
         if not symbol.is_extern():
-            coordinates = mapper.dag_symbol_to_coordinates(symbol)
+            coordinates, rollback = mapper.dag_symbol_to_coordinates(symbol)
             tikz_str += tikz_mapper_label(*coordinates, label=str(symbol))
     return tikz_str
 

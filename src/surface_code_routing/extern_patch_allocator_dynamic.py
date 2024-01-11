@@ -17,16 +17,22 @@ class ExternPatchAllocatorDynamic():
         # Allocate segments appropriately
         for extern in self.mapper.dag.physical_externs: 
             if extern.symbol.predicate not in self.mapper.segment_maps:
-                segment_map  = ExternSegmentMapDynamic(extern, self, verbose=self.verbose) 
+                segment_map = ExternSegmentMapDynamic(extern, self, verbose=self.verbose) 
 
-                self.mapper.map[extern.symbol] = segment_map 
                 self.mapper.segment_maps[extern.symbol.predicate] = segment_map
             else:
                 segment_map = self.mapper.segment_maps[extern.symbol.predicate]
-
+            
+            self.mapper.map[extern.symbol] = segment_map 
+            self.debug_print(f"Allocated {extern}")
             leaf = self.mapper.mapping_tree.alloc(extern.symbol.predicate)
             segment = leaf.get_segment()
+            self.debug_print(f"Len: {len(list(segment.range()))}")
             segment_map.allocate_segment(segment)
+
+    def debug_print(self, *args, **kwargs):
+        debug_print(*args, **kwargs, debug=self.verbose)
+
 
     def __getitem__(self, symbol):
         return self.mapper.segment_maps[symbol.predicate][symbol]
@@ -56,7 +62,7 @@ class ExternSegmentMapDynamic():
     '''
         This handles placement for aliased externs
     '''
-    def __init__(self, extern, static_allocator, verbose=False):
+    def __init__(self, extern, static_allocator, verbose=True):
         self.segments = dict()
         self.locks = dict()
         self.__first_free_cycle = dict()
@@ -82,6 +88,8 @@ class ExternSegmentMapDynamic():
         else:
             raise Exception(f"Segment {segment} allocated in duplicate")
 
+    def get_physical_segments(self):
+        return tuple(self.locks.keys()) 
 
     def alloc(self, symbol):
         '''
@@ -91,7 +99,7 @@ class ExternSegmentMapDynamic():
         if segment is self.NO_SEGMENT_ALLOCATED:
             if len(self.idle_segments) == 0:
                 return COULD_NOT_ALLOCATE, None
-            segment = self.idle_segments.pop()
+            segment = self.idle_segments.pop(0)
 
         lock_state = self.locks[segment]
         if lock_state is None:
@@ -141,7 +149,7 @@ class ExternSegmentMapDynamic():
         
 
     def range(self):
-        for segment in self.segments.values():
+        for segment in self.get_physical_segments():
             for coordinate in segment.range():
                 yield coordinate
     

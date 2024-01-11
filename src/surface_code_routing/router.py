@@ -150,7 +150,7 @@ class QCBRouter:
                     if gate.is_factory():
                         first_free_cycle = self.mapper.first_free_cycle(gate)
                         gate.cycles_completed = min(gate.n_cycles(), curr_layer - first_free_cycle - 1)
-                        for i in range(first_free_cycle, curr_layer):
+                        for i in range(first_free_cycle, curr_layer + 1):
                             self.layers[i].append(gate)
 
                     for patch in addresses:

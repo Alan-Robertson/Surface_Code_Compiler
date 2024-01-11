@@ -264,7 +264,7 @@ class TeleportSwitch():
         if earliest_teleportation_cycle >= curr_cycle:
             return False, None
         
-        teleport_operation = TeleportOperation(teleportation_endpoints, self.intersection, earliest_teleportation_cycle, curr_cycle)
+        teleport_operation = TeleportOperation(teleportation_endpoints, self.intersection, earliest_teleportation_cycle - 1, curr_cycle)
 
         return True, teleport_operation            
             

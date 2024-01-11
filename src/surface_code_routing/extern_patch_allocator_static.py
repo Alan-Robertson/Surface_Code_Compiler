@@ -15,7 +15,7 @@ class ExternPatchAllocatorStatic(ExternPatchAllocator):
 
         # Allocate segments appropriately
         for extern in self.mapper.dag.physical_externs: 
-            if extern.symbol.predicate not in self.mapper.segment_maps:
+            if extern.symbol not in self.mapper.segment_maps:
                 self.mapper.segment_maps[extern.symbol.predicate] = ExternSegmentMap(extern, self, verbose=self.verbose) 
 
         for symbol, extern in self.mapper.dag.externs.items():
@@ -68,6 +68,10 @@ class ExternSegmentMap():
         self.n_unlocked_segments = 0
         self.verbose = verbose
         self.is_factory = self.extern.is_factory
+
+    def get_physical_segments(self):
+        return tuple(self.locks.keys()) 
+
 
     def debug_print(self, *args, **kwargs):
         debug_print(*args, **kwargs, debug=self.verbose)
@@ -140,7 +144,7 @@ class ExternSegmentMap():
         
 
     def range(self):
-        for segment in self.segments.values():
+        for segment in self.get_physical_segments():
             for coordinate in segment.range():
                 yield coordinate
     

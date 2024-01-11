@@ -103,6 +103,12 @@ class ExternBind(Bind):
             return True
         return False
 
+    def bind_extern(self, extern):
+        self.n_cycles = extern.n_cycles
+
+    def n_cycles(self):
+        return self.obj.n_cycles()
+
     def is_factory(self):
         return self.obj.obj.is_factory()
 

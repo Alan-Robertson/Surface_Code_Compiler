@@ -512,6 +512,7 @@ class DAG(DAGNode):
                         self.externs[gate.get_symbol()] = binding.get_obj()
                         self.scope[gate.get_symbol()] = binding.get_obj()
                         active.add(gate)
+                        gate.bind_extern(binding)
 
                         if gate.is_factory():
                             last_free_cycle = externs_first_free_cycle[extern]
@@ -519,7 +520,6 @@ class DAG(DAGNode):
                             gate.cycles_completed = previous_cycles
                             for layer in layers[last_free_cycle:]:
                                 layer.append(gate)
-
 
                 else:
                     # Gate is purely local, add it
