@@ -14,11 +14,12 @@ from surface_code_routing.mapper import QCBMapper
 from surface_code_routing.circuit_model import PatchGraph
 from surface_code_routing.inject_rotations import RotationInjector
 
-def compile_qcb(dag, height, width, *externs, verbose=False):
+def compile_qcb(dag, height, width, *externs, verbose=False, extern_allocation_method='dynamic'):
     if verbose:
         print(f"Compiling {dag}")
         print("\tConstructing QCB...")
     qcb = QCB(height, width, dag)
+    dag.verbose=verbose
 
     if verbose:
         print(f"\tAllocating QCB...")
@@ -29,7 +30,7 @@ def compile_qcb(dag, height, width, *externs, verbose=False):
         print(f"\tConstructing Mapping")
     graph = QCBGraph(qcb)
     tree = QCBTree(graph)
-    mapper = QCBMapper(dag, tree)
+    mapper = QCBMapper(dag, tree, extern_allocation_method=extern_allocation_method)
 
     if verbose:
         print(f"\tRouting...")

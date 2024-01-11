@@ -41,10 +41,10 @@ class ExternPatchAllocatorDynamic():
         '''
             This takes the unary symbol from the gate and uses the predicate to generalise to the symbol's unique instance
         '''
-        return self.mapper.segment_maps[symbol.predicate].alloc(symbol, speculative=True)
+        return self.mapper.segment_maps[symbol.predicate].alloc(symbol)
 
     def lock(self, symbol):
-        return self.mapper.segment_maps[symbol.predicate].alloc(symbol, speculative=False)
+        return self.mapper.segment_maps[symbol.predicate].alloc(symbol)
 
     def free(self, symbol):
         self.mapper.segment_maps[symbol.predicate].free(symbol)
@@ -86,7 +86,6 @@ class ExternSegmentMapDynamic():
     def alloc(self, symbol):
         '''
             Attempts to allocate a segment for a symbol 
-            If speculative then it does not perform a lock
         '''
         segment = self.segments.get(symbol, self.NO_SEGMENT_ALLOCATED)
         if segment is self.NO_SEGMENT_ALLOCATED:
@@ -97,7 +96,6 @@ class ExternSegmentMapDynamic():
         lock_state = self.locks[segment]
         if lock_state is None:
             self.debug_print(f"\tLocked {segment} on {hex(id(symbol.predicate))}")
-            self.n_unlocked_segments -= 1
             self.locks[segment] = symbol
             self.segments[symbol] = segment
             
@@ -106,7 +104,7 @@ class ExternSegmentMapDynamic():
             return segment, rollback
 
         if lock_state == symbol:
-            return segment
+            return segment, None
         return COULD_NOT_ALLOCATE, None 
 
     def first_free_cycle(self, symbol):

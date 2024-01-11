@@ -539,11 +539,16 @@ class DAG(DAGNode):
             # Update the waiting list
             waiting = list(filter(lambda x: x not in active, waiting))
             
-            if debug:
-                print("\n####")
-                print("CYCLE {n_cycles}")
-                print(f"\tACTIVE {active}\n\t WAITING {waiting}\n\t IDLE {idle_externs}\n\tCHANNELS {active_non_local_gates} / {n_channels}\n\t{resolved}")
-                print("####\n")
+            self.debug_print(f"""
+ ####
+CYCLE {n_cycles}
+ACTIVE {active}
+WAITING {waiting}
+IDLE {idle_externs}
+CHANNELS {active_non_local_gates} / {n_channels}
+{resolved}
+####
+                             """)
 
         self.compiled_layers = layers
         return n_cycles, layers
