@@ -442,7 +442,6 @@ class DAG(DAGNode):
                 
             recently_resolved = list(filter(lambda x: x.resolved(), active))
             active = set(filter(lambda x: not x.resolved(), active))
-
             # For each gate we resolve check if there are any antecedents that can be added to the waiting list
             for gate in recently_resolved:
                 if gate.resolved():
@@ -511,15 +510,16 @@ class DAG(DAGNode):
                         extern = idle_externs.pop(index)
                         self.externs[gate.get_symbol()] = binding.get_obj()
                         self.scope[gate.get_symbol()] = binding.get_obj()
-                        active.add(gate)
                         gate.bind_extern(binding)
 
                         if gate.is_factory():
                             last_free_cycle = externs_first_free_cycle[extern]
-                            previous_cycles = min(gate.n_cycles(), len(layers) - last_free_cycle) 
-                            gate.cycles_completed = previous_cycles
+                            previous_cycles = min(binding.n_cycles(), len(layers) - last_free_cycle) 
+                            gate.set_cycles_completed(previous_cycles)
+                            binding.set_cycles_completed(previous_cycles)
                             for layer in layers[last_free_cycle:]:
                                 layer.append(gate)
+                        active.add(gate)
 
                 else:
                     # Gate is purely local, add it

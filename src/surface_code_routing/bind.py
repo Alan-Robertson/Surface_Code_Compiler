@@ -119,6 +119,9 @@ class ExternBind(Bind):
     def get_cycles_completed(self):
         return self.obj.get_cycles_completed()
 
+    def set_cycles_completed(self, n_cycles):
+        self.obj.cycles_completed = n_cycles
+
     def reset(self):
         self.obj.reset()
 
