@@ -33,8 +33,12 @@ def T_Factory(height=5, width=7):
 
         return compile_qcb(dag, height, width)
 
-def T(targ, height=5, width=7):
-    factory = T_Factory(height=height, width=width)
+def T_gate(height=5, width=7, factory=None):
+    return partial(T, height=height, width=width, factory=factory)
+
+def T(targ, height=5, width=7, factory=None):
+    if factory is None:
+        factory = T_Factory(height=height, width=width)
     dag = factory.instruction((), (targ,))
     return dag
 

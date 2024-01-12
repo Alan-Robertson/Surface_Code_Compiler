@@ -24,9 +24,9 @@ def Z_theta(p, q, precision=10, effort=25, seed=0):
             seed=seed)
 
 @initialise_synth
-def CPHASE_theta(p, q, precision=10, effort=25, seed=0):
-    z_theta_2 = SYNTH.z_theta_instruction(p, q * 2, precision=precision, effort=effort, seed=seed)
-    z_theta_2_dag = SYNTH.z_theta_instruction(-p, q * 2, precision=precision, effort=effort, seed=seed)
+def CPHASE_theta(p, q, precision=10, effort=25, seed=0, **gates):
+    z_theta_2 = SYNTH.z_theta_instruction(p, q * 2, precision=precision, effort=effort, seed=seed, **gates)
+    z_theta_2_dag = SYNTH.z_theta_instruction(-p, q * 2, precision=precision, effort=effort, seed=seed, **gates)
     def instruction(*args):
         args = tuple(map(symbol_resolve, args))
         sym = Symbol(f'CPHASE({p}/{q})', args)

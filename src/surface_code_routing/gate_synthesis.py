@@ -32,7 +32,7 @@ class GateSynth:
             self.gate_dict = gate_dict
 
     @lru_cache
-    def z_theta_instruction(self, p, q, precision=10, effort=25, seed=0):
+    def z_theta_instruction(self, p, q, precision=10, effort=25, seed=0, **gates):
         '''
             Returns a series of gates that perform Z(PI * p / q) with some epsilon precision
         '''
@@ -40,10 +40,11 @@ class GateSynth:
         self.proc.stdin.flush()
         sequence = self.proc.stdout.readline().decode()
         op_sequence = sequence.split('[')[1].split(']')[0].split(',')[::-1]
-        instruction = self.operations_to_instruction(f'Z({p}/{q})', op_sequence)
+        instruction = self.operations_to_instruction(f'Z({p}/{q})', op_sequence, **gates)
         return instruction
 
-    def operations_to_instruction(self, fn, op_sequence):
+    def operations_to_instruction(self, fn, op_sequence, **gates):
+        gate_dict = self.gate_dict | gates
         def instruction(targ):
             targ = Symbol(targ)
             sym = Symbol(fn, 'targ')
@@ -51,7 +52,7 @@ class GateSynth:
             dag = DAG(sym, scope=scope)
             
             for instruction in op_sequence:
-                gate = self.gate_dict.get(instruction, None)
+                gate = gate_dict.get(instruction, None)
                 if gate is not None:
                     dag.add_gate(gate(targ))
             return dag
