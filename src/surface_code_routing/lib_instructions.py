@@ -11,12 +11,10 @@ from surface_code_routing.router import QCBRouter
 from surface_code_routing.allocator import Allocator
 from surface_code_routing.compiled_qcb import CompiledQCB, compile_qcb
 
-from surface_code_routing.instructions import INIT, RESET, CNOT, Hadamard, Phase, in_place_factory, non_local_factory, PREP, MEAS, X
-
-local_Tdag = in_place_factory('T_dag') 
+from surface_code_routing.instructions import INIT, RESET, CNOT, Hadamard, Phase, local_Tdag, PREP, MEAS, X
 
 @cache
-def T_Factory(height=5, width=7):
+def T_Factory(*externs, height=5, width=7, t_gate=local_Tdag, **compiler_arguments):
         dag = DAG(Symbol('T_Factory', (), 'factory_out'))
         dag.add_gate(INIT(*['q_{i}'.format(i=i) for i in range(4)]))
         dag.add_gate(INIT(*['a_{i}'.format(i=i) for i in range(11)]))
@@ -25,13 +23,19 @@ def T_Factory(height=5, width=7):
         dag.add_gate(CNOT('q_1', *['a_{i}'.format(i=i) for i in (0, 1, 3, 4, 6, 8, 10)]))
         dag.add_gate(CNOT('q_0', *['a_{i}'.format(i=i) for i in (0, 1, 2, 4, 7, 9, 10)]))
         dag.add_gate(CNOT('factory_out', *('a_{i}'.format(i=i) for i in range(10, 3, -1))))
+
+        for i in range(4):
+            dag.add_gate(t_gate(f'q_{i}'))
+        for i in range(11):
+            dag.add_gate(t_gate(f'a_{i}'))
+
         dag.add_gate(MEAS(
             *['q_{i}'.format(i=i) for i in range(4)], 
             *['a_{i}'.format(i=i) for i in range(11)],
             'factory_out'))
         dag.add_gate(X('factory_out'))
 
-        return compile_qcb(dag, height, width)
+        return compile_qcb(dag, height, width, *externs, **compiler_arguments)
 
 def T_gate(height=5, width=7, factory=None):
     return partial(T, height=height, width=width, factory=factory)

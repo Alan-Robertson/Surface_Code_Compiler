@@ -203,6 +203,7 @@ MOVE = non_local_factory("MOVE", n_cycles=1, max_args=2)
 Phase = in_place_factory('P', n_ancillae=1, ancillae_type=SINGLE_ANCILLAE, n_cycles=2)
 X = in_place_factory('X')
 Z = in_place_factory('Z')
+local_Tdag = in_place_factory('T_dag', n_cycles = 1) 
 
 JOINT_MEASURE = non_local_factory('MEAS ANC', n_cycles=1, max_args=2)
 
