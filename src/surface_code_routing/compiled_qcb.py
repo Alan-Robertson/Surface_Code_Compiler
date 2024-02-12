@@ -14,7 +14,20 @@ from surface_code_routing.mapper import QCBMapper
 from surface_code_routing.circuit_model import PatchGraph
 from surface_code_routing.inject_rotations import RotationInjector
 
-def compile_qcb(dag, height, width, *externs, verbose=False, extern_allocation_method='dynamic'):
+def compile_qcb(dag, height, width, 
+                *externs, 
+                verbose=False, 
+                extern_allocation_method='dynamic',
+                qcb_kwargs = None,
+                allocator_kwargs = None,
+                graph_kwargs = None,
+                tree_kwargs = None,
+                mapper_kwargs = None,
+                patch_graph_kwargs = None,
+                router_kwargs = None,
+                compiled_qcb_kwargs = None
+                ):
+
     if verbose:
         print(f"Compiling {dag}")
         print("\tConstructing QCB...")
@@ -30,13 +43,20 @@ def compile_qcb(dag, height, width, *externs, verbose=False, extern_allocation_m
         print(f"\tConstructing Mapping")
     graph = QCBGraph(qcb)
     tree = QCBTree(graph)
-    mapper = QCBMapper(dag, tree, extern_allocation_method=extern_allocation_method)
+
+    if mapper_kwargs is None:
+        mapper_kwargs = dict()
+
+    mapper = QCBMapper(dag, tree, **mapper_kwargs)
 
     if verbose:
         print(f"\tRouting...")
     circuit_model = PatchGraph(qcb.shape, mapper, None)
-    rot_injector = RotationInjector(dag, mapper, qcb, graph=circuit_model)
-    router = QCBRouter(qcb, dag, mapper, graph=circuit_model, verbose=verbose)
+    rot_injector = RotationInjector(dag, mapper, qcb, graph=circuit_model, verbose=verbose)
+
+    if router_kwargs is None:
+        router_kwargs = dict()
+    router = QCBRouter(qcb, dag, mapper, graph=circuit_model, verbose=verbose, **router_kwargs)
     compiled_qcb = CompiledQCB(qcb, router, dag)
     return compiled_qcb
 

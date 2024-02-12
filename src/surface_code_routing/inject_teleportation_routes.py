@@ -19,6 +19,7 @@ class TeleportInjector():
     DEFAULT_INTERSECTION = lambda self, x, y: (False, None)
     def __init__(self, router, 
                  scheduler='ASAP',
+                 n_switch_route_adjacencies=2,
                  verbose=False):
 
         self.router = router
@@ -26,6 +27,7 @@ class TeleportInjector():
         self.switches = dict()
         self.scheduler = scheduler
         self.verbose = verbose
+        self.n_switch_route_adjacencies = n_switch_route_adjacencies
     
         # Find locations to set up teleport switches
         self.find_switches()
@@ -42,7 +44,7 @@ class TeleportInjector():
                 graph_node = self.graph[i, j]
                 if ((graph_node.state is SCPatch.ROUTE)
                     # Only teleport if surrounded on all sides by routes
-                    and (len(list(i for i in graph_node.adjacent(probe) if i.state is SCPatch.ROUTE)) == 4)):
+                    and (len(list(i for i in graph_node.adjacent(probe) if i.state is SCPatch.ROUTE)) <= self.n_switch_route_adjacencies)):
                         self.debug_print(f"Found teleport switch location {graph_node}") 
                         self.switches[graph_node] = TeleportSwitch(graph_node, self) 
         return
@@ -205,7 +207,7 @@ class TeleportOperation():
         bound_gate = AddrBind(gate)
         routes[bound_gate] = gate.addresses
         layers[self.cycle].append(gate)
-        gate.antecedants = {computational_gate}
+        gate.obj.antecedants = {computational_gate}
         for address in self.endpoints:
             address.last_used = self.curr_cycle
         for address in self.intersection:
@@ -230,7 +232,7 @@ class TeleportSwitch():
         self.last_used = -1
         self.intersection = intersection
         if nodes is None:
-            nodes = set(intersection.adjacent(object()))
+            nodes = set(i for i in intersection.adjacent(object()) if i.state is SCPatch.ROUTE)
         self.nodes = nodes
         self.teleport_injector = teleport_injector
         self.verbose = verbose

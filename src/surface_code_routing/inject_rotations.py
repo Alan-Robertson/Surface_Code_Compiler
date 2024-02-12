@@ -39,7 +39,6 @@ class RotationInjector():
             for j in range(self.qcb.height):
                 self.graph[j, i].orientation = self.graph.default_orientation
 
-
     def inject_rotations(self):
         index = 0
         while index < len(self.dag.gates):
