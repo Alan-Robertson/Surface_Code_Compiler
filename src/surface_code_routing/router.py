@@ -135,8 +135,8 @@ class QCBRouter:
                 if gate.non_local() or gate.n_ancillae() > 0:
                     route_exists, route_addresses = self.find_route(gate, addresses)
                     addresses = route_addresses
-                    if route_exists and self.teleport_injector is not None:
-                        self.teleport_injector(gate, addresses, curr_layer, )
+                    if route_exists and curr_layer > 0 and self.teleport_injector is not None:
+                        self.teleport_injector(gate, addresses, curr_layer)
                 else:
                     addresses = tuple(map(self.graph.__getitem__, addresses))
 
