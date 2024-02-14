@@ -165,8 +165,12 @@ class TeleportOperation():
                 self.intersection = other.intersection[:anchor_other + 1] + self.intersection
                 self.endpoints[0] = other.endpoints[0]
 
+            elif anchor_self is None:
+                # Hitting on an interesting three way intersection
+                return
+
             else:
-                raise exception("Bleugh")
+                raise Exception("Bleugh")
             return
 
         for endpoint in self.endpoints: 

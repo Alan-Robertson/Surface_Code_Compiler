@@ -13,7 +13,8 @@ def qram_fanout(address_size, line_width, width, height, gates=None, t_factory=N
     if t_factory is None:
         t_factory = T_Factory()
 
-    dag = DAG(Symbol('qram_fanout', ['query_{i}' for i in range(address_size)] , ['readout_{i}' for i in range(line_width)]))
+    dag = DAG(Symbol('qram_fanout', ['query_{i}'.format(i=i) for i in range(address_size)] , ['readout_{i}'.format(i=i) for i in range(line_width)]))
+
 
     # Fanout
     for addr_bit in range(address_size):
@@ -26,7 +27,7 @@ def qram_fanout(address_size, line_width, width, height, gates=None, t_factory=N
 
         for target_anc in target_ancillae: 
             for memory_index in range(line_width):
-                dag.add_gate(CSWAP(f'anc_{target_anc}', 'mem_{target_anc}_{memory_index}', 'mem_{target_anc + mask}_{memory_index}'))
+                dag.add_gate(CSWAP(f'anc_{target_anc}', f'mem_{target_anc}_{memory_index}', f'mem_{target_anc + mask}_{memory_index}'))
 
         dag.add_gate(CNOT(f'query_{addr_bit}', *list(map(
             lambda x: 'anc_{i}'.format(i=x), target_ancillae
@@ -47,7 +48,7 @@ def qram_fanout(address_size, line_width, width, height, gates=None, t_factory=N
 
         for target_anc in target_ancillae: 
             for memory_index in range(line_width):
-                dag.add_gate(CSWAP(f'anc_{target_anc}', 'mem_{target_anc}_{memory_index}', 'mem_{target_anc + mask}_{memory_index}'))
+                dag.add_gate(CSWAP(f'anc_{target_anc}', f'mem_{target_anc}_{memory_index}', f'mem_{target_anc + mask}_{memory_index}'))
 
         dag.add_gate(CNOT(f'query_{addr_bit}', *list(map(
             lambda x: 'anc_{i}'.format(i=x), target_ancillae
