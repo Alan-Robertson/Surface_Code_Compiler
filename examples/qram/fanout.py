@@ -15,7 +15,7 @@ def qram_fanout(address_size, line_width, width, height, gates=None, t_factory=N
 
     dag = DAG(Symbol('qram_fanout', ['query_{i}'.format(i=i) for i in range(address_size)] , ['readout_{i}'.format(i=i) for i in range(line_width)]))
 
-    for target_anc in range(address_size):
+    for target_anc in range(1 << address_size):
         for memory_index in range(line_width):
             dag.add_gate(INIT(f'mem_{target_anc}_{memory_index}'))
 
