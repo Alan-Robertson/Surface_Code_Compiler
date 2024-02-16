@@ -15,19 +15,25 @@ def qram_fanout(address_size, line_width, width, height, gates=None, t_factory=N
 
     dag = DAG(Symbol('qram_fanout', ['query_{i}'.format(i=i) for i in range(address_size)] , ['readout_{i}'.format(i=i) for i in range(line_width)]))
 
+    for target_anc in range(address_size):
+        for memory_index in range(line_width):
+            dag.add_gate(INIT(f'mem_{target_anc}_{memory_index}'))
+
+    for target_anc in range(address_size):
+        dag.add_gate(INIT(f'anc_{target_anc}'))
 
     # Fanout
     for addr_bit in range(address_size):
         mask = 1 << addr_bit
-        target_ancillae = list(filter(lambda x: x % mask == 0, range(address_size)))
+        target_ancillae = list(filter(lambda x: x % mask == 0, range(1 << address_size)))
         
         dag.add_gate(CNOT(f'query_{addr_bit}', *list(map(
             lambda x: 'anc_{i}'.format(i=x), target_ancillae
             ))))
 
-        for target_anc in target_ancillae: 
+        for anc_a, anc_b in zip(target_ancillae[::2], target_ancillae[1::2]): 
             for memory_index in range(line_width):
-                dag.add_gate(CSWAP(f'anc_{target_anc}', f'mem_{target_anc}_{memory_index}', f'mem_{target_anc + mask}_{memory_index}'))
+                dag.add_gate(CSWAP(f'anc_{anc_a}', f'mem_{anc_a}_{memory_index}', f'mem_{anc_b}_{memory_index}'))
 
         dag.add_gate(CNOT(f'query_{addr_bit}', *list(map(
             lambda x: 'anc_{i}'.format(i=x), target_ancillae
@@ -40,15 +46,16 @@ def qram_fanout(address_size, line_width, width, height, gates=None, t_factory=N
     # Fan-in
     for addr_bit in range(address_size - 1, -1, -1):
         mask = 1 << addr_bit
-        target_ancillae = list(filter(lambda x: x % mask == 0, range(address_size)))
+        target_ancillae = list(filter(lambda x: x % mask == 0, range(1 << address_size)))
         
         dag.add_gate(CNOT(f'query_{addr_bit}', *list(map(
             lambda x: 'anc_{i}'.format(i=x), target_ancillae
             ))))
 
-        for target_anc in target_ancillae: 
+        for anc_a, anc_b in zip(target_ancillae[::2], target_ancillae[1::2]): 
             for memory_index in range(line_width):
-                dag.add_gate(CSWAP(f'anc_{target_anc}', f'mem_{target_anc}_{memory_index}', f'mem_{target_anc + mask}_{memory_index}'))
+                dag.add_gate(CSWAP(f'anc_{anc_a}', f'mem_{anc_a}_{memory_index}', f'mem_{anc_b}_{memory_index}'))
+
 
         dag.add_gate(CNOT(f'query_{addr_bit}', *list(map(
             lambda x: 'anc_{i}'.format(i=x), target_ancillae
