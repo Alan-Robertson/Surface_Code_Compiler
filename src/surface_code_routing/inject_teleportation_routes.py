@@ -252,7 +252,6 @@ class TeleportSwitch():
     def teleport_switch(self, addresses, curr_cycle):
         teleportation_endpoints = []
         self.debug_print(f"Testing {self.intersection} {self.nodes} : {addresses} on {curr_cycle}")
-        print(teleportation_endpoints)
         for patch in addresses:
             if patch in self.nodes:
                 teleportation_endpoints.append(patch)
