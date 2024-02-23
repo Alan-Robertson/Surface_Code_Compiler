@@ -17,6 +17,8 @@ extern/.style= {rounded corners=5pt, thick,  draw=black!80,fill=blue!40},
 externnode/.style= {shape=circle, line width=0.4mm, draw=black!80,fill=blue!20},
 io/.style= {rounded corners=5pt, thick,  draw=black!80,fill=purple!60},
 ionode/.style= {shape=circle, line width=0.4mm, draw=black!80,fill=purple!20},
+scmerge/.style= {line width=0.4mm, draw=black!80,fill=red!40!yellow!30},
+teleport/.style= {line width=0.4mm, draw=black!80,fill=cyan!40},
 }
 """
 
@@ -27,10 +29,12 @@ COLOUR_LOCAL_ROUTE = 'route'
 COLOUR_IO = 'io'
 COLOUR_NONE = 'arbitrary'
 COLOUR_DEBUG = 'yellow!30'
-COLOUR_JOIN = 'red!40!yellow!30'
+COLOUR_JOIN = 'scmerge'
 COLOUR_GRID = 'black!50!white'
-COLOUR_TELEPORT = 'cyan!40'
+COLOUR_TELEPORT = 'teleport'
 
+TELEPORT_COLOUR = 'cyan!40'
+JOIN_COLOUR = 'red!40!yellow!30'
 
 
 colour_map = {
@@ -140,10 +144,10 @@ def tikz_circle(x, y, key, label, *args, **kwargs):
 ({key}) at ({x}, -{y}) {{{tikz_sanitise(label)}}};\n"
 
 def tikz_edge(start, end):
-    return f"\\path[->] ({start}) edge ({end});\n"
+    return f"\\path[->-] ({start}) edge ({end});\n"
 
-def tikz_path(start, end, *args, **kwargs):
-    return f"\\path ({start}) edge[{tikz_argparse(*args, **kwargs)}] ({end});\n"
+def tikz_path(start, end, *args, style=None, **kwargs):
+    return f"\\path[{style}] ({start}) edge[{tikz_argparse(*args, **kwargs)}] ({end});\n"
 
 def tikz_grid(height, width):
     return f'\\draw[step=1.0,{COLOUR_GRID},thin] (0,0) grid {width,-height};'
@@ -306,12 +310,13 @@ def tikz_tree_nodes(element,
         return tikz_str, x, y
 
 def tikz_tree_node(node, x, y, node_draw_fn=lambda node: str(node.get_slot())):
+    style = 'arbitrary' 
     return tikz_circle(
             x, 
             y, 
             hex(id(node)), 
             node_draw_fn(node), 
-            draw=tikz_obj_to_colour(node.get_parent())), x, y 
+            style), x, y 
 
 def tikz_tree_parent_edge(node):
     if node is not node.parent:
@@ -321,7 +326,8 @@ def tikz_tree_parent_edge(node):
 def tikz_tree_leaf(node, colour=None, leaf_draw_fn = lambda node: str(node.get_slot())):
     if colour is None:
         style = dag_colour_map(node)
-
+    else:
+        style = colour
     return (tikz_circle(
             node.get_segment().x_0,
             node.get_segment().y_0,
@@ -418,10 +424,12 @@ def tikz_route(route, router):
     curr_node = None
     while (element := next(element_iter, STOP_ITERATION)) is not STOP_ITERATION:
         if curr_node is not None:
-            colour = COLOUR_JOIN
+            style = COLOUR_JOIN
+            colour = JOIN_COLOUR
             if (abs(curr_node.x - element.x) + abs(curr_node.y - element.y)) > 1:
-                colour = COLOUR_TELEPORT
-            tikz_str += tikz_path(hex(id(curr_node)), hex(id(element)), **{'double distance': '0.7cm', 'double': colour})
+                style = COLOUR_TELEPORT
+                colour = TELEPORT_COLOUR
+            tikz_str += tikz_path(hex(id(curr_node)), hex(id(element)),  style=style, **{'double distance': '0.5cm', 'double':colour})
         curr_node = element
 
     return tikz_str
