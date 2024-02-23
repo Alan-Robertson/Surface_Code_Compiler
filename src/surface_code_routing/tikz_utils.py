@@ -1,15 +1,36 @@
 from surface_code_routing.qcb import SCPatch
 
-COLOUR_REG = 'red!35'
-COLOUR_EXTERN = 'blue!20'
-COLOUR_ROUTE = 'green!15'
-COLOUR_LOCAL_ROUTE = 'green!10'
-COLOUR_IO = 'blue!50!red!50!'
-COLOUR_NONE = 'black!20'
+OFFSET = 0.1
+BASE_STYLE = r"""
+\tikzset{
+->-/.style={-Stealth,line width = .5mm, draw=black!70,rounded corners=3pt},
+background/.style={rounded corners=5pt, thick, draw=gray!60, fill=gray!20,fill opacity=0.5},
+arbitrary/.style={rounded corners=5pt,thick, draw=black!70, fill=gray!40},
+reg/.style= {rounded corners=5pt, thick,  draw=black!80, fill=red!40},
+regsmall/.style= {line width=0,  draw=red!40, fill=red!10},
+regnode/.style= {shape=circle, line width = 0.4mm, draw=red!60,fill=red!20},
+route/.style= {rounded corners=5pt, thick,  draw=black!80,fill=green!20},
+routenode/.style= {line width = 0.4mm, draw=black!70,fill=green!50!black!5, rounded corners = 3pt},
+routeend/.style= {rounded corners=5pt, line width=0.35mm, draw=black!80,fill=green!60},
+routeendnode/.style= {shape=circle, line width = 0.4mm, draw=black!70,fill=black!50!green!80},
+extern/.style= {rounded corners=5pt, thick,  draw=black!80,fill=blue!40},
+externnode/.style= {shape=circle, line width=0.4mm, draw=black!80,fill=blue!20},
+io/.style= {rounded corners=5pt, thick,  draw=black!80,fill=purple!60},
+ionode/.style= {shape=circle, line width=0.4mm, draw=black!80,fill=purple!20},
+}
+"""
+
+COLOUR_REG = 'reg'
+COLOUR_EXTERN = 'extern'
+COLOUR_ROUTE = 'routeend'
+COLOUR_LOCAL_ROUTE = 'route'
+COLOUR_IO = 'io'
+COLOUR_NONE = 'arbitrary'
 COLOUR_DEBUG = 'yellow!30'
 COLOUR_JOIN = 'red!40!yellow!30'
 COLOUR_GRID = 'black!50!white'
 COLOUR_TELEPORT = 'cyan!40'
+
 
 
 colour_map = {
@@ -22,6 +43,14 @@ colour_map = {
     SCPatch.NONE : COLOUR_NONE,
     'debug' : COLOUR_DEBUG
 }
+
+
+def node_map(key):
+    colour = colour_map.get(key, 'debug')
+    if key in ['reg', 'route', 'extern', 'io']:
+        colour += 'node'
+    return colour
+
 
 def tikz_str(fn):
     def wrapper(*args, **kwargs):
@@ -77,7 +106,7 @@ def tex_header(*tiksargs):
 \usetikzlibrary{patterns, backgrounds, arrows.meta}
 \setlength{\parindent}{0cm}
 \setlength{\parskip}{1em}
-
+\def\offset{0.1}
 \begin{document}
 """
 
@@ -91,14 +120,13 @@ def tex_file(fn, *args, **kwargs):
     return tex_file
 
 def tikz_header(*args, **kwargs):
-    return f"\\begin{{tikzpicture}}[{tikz_argparse(*args, **kwargs)}]\n"
-
+    return f"\\begin{{tikzpicture}}[{tikz_argparse(*args, **kwargs)}]\n" + BASE_STYLE 
 def tikz_footer():
     return "\n \\end{tikzpicture} \n"""
 
 def tikz_rectangle(x_0, y_0, x_1, y_1, *args, key=None, **kwargs):
-    tikz_str = f"\\draw[{tikz_argparse(*args, **kwargs)}] \
-({x_0},-{y_0}) -- ({x_0},-{y_1}) -- ({x_1},-{y_1}) -- ({x_1},-{y_0}) -- cycle;\n"
+    tikz_str = f"\\draw[rounded corners = 3pt, {tikz_argparse(*args, **kwargs)}] \
+({x_0} + \\offset ,-{y_0} -\\offset) rectangle ({x_1} - \\offset,-{y_1} + \\offset);\n"
     if key is not None:
         tikz_str += f"\\node ({key}) at ({0.5 * (x_0 + x_1)}, -{0.5 * (y_0 + y_1)}) {{}};\n"
     return tikz_str
@@ -161,10 +189,11 @@ def tikz_dag_edge(node_start, node_end):
 def tikz_qcb(*args, **kwargs):
     return tikz_qcb_no_header(*args, **kwargs)
 
-def tikz_qcb_no_header(qcb, seg_label_fn=lambda seg: f"{seg.get_symbol()}"):    
+def tikz_qcb_no_header(qcb, seg_label_fn=lambda seg: f"\\small {seg.get_symbol()}"):    
     tikz_str = ""
+    tikz_str += tikz_rectangle(-1 * OFFSET, -1 * OFFSET, qcb.width + OFFSET,  qcb.height + OFFSET, 'background')
     for segment in qcb.segments:
-        tikz_str += tikz_qcb_segement(segment, seg_label_fn=seg_label_fn)    
+        tikz_str += tikz_qcb_segment(segment, seg_label_fn=seg_label_fn)    
     return tikz_str
 
 @tikz_str
@@ -175,10 +204,10 @@ def tikz_pruned_qcb_no_header(pruned_qcb, seg_label_fn=lambda seg: f"{seg.get_sy
     tikz_str = ""
     # Draw segments
     for vertex in pruned_qcb.graph:
-        tikz_str += tikz_qcb_segement(vertex.get_segment(), seg_label_fn=seg_label_fn)
+        tikz_str += tikz_qcb_segment(vertex.get_segment(), seg_label_fn=seg_label_fn)
     return tikz_str
 
-def tikz_qcb_segement(segment, seg_label_fn=lambda seg: f"{seg.get_symbol()}"):
+def tikz_qcb_segment(segment, seg_label_fn=lambda seg: f"{seg.get_symbol()}"):
     colour = colour_map[segment.get_state()]
     segment_str = tikz_segment_rectangle(segment, colour)
     segment_str += tikz_node(segment.x_0 + 0.5, segment.y_0 + 0.5, seg_label_fn(segment))
@@ -190,7 +219,7 @@ def tikz_segment_rectangle(segment, colour, *args):
                 segment.y_0, 
                 segment.x_1 + 1, 
             segment.y_1 + 1, 
-            f"fill={colour}",
+            f"{colour}",
             "opacity=0.5")
 
 ### TIKZ GRAPH ###
@@ -214,8 +243,8 @@ def tikz_graph_edge(node_start, node_end):
     return tikz_edge(hex(id(node_start)), hex(id(node_end)))
 
 def tikz_segment_graph_node(segment, *args, **kwargs):
-    colour = colour_map.get(segment.get_symbol(), colour_map[SCPatch.EXTERN])
-    return tikz_circle(segment.x_0, segment.y_0, hex(id(segment)), f"{segment.x_0}, {segment.y_0}", fill=colour, draw=colour)
+    style = colour_map.get(segment.get_symbol(), colour_map[SCPatch.EXTERN])
+    return tikz_circle(segment.x_0, segment.y_0, hex(id(segment)), f"{segment.x_0}, {segment.y_0}", style)
 
 
 ### TIKZ TREE ###
@@ -291,14 +320,14 @@ def tikz_tree_parent_edge(node):
 
 def tikz_tree_leaf(node, colour=None, leaf_draw_fn = lambda node: str(node.get_slot())):
     if colour is None:
-        colour = dag_colour_map(node)
+        style = dag_colour_map(node)
 
     return (tikz_circle(
             node.get_segment().x_0,
             node.get_segment().y_0,
             hex(id(node)), 
             leaf_draw_fn(node),
-            draw=colour, fill=colour), 
+            style), 
     node.get_segment().x_0,
     node.get_segment().y_0)
 
@@ -344,12 +373,12 @@ def tikz_patch_graph_no_header(graph):
     return tikz_str
 
 def tikz_patch_node(element, delta = 0.13, colour_map=colour_map):
-    colour = colour_map[element.state]
+    style = colour_map[element.state]
     return tikz_rectangle(element.x + delta,
                           element.y + delta,
                           element.x + 1 - delta,
                           element.y + 1 - delta,
-                          fill=colour, key = hex(id(element))) 
+                          style, key = hex(id(element))) 
 
 ### TIKZ ROUTER ###
 def tikz_router(router):

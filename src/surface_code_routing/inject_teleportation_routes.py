@@ -6,6 +6,8 @@ from surface_code_routing.bind import RouteBind, AddrBind
 
 ancillae_teleport = pure_ancillae_instruction_factory('Teleport', n_cycles=1) 
 
+N_CYCLE_LOOKBACK = 1
+
 class TeleportInjector():
     '''
         Injects teleportation circuits at intersections
@@ -250,6 +252,7 @@ class TeleportSwitch():
     def teleport_switch(self, addresses, curr_cycle):
         teleportation_endpoints = []
         self.debug_print(f"Testing {self.intersection} {self.nodes} : {addresses} on {curr_cycle}")
+        print(teleportation_endpoints)
         for patch in addresses:
             if patch in self.nodes:
                 teleportation_endpoints.append(patch)
@@ -267,7 +270,7 @@ class TeleportSwitch():
         earliest_teleportation_cycle = max(map(lambda x: x.last_used + 1, chain(teleportation_endpoints, [self.intersection]))) + 1 
 
         # Need at least one cycle
-        if earliest_teleportation_cycle >= curr_cycle:
+        if earliest_teleportation_cycle >= curr_cycle - N_CYCLE_LOOKBACK:
             return False, None
         
         teleport_operation = TeleportOperation(teleportation_endpoints, self.intersection, earliest_teleportation_cycle - 1, curr_cycle)
