@@ -6,6 +6,9 @@ class Scope():
         if len(outer) == 0:
             outer = {}
 
+        if isinstance(outer, str):
+            outer = {outer}
+
         for element in outer:
             if isinstance(element, dict):
                 self |= element

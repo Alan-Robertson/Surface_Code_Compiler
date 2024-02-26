@@ -11,7 +11,7 @@ from surface_code_routing.router import QCBRouter
 from surface_code_routing.allocator import Allocator
 from surface_code_routing.compiled_qcb import CompiledQCB, compile_qcb
 
-from surface_code_routing.instructions import INIT, RESET, CNOT, Hadamard, Phase, local_Tdag, PREP, MEAS, X
+from surface_code_routing.instructions import INIT, RESET, CNOT, T_SLICE, Hadamard, Phase, local_Tdag, PREP, MEAS, X
 
 @cache
 def T_Factory(*externs, height=5, width=7, t_gate=local_Tdag, **compiler_arguments):
@@ -26,14 +26,17 @@ def T_Factory(*externs, height=5, width=7, t_gate=local_Tdag, **compiler_argumen
 
         for i in range(4):
             dag.add_gate(t_gate(f'q_{i}'))
+            dag.add_gate(MEAS(f'q_{i}'))
+
         for i in range(11):
             dag.add_gate(t_gate(f'a_{i}'))
+            dag.add_gate(MEAS(f'a_{i}'))
 
-        dag.add_gate(MEAS(
-            *['q_{i}'.format(i=i) for i in range(4)], 
-            *['a_{i}'.format(i=i) for i in range(11)],
-            'factory_out'))
         dag.add_gate(X('factory_out'))
+
+        qcb_kwargs = compiler_arguments.get('compiled_qcb_kwargs', dict()) 
+        qcb_kwargs['readout_operation'] = T_SLICE
+        compiler_arguments['compiled_qcb_kwargs'] = qcb_kwargs
 
         return compile_qcb(dag, height, width, *externs, **compiler_arguments)
 

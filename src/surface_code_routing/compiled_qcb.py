@@ -57,11 +57,14 @@ def compile_qcb(dag, height, width,
     if router_kwargs is None:
         router_kwargs = dict()
     router = QCBRouter(qcb, dag, mapper, graph=circuit_model, verbose=verbose, **router_kwargs)
-    compiled_qcb = CompiledQCB(qcb, router, dag)
+
+    if compiled_qcb_kwargs is None:
+        compiled_qcb_kwargs = dict()
+    compiled_qcb = CompiledQCB(qcb, router, dag, **compiled_qcb_kwargs)
     return compiled_qcb
 
 class CompiledQCB:
-    def __init__(self, qcb, router, dag):
+    def __init__(self, qcb, router, dag, readin_operation=MOVE, readout_operation=MOVE):
         self.dag = dag
         self.router = router
         self.qcb = qcb
@@ -77,7 +80,10 @@ class CompiledQCB:
         self.io_in = self.dag.symbol.io_in
         self.io_out = self.dag.symbol.io_out
         self.__is_factory = (sum(i is not self.symbol for i in self.symbol.io_in) == 0)
-    
+   
+        self.readin_operation = readin_operation
+        self.readout_operation = readout_operation
+
     def is_extern(self):
         return True
 
@@ -103,6 +109,7 @@ class CompiledQCB:
         return self.symbol.__repr__()
 
     def instruction(self, args, targs):
+        # Overload this for persistent externs
         args = tuple(map(symbol_resolve, args))
         targs = tuple(map(symbol_resolve, targs))
 
@@ -113,12 +120,12 @@ class CompiledQCB:
         dag = DAG(sym, scope=scope)
         
         for arg, fn_arg in zip(args, self.predicate.ordered_io_in()):
-            dag.add_gate(MOVE(arg, fn(fn_arg)))
+            dag.add_gate(self.readin_operation(arg, fn(fn_arg)))
         
         dag.add_node(fn, n_cycles=self.n_cycles())
 
         for targ, fn_arg in zip(targs, self.predicate.ordered_io_out()):
-            dag.add_gate(MOVE(fn(fn_arg), targ))
+            dag.add_gate(self.readout_operation(fn(fn_arg), targ))
 
         dag.add_gate(RESET(fn))
         return dag

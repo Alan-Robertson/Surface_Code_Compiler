@@ -182,6 +182,25 @@ CNOT_BASE = ZX_factory('CNOT', n_cycles=2)
 def CNOT(ctrl, *targs):
    return CNOT_BASE((ctrl,), targs) 
 
+CZ_BASE = ZX_factory('CZ', n_cycles=2)
+def CZ(*targs):
+   return CZ_BASE(targs, tuple()) 
+
+
+# Two cycle operation proxy
+S_SLICE_BASE = ZX_factory('SROT', n_cycles=2)
+def S_SLICE(ctrl, *targs):
+   return S_SLICE_BASE((ctrl,), targs) 
+
+# Three cycle operation proxy
+# Example is a T gate using a magic state resource
+# Measure ZZ (1)
+# Conditional S (2, 3)
+T_SLICE_BASE = ZX_factory('TROT', n_cycles=3)
+def T_SLICE(ctrl, *targs):
+   return T_SLICE_BASE((ctrl,), targs) 
+
+
 MEAS = non_local_factory('MEAS', n_cycles=1)
 PREP = in_place_factory_mult('PREP')
 
@@ -206,5 +225,17 @@ Z = in_place_factory('Z')
 local_Tdag = in_place_factory('T_dag', n_cycles = 1) 
 
 JOINT_MEASURE = non_local_factory('MEAS ANC', n_cycles=1, max_args=2)
+
+def SWAP(targ_a, targ_b):
+    targ_a, targ_b = map(Symbol, (targ_a, targ_b))
+    sym = Symbol('CSWAP', {'targ_a','targ_b'})
+    scope = Scope({sym('targ_a'):targ_b, sym('targ_b'):targ_b})
+    dag = DAG(sym, scope=scope)
+
+    dag.add_gate(CNOT(targ_a, targ_b))
+    dag.add_gate(CNOT(targ_b, targ_a))
+    dag.add_gate(CNOT(targ_a, targ_b))
+    return dag
+
 
 from surface_code_routing.dag import DAG, DAGNode

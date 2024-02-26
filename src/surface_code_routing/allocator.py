@@ -717,6 +717,8 @@ class Allocator:
                     merged_segment = seg
                 else:               
                     confirm, merged_segment = merged_segment.vertical_merge(seg)
+                    if confirm is None:
+                        return None
                     confirm(self.qcb.segments)
             return merged_segment
         return None
