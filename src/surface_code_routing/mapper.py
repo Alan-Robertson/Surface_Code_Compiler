@@ -34,6 +34,9 @@ class QCBMapper():
     def alloc_extern(self, symbol):
         return self.extern_allocator.alloc(symbol)
 
+    def flush(self):
+        self.extern_allocator.flush()
+
     def free(self, gate):
         self.extern_allocator.free(gate.get_unary_symbol())
 

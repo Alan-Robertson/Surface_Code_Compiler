@@ -19,6 +19,8 @@ class ExternPatchAllocatorStatic(ExternPatchAllocator):
                 self.mapper.segment_maps[extern.symbol.predicate] = ExternSegmentMap(extern, self, verbose=self.verbose) 
 
         for symbol, extern in self.mapper.dag.externs.items():
+            if extern is None:
+                continue
             segment_map = self.mapper.segment_maps[symbol.predicate]
             if extern not in segment_map.segments:
                 leaf = self.mapper.mapping_tree.alloc(symbol.predicate)
@@ -28,6 +30,12 @@ class ExternPatchAllocatorStatic(ExternPatchAllocator):
             else:
                 segment_map.allocate_segment(symbol, segment_map.segments[extern])
             self.mapper.map[symbol] = segment_map 
+
+    def flush(self):
+        for symbol in self.mapper.map:
+            if symbol.is_extern():
+                self.mapper.map[symbol].flush()
+
 
     def __getitem__(self, symbol):
         return self.mapper.segment_maps[symbol.predicate][symbol]
@@ -88,6 +96,10 @@ class ExternSegmentMap():
             self.__first_free_cycle[segment] = 0
             self.debug_print(f"Added Lock: {segment}")
 
+    def flush(self):
+        for i in self.locks:
+            self.locks[i] = None
+
     def alloc(self, symbol, dag_extern):
         '''
             Attempts to allocate a segment for a symbol 
@@ -106,8 +118,10 @@ class ExternSegmentMap():
             rollback = partial(self.free, symbol, dag_extern)
             
             return segment, rollback 
+
         if lock_state == symbol:
             return segment, None
+
         return COULD_NOT_ALLOCATE, None
 
     def first_free_cycle(self, symbol):

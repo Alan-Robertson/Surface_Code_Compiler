@@ -45,7 +45,9 @@ def compile_qcb(dag, height, width,
     tree = QCBTree(graph)
 
     if mapper_kwargs is None:
-        mapper_kwargs = dict()
+        mapper_kwargs = {'extern_allocation_method':extern_allocation_method}
+    elif 'extern_allocation_method' not in mapper_kwargs:
+        mapper_kwargs['extern_allocation_method'] = extern_allocation_method
 
     mapper = QCBMapper(dag, tree, **mapper_kwargs)
 
@@ -79,7 +81,7 @@ class CompiledQCB:
         self.io = qcb.symbol.io
         self.io_in = self.dag.symbol.io_in
         self.io_out = self.dag.symbol.io_out
-        self.__is_factory = (sum(i is not self.symbol for i in self.symbol.io_in) == 0)
+        self.__is_factory = len(self.io_in) == 0 
    
         self.readin_operation = readin_operation
         self.readout_operation = readout_operation
@@ -114,7 +116,7 @@ class CompiledQCB:
         targs = tuple(map(symbol_resolve, targs))
 
         sym = symbol_resolve(f'CALL {self.predicate.symbol}') 
-        fn = self.predicate.extern()
+        fn = self.predicate.extern(io_in=self.io_in, io_out=self.io_out)
         scope = Scope({fn:fn})
 
         dag = DAG(sym, scope=scope)

@@ -41,6 +41,9 @@ class Bind():
     def get_obj(self):
         return self.obj.get_obj()
 
+    def __hash__(self):
+        return id(self)
+
     # Cycle functions
     def cycle(self):
         self.cycles_completed += 1
@@ -147,10 +150,13 @@ class ExternBind(Bind):
         return self.obj.resolved()
 
     def __eq__(self, other):
-        return id(self.obj) == id(other.obj)
+        return hash(self) == hash(other)
 
     def __hash__(self):
-        return id(self.obj)
+        return id(self.obj.obj)
+
+    def __is__(self, other):
+        return hash(self) == hash(other)
 
 class DAGBind(Bind):
     '''

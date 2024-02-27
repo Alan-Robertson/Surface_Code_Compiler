@@ -245,6 +245,9 @@ class Allocator:
         
         io_route = Segment.leftmost_segment(self.io_segment.above)
         io_free_edge = Segment.leftmost_segment((seg for seg in io_route.above if seg.get_state() is SCPatch.NONE))
+        # TODO 
+        # Edge case where io_free_edge is None
+
         success, routes = self.route_vertical_up(io_free_edge, io_free_edge.x_0)
         self.place_route_segments(*routes)
         self.debug_print(f"Placing IO route on {routes}")

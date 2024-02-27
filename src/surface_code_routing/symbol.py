@@ -135,20 +135,25 @@ class Symbol(object):
     def get_symbol(self):
         return self
 
-    def extern(self):
+    def extern(self, io_in=None, io_out=None):
         predicate = Symbol(self.symbol)
         io = tuple(self.io.keys())
         if len(io) == 1:
             io = io[0]
-        return ExternSymbol(predicate, io)
+        if io_in is None:
+            io_in = self.io_in
+        if io_out is None:
+            io_out = self.io_out
+        return ExternSymbol(predicate, io, io_in=io_in, io_out=io_out)
 
 class ExternSymbol(Symbol):
     singleton = object()
 
-    def __init__(self, predicate, io_element=None):
+    def __init__(self, predicate, io_element=None, io_in=None, io_out=None):
         
         self.symbol = Symbol('Extern Symbol')
 
+           
         if isinstance(predicate, str):
             predicate = Symbol(predicate)
         
@@ -168,6 +173,14 @@ class ExternSymbol(Symbol):
         self.io_out = {self}
         self.io = {self:self}
         self.externs = [self]
+
+        if io_in is None:
+            io_in = set()
+        if io_out is None:
+            io_out = set()
+        self.__internal_io_in = io_in
+        self.__internal_io_out = io_out
+
 
     def __repr__(self):
         if self.io_element is not None:
@@ -189,8 +202,11 @@ class ExternSymbol(Symbol):
     def __len__(self):
         return 1
 
+    def is_factory(self):
+        return  None is next(iter(i for i in self.__internal_io_in if i is not self), None)
+
     def __call__(self, io_element):
-        return ExternSymbol(self, io_element)
+        return ExternSymbol(self, io_element, io_in=self.__internal_io_in, io_out=self.__internal_io_out)
 
     def discriminator(self):
         return self.predicate.discriminator()

@@ -61,8 +61,12 @@ class QCBRouter:
     def route(self):
         self.active_gates = set()
         # Non-factory gates in the first layer are queued
-        waiting = list(map(lambda x: RouteBind(x, self.mapper[x]), filter(lambda x: not x.is_factory(), self.dag.layers[0])))
+        waiting = list(map(lambda x: RouteBind(x, None), filter(lambda x: not x.is_factory(), self.dag.layers[0])))
         resolved = self.resolved
+
+        quash_flag = 0
+        # Externs are not released to the allocator until all gates are ready
+        barrier = dict()
         
         while len(waiting) > 0 or len(self.active_gates) > 0:
             curr_layer = len(self.layers)
@@ -116,6 +120,65 @@ class QCBRouter:
             # Initially active gates
             for gate in waiting:
 
+                # Barrier
+                # This involves some awful tree discovery, the workaround is more complex dependency resolution on 
+                # Externs
+                # Here we're first going to discover the extern gate, then backtrack and find all non-extern dependencies, and see if they've been resolved.
+                if len(extern_ante := [i for i in gate.scope if i.is_extern() and not i.is_factory()]) > 0:
+                    barrier_resolved = True
+                    for ext_symbol in extern_ante:
+                        if not barrier_resolved:
+                            continue
+                        
+                        if ext_symbol not in barrier:
+                            barrier[ext_symbol] = tuple()
+
+                            extern_gate = None
+                            for i in self.dag.gates:
+                                if i.is_extern() and ext_symbol in i.scope:
+                                    extern_gate = i
+                                    break
+                            if extern_gate is None:
+                                raise Exception("Missing Extern Gate")
+
+                            non_extern_predicates = []
+                            extern_predicates = [extern_gate]
+                            while len(extern_predicates) > 0:
+                                next_extern_predicates = []
+                                for extern_pred in extern_predicates:
+                                    for pred in extern_pred.predicates:
+                                        if ext_symbol in pred.scope:
+                                            next_extern_predicates.append(pred)
+                                        else:
+                                            non_extern_predicates.append(pred)
+                                extern_predicates = next_extern_predicates
+                            non_extern_predicates = list(map(lambda x: RouteBind(x, None), non_extern_predicates))
+                            barrier[ext_symbol] = non_extern_predicates 
+                            
+                        # Barrier already resolved
+                        if len(barrier[ext_symbol]) == 0:
+                            continue
+
+                        # Complexity of the barrier scales with O(number of IO in elements)
+                        # If the barrier is a tuple, this skips
+                        for barrier_gate in barrier[ext_symbol]: # TODO remove elements from the barrier as they are resolved
+                            if barrier_gate not in resolved:
+                                barrier_resolved = False
+                                break
+
+                        if barrier_resolved: # Once the barrier has been resolved all gates are released
+                            barrier[ext_symbol] = tuple()
+
+                        else:
+                            barrier_resolved = False
+                            continue
+
+                    if not barrier_resolved:
+                        # Gate caught on barrier, try next gate
+                        continue
+
+                    
+
                 # The mapper will also check if it can do an extern allocation
                 # The mapper is constrained that if the next call to the mapper is a lock on the same gate that those same addresses should be locked
                 addresses = self.mapper[gate]
@@ -164,8 +227,16 @@ class QCBRouter:
 
             # Not the most elegant approach, could reorder some things
             if len(self.layers[-1]) == 0:
-                self.debug_print("Layer Quashed")
+                # TODO Remove this later
+                quash_flag += 1
+                if quash_flag > 2:
+                    self.debug_print("Layer Quashed")
+                    #self.mapper.flush()
+                if quash_flag > 10:
+                    raise Exception("Deadlock")
                 self.layers.pop()
+            else:
+                quash_flag = 0
         return 
 
     def probe_address(self, dag_node, address):
