@@ -37,7 +37,7 @@ class MapperTest(unittest.TestCase):
 
         mapper = QCBMapper(dag, tree)
         for gate in dag.gates:
-            assert(len(mapper[gate]) > 0)
+            assert(mapper[gate])
 
     def test_extern_qcb(self):
 
@@ -58,7 +58,7 @@ class MapperTest(unittest.TestCase):
       
         assert gate.get_symbol().predicate == Symbol('T_Factory')
         for gate in dag.gates:
-            assert(len(mapper[gate]) > 0)
+            assert(mapper[gate])
 
 
     def test_reg_mapping(self):
@@ -91,7 +91,7 @@ class MapperTest(unittest.TestCase):
         tree = QCBTree(graph)
         mapper = QCBMapper(dag, tree)
         for gate in dag.gates:
-            assert(len(mapper[gate]) > 0)
+            assert(mapper[gate])
 
 if __name__ == '__main__':
     unittest.main()
