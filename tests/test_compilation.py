@@ -9,7 +9,7 @@ import unittest
 
 class CompilerTests(unittest.TestCase):
      
-    def test_t_factory(self):
+    def test_t_factory(self, height=5, width=9):
         dag = DAG(Symbol('T_Factory', 'factory_out'))
         dag.add_gate(INIT(*['q_{i}'.format(i=i) for i in range(4)]))
         dag.add_gate(INIT(*['a_{i}'.format(i=i) for i in range(11)]))
@@ -25,29 +25,48 @@ class CompilerTests(unittest.TestCase):
             'factory_out'))
         dag.add_gate(X('factory_out'))
 
-        qcb = compile_qcb(dag, 5, 9)
+        qcb = compile_qcb(dag, height, width)
+
+    def test_range_t_factories(self):
+        for height in range(5, 50, 7):
+            for width in range(9, 50, 7):
+                self.test_t_factory(height, width)
 
 
     def test_io(self):
         dag = DAG(Symbol('T_Factory', 'factory_out'))
         dag.add_gate(INIT('a')) 
         dag.add_gate(CNOT('factory_out', 'a'))
+        
+        for i in range(9, 50, 7):
+            qcb = compile_qcb(dag, i, i)
 
-        qcb = compile_qcb(dag, 5, 9)
 
-
-    def test_compiled_qcb(self):
+    def test_compiled_qcb(self, small_qcb=4, large_qcb=6):
         # Dummy T Factory
         dag = DAG(Symbol('T_Factory', 'factory_out'))
         dag.add_gate(INIT('a', 'b', 'c', 'd'))
-        t_factory = compile_qcb(dag, 4, 4)
+        t_factory = compile_qcb(dag, small_qcb, small_qcb)
         
         dag = DAG(Symbol('Test'))
         dag.add_gate(INIT('a'))
         dag.add_gate(T('a'))
 
-        qcb_comp = compile_qcb(dag, 6, 6, t_factory)
+        qcb_comp = compile_qcb(dag, large_qcb, large_qcb, t_factory)
+    
+    def test_qcb_sizes(self):
+
+        for small_qcb in range(4, 40, 7):
+            for large_qcb in range(6, 40, 7):
+                if large_qcb < small_qcb:
+                    try:
+                        self.test_compiled_qcb(small_qcb, large_qcb)
+                        passed = True
+                    except:
+                        passed = False 
+                    assert(not passed)
+                else:
+                    self.test_compiled_qcb(small_qcb, large_qcb)
 
 if __name__ == '__main__':
     unittest.main()
- 
