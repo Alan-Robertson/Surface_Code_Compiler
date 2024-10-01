@@ -32,7 +32,7 @@ class DAGNode():
         for sym in self.scope.values():
             if sym.is_extern():
                 externs[sym] = None
-        
+
         self.predicates = set()
         # Predicate factories to inject
         self.antecedents = set()
@@ -78,7 +78,7 @@ class DAGNode():
 
     def rotate(self):
         self.__rotates ^= True
-        
+
     def __repr__(self):
         return self.symbol.__repr__()
 
@@ -167,7 +167,7 @@ class DAG(DAGNode):
         return utils.debug_print(*args, debug=self.verbose)
 
     def extern(self):
-        return self.symbol.extern() 
+        return self.symbol.extern()
 
     def io(self):
         return self.symbol.io
@@ -188,7 +188,7 @@ class DAG(DAGNode):
     def add_gate(self, dag, *args, scope=None, **kwargs):
 
         gate = dag(scope=scope)
-        
+
         operands = gate.symbol.io
         if len(gate.externs) > 0:
             self.externs |= gate.externs
@@ -211,14 +211,14 @@ class DAG(DAGNode):
             self.merge_scopes(gate)
         self.update_dependencies(gate)
         return gate
-                    
+
     def unroll_gate(self, dag):
         for gate in dag.gates:
             if isinstance(gate, DAG):
                 self.unroll_gate(gate)
             else:
                 self.gates.append(gate)
-                self.merge_scopes(gate)                
+                self.merge_scopes(gate)
                 self.update_dependencies(gate)
 
     def merge_scopes(self, gate):
@@ -254,7 +254,7 @@ class DAG(DAGNode):
             raise Exception("Cannot Depend on multiple externs directly, wrap the extern dependencies within the original extern, or introduce a register within the current scope")
 
         return
-        
+
     def update_layer(self, gate):
         layer_num = 1 + max((predicate.layer for predicate in gate.predicates if predicate is not gate), default=-1)
 
@@ -283,7 +283,7 @@ class DAG(DAGNode):
 
         for layer in self.layers:
             for gate in layer:
-                for targ in gate.scope:                            
+                for targ in gate.scope:
                     for other_targ in gate.scope:
                         if other_targ is not targ:
                             prox[lookup[targ], lookup[other_targ]] += 1
@@ -292,14 +292,14 @@ class DAG(DAGNode):
     def calculate_logical_conjestion(self):
         conj_len = len(self.scope)
         conj = np.zeros((conj_len, conj_len))
-        lookup = dict(map(lambda x: x[::-1], enumerate(self.scope.keys()))) 
+        lookup = dict(map(lambda x: x[::-1], enumerate(self.scope.keys())))
 
         for layer in self.layers:
             for gate in layer:
                 if len(gate.scope) > 1:
                     for other_gate in layer:
                         if gate is not other_gate and len(other_gate.scope) > 1:
-                            for targ in gate.scope:                            
+                            for targ in gate.scope:
                                 for other_targ in other_gate.scope:
                                     conj[lookup[targ], lookup[other_targ]] += 1
         return conj, lookup
@@ -310,18 +310,18 @@ class DAG(DAGNode):
         conj = np.zeros((conj_len, conj_len))
 
         lookup_inv = list(chain(self.internal_scope().keys(), self.physical_externs))
-        lookup = dict(map(lambda x: x[::-1], enumerate(lookup_inv)))  
-        
+        lookup = dict(map(lambda x: x[::-1], enumerate(lookup_inv)))
+
         for layer in self.layers:
             for gate in layer:
                 if len(gate.scope) > 1:
                     for other_gate in layer:
                         if gate is not other_gate and len(other_gate.scope) > 1:
-                            for targ in gate.scope:                            
+                            for targ in gate.scope:
                                 for other_targ in other_gate.scope:
                                     tmp_targ = targ.get_parent()
                                     tmp_other_targ = other_targ.get_parent()
-                                    
+
                                     if tmp_targ.is_extern():
                                         tmp_targ = self.scope[tmp_targ]
                                     if tmp_other_targ.is_extern():
@@ -337,7 +337,7 @@ class DAG(DAGNode):
         for element in initial_list:
             if element.get_symbol().is_extern():
                 lookup_list.append(element.get_symbol())
-                
+
             else:
                 sym = symbol_resolve(element)
                 sym.predicate = register
@@ -348,17 +348,17 @@ class DAG(DAGNode):
         prox_len = len(self.internal_scope()) + len(self.physical_externs)
         prox = np.zeros((prox_len, prox_len))
         lookup_inv = list(chain(self.internal_scope().keys(), self.physical_externs))
-        lookup = dict(map(lambda x: x[::-1], enumerate(lookup_inv))) 
-        
+        lookup = dict(map(lambda x: x[::-1], enumerate(lookup_inv)))
+
         for layer in self.layers:
             for gate in layer:
-                for targ in gate.scope:                            
+                for targ in gate.scope:
                     for other_targ in gate.scope:
                         if other_targ is not targ:
 
                             tmp_targ = targ.get_parent()
                             tmp_other_targ = other_targ.get_parent()
-                            
+
                             if tmp_targ.is_extern():
                                 tmp_targ = self.scope[tmp_targ]
                             if tmp_other_targ.is_extern():
@@ -369,7 +369,7 @@ class DAG(DAGNode):
         return prox, lookup
 
     def compile(self, n_channels, *externs, extern_minimise=lambda extern: extern.n_cycles(), debug=False):
-        
+
         # Clear any previous extern allocation
         self.externs.clear_scope()
         self.physical_externs = list(externs)
@@ -396,7 +396,7 @@ class DAG(DAGNode):
         # Initially active gates
         for gate in self.layers[0]:
             if gate.is_factory():
-                continue 
+                continue
 
             if gate.is_extern():
                 index, binding = next(
@@ -417,7 +417,7 @@ class DAG(DAGNode):
         self.debug_print(f"Initial Gates: {active}\nWaiting: {waiting}")
 
         # Gates that have finished, how many cycles this took, what happened in each layer
-        resolved = set() 
+        resolved = set()
         n_cycles = 0
         layers = []
 
@@ -430,16 +430,16 @@ class DAG(DAGNode):
             self.debug_print(f"Active: {active}\n Waiting: {waiting}\nIdle:{idle_externs}")
             layers.append([])
             n_cycles += 1
-            
+
             # Update each active gate
             for gate in active:
                 gate.cycle()
                 layers[-1].append(gate)
-                
+
                 # Update the underlying binding of each gate
                 if gate.is_extern():
                     extern_gate_to_bind(gate).cycle()
-                
+
             recently_resolved = list(filter(lambda x: x.resolved(), active))
             active = set(filter(lambda x: not x.resolved(), active))
             # For each gate we resolve check if there are any antecedents that can be added to the waiting list
@@ -447,7 +447,7 @@ class DAG(DAGNode):
                 if gate.resolved():
                     resolved.add(gate)
 
-                    # Decrement semaphore for non-local gates 
+                    # Decrement semaphore for non-local gates
                     if gate.non_local():
                         active_non_local_gates -= 1
 
@@ -465,10 +465,10 @@ class DAG(DAGNode):
                                 queued_factories.add(predicate_factory)
                                 all_resolved = False
                         if all_resolved is False:
-                           continue 
+                           continue
 
                         # Check the predicate of each antecedent
-                        for predicate in antecedent.predicates: 
+                        for predicate in antecedent.predicates:
                             # Catches nodes that are externs
                             # Ensure that the predicate has been mapped
                             if predicate.is_extern() and self.externs[predicate.get_unary_symbol()] is not None:
@@ -490,7 +490,7 @@ class DAG(DAGNode):
                         self.debug_print(f"RESET {gate}")
                         reset_extern = gate.get_unary_symbol()
                         extern_bind = extern_map[self.externs[reset_extern]]
-                        extern_bind.reset()                        
+                        extern_bind.reset()
                         idle_externs.append(extern_bind)
                         externs_first_free_cycle[extern_bind] = len(layers)
 
@@ -514,7 +514,7 @@ class DAG(DAGNode):
 
                         if gate.is_factory():
                             last_free_cycle = externs_first_free_cycle[extern]
-                            previous_cycles = min(binding.n_cycles(), len(layers) - last_free_cycle) 
+                            previous_cycles = min(binding.n_cycles(), len(layers) - last_free_cycle)
                             gate.set_cycles_completed(previous_cycles)
                             binding.set_cycles_completed(previous_cycles)
                             for layer in layers[last_free_cycle:]:
@@ -538,7 +538,7 @@ class DAG(DAGNode):
 
             # Update the waiting list
             waiting = list(filter(lambda x: x not in active, waiting))
-            
+
             # Dodgy fix for a bug
             # Somehow externs are escaping from the idle extern list :/
             if len(active) == 0:
