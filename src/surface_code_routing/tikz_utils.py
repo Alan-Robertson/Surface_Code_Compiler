@@ -115,7 +115,7 @@ def tex_header(*tiksargs):
 """
 
 def tex_footer():
-    return "\n\end{document}\n"
+    return r"\n\end{document}\n"
 
 def tex_file(fn, *args, **kwargs):
     tex_file = tex_header()

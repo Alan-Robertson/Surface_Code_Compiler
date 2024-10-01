@@ -1,5 +1,16 @@
+'''
+    Bind
+    Set of bind indirection wrappers 
+    Promotes objects to permit comparisons on both the bind object, and the underlying object 
+'''
+
 class Bind():
     def __init__(self, obj):
+        '''
+            Bind
+            Set of bind indirection wrappers 
+            Promotes objects to permit comparisons on both the bind object, and the underlying object 
+        '''
         self.obj = obj
         self.cycles_completed = 0
 
@@ -96,6 +107,10 @@ class AddrBind():
     
 class ExternBind(Bind):
     def __init__(self, obj):
+        '''
+            ExternBind
+            Bind wrapper for extern objects
+        '''
         # Nesting this ensures non-fungibility
         self.obj = Bind(obj)
         self.slack = float('-inf')
@@ -176,7 +191,7 @@ class DAGBind(Bind):
         if isinstance(other, Bind):
             return self.obj.symbol == other.obj.symbol
         else:
-            self.obj.symbol == other.symbol
+            return self.obj.symbol == other.symbol
 
     def pre_warm(self):
         return False
@@ -234,4 +249,3 @@ class RouteBind(Bind):
         return self.obj.is_extern()
     def is_factory(self):
         return self.obj.is_factory()
-

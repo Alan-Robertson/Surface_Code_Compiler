@@ -65,8 +65,15 @@ class QCB():
         self.compiled_layers: list[Bind|ExternBind] = []
         #self.io = self.symbol.io
 
+    def __len__(self):
+        return self.n_cycles()
+
     # ExternInterface impls
     def n_cycles(self):
+        '''
+            Number of cycles to operate this extern
+            Should be extended to support multiple operations
+        '''
         return self.cycles 
 
     def __iter__(self):

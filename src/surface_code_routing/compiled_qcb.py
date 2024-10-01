@@ -1,4 +1,7 @@
-import copy
+'''
+    Compiled QCB
+    Binds a set of routing instructions to a QCB layout to create a callable  
+'''
 from surface_code_routing.symbol import symbol_resolve
 from surface_code_routing.scope import Scope
 from surface_code_routing.instructions import RESET, MOVE
@@ -14,9 +17,9 @@ from surface_code_routing.mapper import QCBMapper
 from surface_code_routing.circuit_model import PatchGraph
 from surface_code_routing.inject_rotations import RotationInjector
 
-def compile_qcb(dag, height, width, 
-                *externs, 
-                verbose=False, 
+def compile_qcb(dag, height, width,
+                *externs,
+                verbose=False,
                 extern_allocation_method='dynamic',
                 qcb_kwargs = None,
                 allocator_kwargs = None,
@@ -35,12 +38,12 @@ def compile_qcb(dag, height, width,
     dag.verbose=verbose
 
     if verbose:
-        print(f"\tAllocating QCB...")
+        print("\tAllocating QCB...")
     allocator = Allocator(qcb, *externs, tikz_build=True, verbose=verbose)
     qcb.allocator = allocator
 
     if verbose:
-        print(f"\tConstructing Mapping")
+        print("\tConstructing Mapping")
     graph = QCBGraph(qcb)
     tree = QCBTree(graph)
 
@@ -52,8 +55,9 @@ def compile_qcb(dag, height, width,
     mapper = QCBMapper(dag, tree, **mapper_kwargs)
 
     if verbose:
-        print(f"\tRouting...")
+        print("\tRouting...")
     circuit_model = PatchGraph(qcb.shape, mapper, None)
+    # TODO pass this through
     rot_injector = RotationInjector(dag, mapper, qcb, graph=circuit_model, verbose=verbose)
 
     if router_kwargs is None:
@@ -66,6 +70,18 @@ def compile_qcb(dag, height, width,
     return compiled_qcb
 
 class CompiledQCB:
+    '''
+        CompiledQCB
+        Binds a set of routing instructions to a QCB layout to create a callable extern
+        :: qcb : QCB :: QCB layout 
+        :: route : Router :: Router object 
+        :: dag :: DAG :: Dag that the router implements 
+        :: readin_operation : Operation :: Operation mediating how to pass inputs to this extern 
+        :: readout_operation : Operation :: Operation mediating how to pass outputs from this extern 
+
+        TODO: Vtable implementation for calling and overloading 
+            : Bind readin and readout on a per-symbol basis, possibly for each element in the calltable 
+    '''
     def __init__(self, qcb, router, dag, readin_operation=MOVE, readout_operation=MOVE):
         self.dag = dag
         self.router = router
@@ -81,29 +97,47 @@ class CompiledQCB:
         self.io = qcb.symbol.io
         self.io_in = self.dag.symbol.io_in
         self.io_out = self.dag.symbol.io_out
-        self.__is_factory = len(self.io_in) == 0 
-   
+        self.__is_factory = len(self.io_in) == 0
+
         self.readin_operation = readin_operation
         self.readout_operation = readout_operation
 
+    def __len__(self):
+        return self.n_cycles()
+
     def is_extern(self):
+        '''
+            All compiled QCBs act as externs
+        '''
         return True
 
     def is_factory(self):
-        return self.__is_factory 
+        '''
+            Not all compiled QCBs are factories
+        '''
+        return self.__is_factory
 
     def instantiate(self):
-        return CompiledQCB(self.qcb, self.router, self.dag) 
+        '''
+            Create a new instance of the QCB
+        '''
+        return CompiledQCB(self.qcb, self.router, self.dag)
 
     def satisfies(self, other):
+        '''
+            Determine if the QCB satisfies the dependencies of another gate
+        '''
         return self.symbol.satisfies(other)
 
     def get_symbol(self):
+        '''
+            Gets the symbol of a QCB
+        '''
         return self.symbol
 
     def get_obj(self):
         return self
-    
+
     def __call__(self, *args):
         return self.instruction(*args)
 
@@ -111,19 +145,22 @@ class CompiledQCB:
         return self.symbol.__repr__()
 
     def instruction(self, args, targs):
+        '''
+            Simple wrapper that resolves a default call to the QCB
+        '''
         # Overload this for persistent externs
         args = tuple(map(symbol_resolve, args))
         targs = tuple(map(symbol_resolve, targs))
 
-        sym = symbol_resolve(f'CALL {self.predicate.symbol}') 
+        sym = symbol_resolve(f'CALL {self.predicate.symbol}')
         fn = self.predicate.extern(io_in=self.io_in, io_out=self.io_out)
         scope = Scope({fn:fn})
 
         dag = DAG(sym, scope=scope)
-        
+
         for arg, fn_arg in zip(args, self.predicate.ordered_io_in()):
             dag.add_gate(self.readin_operation(arg, fn(fn_arg)))
-        
+
         dag.add_node(fn, n_cycles=self.n_cycles())
 
         for targ, fn_arg in zip(targs, self.predicate.ordered_io_out()):
@@ -131,7 +168,6 @@ class CompiledQCB:
 
         dag.add_gate(RESET(fn))
         return dag
-
 
     def __tikz__(self):
         return self.router.__tikz__()
