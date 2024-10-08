@@ -15,7 +15,7 @@ from surface_code_routing.instructions import RESET_SYMBOL, ROTATION_SYMBOL, HAD
 
 from surface_code_routing.inject_teleportation_routes import TeleportInjector
 
-from surface_code_routing.constants import COULD_NOT_ALLOCATE
+from surface_code_routing.constants import COULD_NOT_ALLOCATE, COULD_NOT_ROUTE
 
 class QCBRouter:
     def __init__(self, qcb:QCB, dag:DAG, mapper:QCBMapper, graph=None, auto_route=True, verbose=False, teleport=True):
@@ -51,6 +51,7 @@ class QCBRouter:
             self.teleport_injector = None
 
         self.layers = []
+        self.delays = dict() 
         if auto_route:
             # Fills layers
             self.route()
@@ -108,6 +109,7 @@ class QCBRouter:
                     if all_resolved is False:
                           continue 
 
+                    # Check if predicates have been resolved
                     for predicate in antecedent.predicates:
                         if RouteBind(predicate, None) not in resolved:
                             all_resolved = False
@@ -177,20 +179,20 @@ class QCBRouter:
                         # Gate caught on barrier, try next gate
                         continue
 
-                    
-
                 # The mapper will also check if it can do an extern allocation
                 # The mapper is constrained that if the next call to the mapper is a lock on the same gate that those same addresses should be locked
                 addresses = self.mapper[gate]
 
                 # Could not obtain addresses for an extern 
                 if addresses is COULD_NOT_ALLOCATE: 
+                    self.track_delay(gate.get_symbol())
                     self.debug_print(f"\tFailed to allocate extern for {gate}")
                     continue
                             
                 # Check that all addresses are free
                 if not all(self.probe_address(gate, address) for address in addresses):
                     # Not all addresses are currently free, keep waiting
+                    self.track_delay(gate.get_symbol())
                     continue
 
                 # Attempt to route between the gates
@@ -202,7 +204,6 @@ class QCBRouter:
                         self.teleport_injector(gate, addresses, curr_layer)
                 else:
                     addresses = tuple(map(self.graph.__getitem__, addresses))
-
 
                 # Route exists, all nodes are free
                 if route_exists:
@@ -220,7 +221,9 @@ class QCBRouter:
                         # This patch will be locked for this duration
                         # Storing this information in advance helps with ALAP vs ASAP scheduling
                         patch.last_used = curr_layer + gate.n_cycles()
-
+                # Route does not exist
+                else:
+                    self.track_delay(COULD_NOT_ROUTE)
 
             # Update the waiting list 
             waiting = list(filter(lambda x: x not in self.active_gates and x not in resolved and x not in waiting_clear, waiting))
@@ -302,6 +305,12 @@ class QCBRouter:
 
     def __tikz__(self):
         return tikz_router(self) 
+
+    def track_delay(self, symbol):
+        if symbol in self.delays:
+            self.delays[symbol] += 1
+        else:
+            self.delays[symbol] = 1
 
     def rotate(self, dag_node, addresses):
         for address in addresses:
