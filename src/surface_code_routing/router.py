@@ -1,9 +1,14 @@
+'''
+    Routing object
+    Attempts to route the DAG given a QCB layout
+'''
+
 from typing import *
 from queue import PriorityQueue
 from surface_code_routing.utils import debug_print
 
 from surface_code_routing.qcb import Segment, SCPatch, QCB
-from surface_code_routing.circuit_model import PatchGraph, PatchGraphNode 
+from surface_code_routing.circuit_model import PatchGraph, PatchGraphNode
 from surface_code_routing.dag import DAG, DAGNode
 from surface_code_routing.mapper import QCBMapper
 from surface_code_routing.bind import RouteBind, AddrBind
@@ -18,11 +23,16 @@ from surface_code_routing.inject_teleportation_routes import TeleportInjector
 from surface_code_routing.constants import COULD_NOT_ALLOCATE, COULD_NOT_ROUTE
 
 class QCBRouter:
+    '''
+        Routing object
+        Attempts to route the DAG given a QCB layout
+    '''
+
     def __init__(self, qcb:QCB, dag:DAG, mapper:QCBMapper, graph=None, auto_route=True, verbose=False, teleport=True):
         '''
             Initialise the router
         '''
-        if graph is None: 
+        if graph is None:
             graph = PatchGraph(shape=(qcb.height, qcb.width), mapper=mapper, environment=self)
         else:
             graph.environment = self
@@ -37,8 +47,8 @@ class QCBRouter:
         self.routes = dict()
         self.active_gates = set()
 
-        self.anc: dict[Any, ANC] = {}    
-        
+        self.anc: dict[Any, ANC] = {}
+
         self.waiting: 'List[DAGNode]' = []
         self.active: 'PriorityQueue[Tuple[int, Any, DAGNode]]' = PriorityQueue()
         self.finished: 'List[DAGNode]' = []
@@ -51,7 +61,7 @@ class QCBRouter:
             self.teleport_injector = None
 
         self.layers = []
-        self.delays = dict() 
+        self.delays = dict()
         if auto_route:
             # Fills layers
             self.route()
@@ -60,6 +70,9 @@ class QCBRouter:
         debug_print(*args, debug=self.verbose, **kwargs)
 
     def route(self):
+        '''
+            Attempts to route all gates in the DAG
+        '''
         self.active_gates = set()
         # Non-factory gates in the first layer are queued
         waiting = list(map(lambda x: RouteBind(x, None), filter(lambda x: not x.is_factory(), self.dag.layers[0])))
@@ -68,7 +81,7 @@ class QCBRouter:
         quash_flag = 0
         # Externs are not released to the allocator until all gates are ready
         barrier = dict()
-        
+
         while len(waiting) > 0 or len(self.active_gates) > 0:
             curr_layer = len(self.layers)
             self.debug_print(waiting, self.active_gates)
@@ -93,7 +106,7 @@ class QCBRouter:
 
             self.active_gates = set(filter(lambda x: not x.resolved(), self.active_gates))
             for gate in recently_resolved:
-                resolved.add(gate) 
+                resolved.add(gate)
                 if gate.rotates():
                     self.rotate(gate, self.mapper[gate])
                 # Should only trigger when the final antecedent is resolved
@@ -107,7 +120,7 @@ class QCBRouter:
                             waiting.append(RouteBind(predicate_factory, None))
                             all_resolved = False
                     if all_resolved is False:
-                          continue 
+                          continue
 
                     # Check if predicates have been resolved
                     for predicate in antecedent.predicates:
@@ -116,14 +129,14 @@ class QCBRouter:
                             break
                     if all_resolved:
                         waiting.append(RouteBind(antecedent, None))
-            
+
             waiting.sort()
             waiting_clear = list()
             # Initially active gates
             for gate in waiting:
 
                 # Barrier
-                # This involves some awful tree discovery, the workaround is more complex dependency resolution on 
+                # This involves some awful tree discovery, the workaround is more complex dependency resolution on
                 # Externs
                 # Here we're first going to discover the extern gate, then backtrack and find all non-extern dependencies, and see if they've been resolved.
                 if len(extern_ante := [i for i in gate.scope if i.is_extern() and not i.is_factory()]) > 0:
@@ -131,7 +144,7 @@ class QCBRouter:
                     for ext_symbol in extern_ante:
                         if not barrier_resolved:
                             continue
-                        
+
                         if ext_symbol not in barrier:
                             barrier[ext_symbol] = tuple()
 
@@ -155,8 +168,8 @@ class QCBRouter:
                                             non_extern_predicates.append(pred)
                                 extern_predicates = next_extern_predicates
                             non_extern_predicates = list(map(lambda x: RouteBind(x, None), non_extern_predicates))
-                            barrier[ext_symbol] = non_extern_predicates 
-                            
+                            barrier[ext_symbol] = non_extern_predicates
+
                         # Barrier already resolved
                         if len(barrier[ext_symbol]) == 0:
                             continue
@@ -183,12 +196,12 @@ class QCBRouter:
                 # The mapper is constrained that if the next call to the mapper is a lock on the same gate that those same addresses should be locked
                 addresses = self.mapper[gate]
 
-                # Could not obtain addresses for an extern 
-                if addresses is COULD_NOT_ALLOCATE: 
+                # Could not obtain addresses for an extern
+                if addresses is COULD_NOT_ALLOCATE:
                     self.track_delay(gate.get_symbol())
                     self.debug_print(f"\tFailed to allocate extern for {gate}")
                     continue
-                            
+
                 # Check that all addresses are free
                 if not all(self.probe_address(gate, address) for address in addresses):
                     # Not all addresses are currently free, keep waiting
@@ -207,7 +220,7 @@ class QCBRouter:
 
                 # Route exists, all nodes are free
                 if route_exists:
-                    self.routes[AddrBind(gate)] = addresses 
+                    self.routes[AddrBind(gate)] = addresses
                     self.active_gates.add(gate)
 
                     # Rollback factories
@@ -225,7 +238,7 @@ class QCBRouter:
                 else:
                     self.track_delay(COULD_NOT_ROUTE)
 
-            # Update the waiting list 
+            # Update the waiting list
             waiting = list(filter(lambda x: x not in self.active_gates and x not in resolved and x not in waiting_clear, waiting))
 
             # Not the most elegant approach, could reorder some things
@@ -240,12 +253,18 @@ class QCBRouter:
                 self.layers.pop()
             else:
                 quash_flag = 0
-        return 
+        return
 
     def probe_address(self, dag_node, address):
+        '''
+            Dispatch method for probing an address on the graph
+        '''
         return self.graph[address].probe(dag_node)
 
     def find_route(self, gate, addresses):
+        '''
+            Attempts to find a route for a gate given a set of addresses
+        '''
         paths = []
         graph_nodes = map(lambda address: self.graph[address], addresses)
         gate_symbol = gate.get_symbol()
@@ -264,10 +283,10 @@ class QCBRouter:
 
             # Orientation of extern IO nodes can be handled by the internal routing channel
             if start_symbol.is_extern():
-                start_orientation = start_node.orientation 
+                start_orientation = start_node.orientation
 
             if end_symbol.is_extern():
-                end_orientation = end_node.orientation 
+                end_orientation = end_node.orientation
 
             path = self.graph.route(start_node, end_node, gate, start_orientation=start_orientation, end_orientation=end_orientation)
             if path is not PatchGraph.NO_PATH_FOUND:
@@ -297,21 +316,26 @@ class QCBRouter:
         '''
         if gate.n_ancillae() == 0:
             return list()
-        # For the moment this only supports single ancillae gates
         ancillae = self.graph.ancillae(gate, graph_node, gate.n_ancillae)
         if ancillae is not PatchGraph.NO_PATH_FOUND:
             return [graph_node] + ancillae
-        return PatchGraph.NO_PATH_FOUND 
+        return PatchGraph.NO_PATH_FOUND
 
     def __tikz__(self):
-        return tikz_router(self) 
+        return tikz_router(self)
 
     def track_delay(self, symbol):
+        '''
+            Tracks extern and routing delays
+        '''
         if symbol in self.delays:
             self.delays[symbol] += 1
         else:
             self.delays[symbol] = 1
 
     def rotate(self, dag_node, addresses):
+        '''
+            Dispatch for rotating surface code patches
+        '''
         for address in addresses:
             self.graph[address].rotate()
