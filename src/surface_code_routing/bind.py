@@ -1,11 +1,13 @@
 '''
     Bind
     Set of bind indirection wrappers
-    Promotes objects to permit comparisons on both the bind object, and the underlying object
+    Promotes objects to permit comparisons on
+    both the bind object, and the underlying object
 '''
 
 from typing import Type
 from surface_code_routing.symbol import Symbol
+
 
 class Bind():
     '''
@@ -46,7 +48,9 @@ class Bind():
         self.cycles_completed = 0
 
     def __repr__(self) -> str:
-        return f"{repr(self.obj)} {hex(id(self.obj.symbol))}: {self.curr_cycle()} {self.n_cycles()}"
+        return f"{repr(self.obj)} \
+{hex(id(self.obj.symbol))}: \
+{self.curr_cycle()} {self.n_cycles()}"
 
     # Wrapper functions
     def predicates(self) -> set:
@@ -57,13 +61,13 @@ class Bind():
 
     def antecedents(self) -> set:
         '''
-        Wrapper function for object antecedents 
+        Wrapper function for object antecedents
         '''
         return self.obj.antecedents
 
     def n_pre_warm(self) -> int:
         '''
-        Wrapper for any pre-warming cycles 
+        Wrapper for any pre-warming cycles
         Tracking this is not yet implemented
         '''
         return self.obj.pre_warm()
@@ -76,7 +80,7 @@ class Bind():
 
     def n_pre_warm_cycles(self) -> int:
         '''
-        Wrapper for any pre-warming cycles 
+        Wrapper for any pre-warming cycles
         Tracking this is not yet implemented
         '''
         return self.obj.n_pre_warm_cycles()
@@ -89,7 +93,7 @@ class Bind():
 
     def satisfies(self, other) -> bool:
         '''
-        Checks if the bound object satisfies a 
+        Checks if the bound object satisfies a
         dependency
         '''
         return self.get_symbol().satisfies(other.get_symbol())
@@ -110,14 +114,14 @@ class Bind():
     # Cycle functions
     def cycle(self) -> int:
         '''
-        Increments the cycle count  
+        Increments the cycle count
         '''
         self.cycles_completed += 1
         return self.cycles_completed
 
     def curr_cycle(self) -> int:
         '''
-        Number of cycles completed 
+        Number of cycles completed
         '''
         return self.cycles_completed
 
@@ -141,27 +145,28 @@ class Bind():
 
     def __gt__(self, other) -> bool:
         '''
-        Naive sorting methods  
+        Naive sorting methods
         '''
         return True
 
     def __lt__(self, other) -> bool:
         '''
-        Naive sorting methods  
+        Naive sorting methods
         '''
         return False
 
     def __ge__(self, other) -> bool:
         '''
-        Naive sorting methods  
+        Naive sorting methods
         '''
         return True
 
     def __le__(self, other) -> bool:
         '''
-        Naive sorting methods  
+        Naive sorting methods
         '''
         return False
+
 
 class AddrBind():
     '''
@@ -198,7 +203,7 @@ class ExternBind(Bind):
 
     def pre_warm(self) -> bool:
         '''
-        Attempts to pre-warm 
+        Attempts to pre-warm
         Currently not implemented
         '''
         if self.n_cycles() < self.n_pre_warm_cycles():
@@ -214,7 +219,7 @@ class ExternBind(Bind):
 
     def n_cycles(self) -> int:
         '''
-        Gets the current number of cycles 
+        Gets the current number of cycles
         '''
         return self.obj.n_cycles()
 
@@ -285,6 +290,9 @@ class ExternBind(Bind):
         return True
 
     def resolved(self) -> bool:
+        '''
+        Obj wrapper
+        '''
         return self.obj.resolved()
 
     def __eq__(self, other) -> bool:
@@ -296,11 +304,14 @@ class ExternBind(Bind):
     def __is__(self, other) -> bool:
         return hash(self) == hash(other)
 
+
 class DAGBind(Bind):
     '''
         Bind
-        This allows us to override the regular hashing behaviour of another arbitrary object
-        such that we can compare instances of symbols rather than symbol strings
+        This allows us to override the regular
+        hashing behaviour of another arbitrary object
+        such that we can compare instances of symbols
+        rather than symbol strings
         DAGBind objects additionally track slack
     '''
     def __init__(self, obj):
@@ -350,13 +361,14 @@ class DAGBind(Bind):
 
     def is_extern(self) -> bool:
         '''
-           DAGBind objects are not ExternBinds 
+           DAGBind objects are not ExternBinds
         '''
         return False
 
+
 class RouteBind(Bind):
     '''
-        Bind object over routes 
+        Bind object over routes
     '''
     def __init__(self, gate, addresses):
         self.addresses = addresses
