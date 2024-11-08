@@ -232,7 +232,7 @@ class SlotTest(unittest.TestCase):
     
         assert(len(tree.root.slots.slots) > 0)
 
-        N_REGISTERS = 55 
+        N_REGISTERS = 49 
         for i in range(N_REGISTERS):
             assert tree.alloc(SCPatch.REG) is not TreeSlots.NO_CHILDREN_ERROR
         assert tree.alloc(SCPatch.REG) is TreeSlots.NO_CHILDREN_ERROR
