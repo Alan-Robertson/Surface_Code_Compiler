@@ -527,7 +527,7 @@ class Allocator:
                key=lambda seg:seg.width,
                default=None)
 
-        if longest_reg.width == 1:
+        if longest_reg is None or longest_reg.width == 1:
             return False
 
         split_x = (longest_reg.x_0 + longest_reg.x_1 + 1) // 2
