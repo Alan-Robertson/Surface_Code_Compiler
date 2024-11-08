@@ -62,6 +62,7 @@ class QCBRouter:
 
         self.layers = []
         self.delays = dict()
+        self.space_time_volume = 0  # Space-time volume costing
         if auto_route:
             # Fills layers
             self.route()
@@ -102,6 +103,7 @@ class QCBRouter:
 
                 if len(recently_resolved) == 0:
                     # No gates resolved, state of the system does not change, fastforward
+                    self.space_time_volume += self.graph.space_time_volume()
                     continue
 
             self.active_gates = set(filter(lambda x: not x.resolved(), self.active_gates))
@@ -205,6 +207,7 @@ class QCBRouter:
                 # Check that all addresses are free
                 if not all(self.probe_address(gate, address) for address in addresses):
                     # Not all addresses are currently free, keep waiting
+                    # Track the delayed extern 
                     self.track_delay(gate.get_symbol())
                     continue
 
@@ -252,6 +255,7 @@ class QCBRouter:
                     raise Exception("Deadlock")
                 self.layers.pop()
             else:
+                self.space_time_volume += self.graph.space_time_volume()
                 quash_flag = 0
         return
 
@@ -328,6 +332,9 @@ class QCBRouter:
         '''
             Tracks extern and routing delays
         '''
+        if symbol.is_extern():
+            symbol = symbol.predicate
+
         if symbol in self.delays:
             self.delays[symbol] += 1
         else:
