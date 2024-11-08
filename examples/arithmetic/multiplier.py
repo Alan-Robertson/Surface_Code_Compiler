@@ -25,7 +25,6 @@ def multiply(height, width, n_bits, adder_qcb, *externs, **compiler_arguments):
         dag = adder_qcb.instruction(args = reg_a + reg_b, targs=reg_a + reg_b)
         return dag
 
-
     reg_a = ['a_{i}'.format(i=i) for i in range(n_bits)]
     reg_b = ['b_{i}'.format(i=i) for i in range(n_bits)]
     reg_target = ['targ_{i}'.format(i=i) for i in range(2 * n_bits + 1)]

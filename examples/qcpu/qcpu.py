@@ -24,7 +24,6 @@ def LU(inst_0, inst_1, inst_2, target, inv):
     
     dag.add_gate(INIT(inst_0, inst_1, inst_2, target, inv))
 
-
     dag.add_gate(CNOT(inst_0, target))
     dag.add_gate(AND(target, inst_0, inst_2))
 

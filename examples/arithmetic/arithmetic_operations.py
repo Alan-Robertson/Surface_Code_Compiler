@@ -4,7 +4,6 @@ from functools import reduce, partial
 from surface_code_routing.dag import DAG
 from surface_code_routing.symbol import Symbol 
 from surface_code_routing.instructions import INIT, CNOT, MEAS, X, Hadamard
-from surface_code_routing.synth_instructions import CPHASE_theta
 from surface_code_routing.lib_instructions import T_Factory, CSWAP
 
 from surface_code_routing.compiled_qcb import compile_qcb
@@ -73,5 +72,3 @@ def qmpa_division(*values, register_sizes = None):
 
 qmpa_addition = partial(qmpa_in_place_operation, lambda x: x.add, lambda vals: reduce(lambda x, y: x + y, vals))
 qmpa_subtraction = partial(qmpa_in_place_operation, lambda x: x.subtract, lambda vals: reduce(lambda x, y: x - y, vals))
-
-

@@ -21,3 +21,5 @@ def basic_gates(n_qubits, width, height, precision=10, verbose=False):
     dag.add_gate(Phase(targ))
     return compile_qcb(dag, width, height, T_Factory(), verbose=verbose) 
 
+if __name__ == '__main__':
+    basic_gates(10, 10, 10)
