@@ -144,6 +144,22 @@ class CompiledQCB:
     def __repr__(self):
         return self.symbol.__repr__()
 
+    def delays(self):
+        '''
+            Cycles spent waiting for various operations
+        '''
+        if self.router is not None:
+            return self.router.delays
+        return dict() 
+
+    def space_time_volume(self):
+        '''
+            Space_time_volume of QCB
+        '''
+        if self.router is not None:
+            return self.router.space_time_volume
+        return self.height * self.width * self.n_cycles 
+
     def instruction(self, args, targs):
         '''
             Simple wrapper that resolves a default call to the QCB
