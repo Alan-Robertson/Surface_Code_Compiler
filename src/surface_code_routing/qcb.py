@@ -171,13 +171,18 @@ class SCPatch():
             return edge is SCEdge.ABOVE
         return False
 
-    def valid_edge(self, other_patch, edge):
+    def valid_edge(self, other_patch, edge) -> bool:
+        '''
+            Determines if a placement is valid
+        '''
+        # If neither placment is a route then the edge is not valid 
         if not ((self.state is SCPatch.ROUTE) or (other_patch.state is SCPatch.Route)):
             return False
-
+        
+        # Test the edge  
         if self.state is not SCPatch.ROUTE:
             return self.test_rules(edge)
-        else:
+        else:  # Test the other patch
             return other_patch.test_rules(SCEdge.flip(edge))
 
     def satisfies(self, other):
