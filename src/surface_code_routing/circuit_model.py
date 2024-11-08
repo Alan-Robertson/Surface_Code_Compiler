@@ -25,6 +25,8 @@ class PatchGraphNode:
     SUGGEST_ROUTE = AddrBind("Suggest Route")
     SUGGEST_ROTATE = AddrBind("Suggest Rotate")
     ANCILLAE_STATES = {SCPatch.ROUTE, SCPatch.LOCAL_ROUTE}
+    SCOPE_STATES = {SCPatch.REG, SCPatch.IO}
+
 
     def __init__(
         self, graph, i: int, j: int, orientation: AddrBind = None, verbose: bool = False
@@ -59,7 +61,7 @@ class PatchGraphNode:
         """
         Checks if this patch qualifies for use as an ancillae
         """
-        if anc.state not in self.ANCILLAE_STATES or not anc.probe(gate, unique=unique):
+        if anc.state not in PatchGraphNode.ANCILLAE_STATES or not anc.probe(gate, unique=unique):
             return None
         return anc
 
@@ -199,6 +201,7 @@ class PatchGraph:
     Graph of patches
     """
 
+    VOLUME_PROBE = object()
     NO_PATH_FOUND = object()
 
     def __init__(
@@ -260,6 +263,21 @@ class PatchGraph:
                 else:
                     uncleared_patches.append(local_patch)
             local_patches = uncleared_patches
+
+    def space_time_volume(self) -> int: 
+        '''
+            Counts the number of in-use patches
+        '''
+        volume = 0
+        for row in self.graph: 
+            for patch in row:
+                if patch.state in PatchGraphNode.ANCILLAE_STATES:
+                    if not patch.probe(PatchGraph.VOLUME_PROBE):
+                        volume += 1
+                elif patch.state in PatchGraphNode.SCOPE_STATES:
+                    volume += 1
+        return volume
+
 
     def debug_print(self, *args, **kwargs):
         """
