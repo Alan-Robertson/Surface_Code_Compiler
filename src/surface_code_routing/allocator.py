@@ -515,26 +515,52 @@ class Allocator:
                            key=lambda seg:seg.width,
                            default=None)
 
-        if longest_reg is None or longest_reg.width == 1:
+        # Include top register this time
+        # Avoids a trap where the only register is  
+        # the top register and an early halt to optimisation occurs
+        edge_reg = False
+        if longest_reg is None:
+            edge_reg = True
+            longest_reg = max((seg
+               for seg in self.qcb.segments
+               if seg.state.state == SCPatch.REG),
+               key=lambda seg:seg.width,
+               default=None)
+
+        if longest_reg.width == 1:
             return False
 
         split_x = (longest_reg.x_0 + longest_reg.x_1 + 1) // 2
 
-        affected_regs = [seg
-                        for seg in self.qcb.segments
-                        if seg.state.state == SCPatch.REG
-                        and seg.x_0 <= split_x <= seg.x_1
-                        and seg.width > 1
-                        and seg.y_0 != 0
-                        and seg.y_1 != self.height - 1]
+        if not edge_reg:  # Don't split edge registers 
+            affected_regs = [seg
+                            for seg in self.qcb.segments
+                            if seg.state.state == SCPatch.REG
+                            and seg.x_0 <= split_x <= seg.x_1
+                            and seg.width > 1
+                            and seg.y_0 != 0
+                            and seg.y_1 != self.height - 1]
+        else:  # Include edge registers in the split
+            affected_regs = [seg
+                            for seg in self.qcb.segments
+                            if seg.state.state == SCPatch.REG
+                            and seg.x_0 <= split_x <= seg.x_1
+                            and seg.width > 1
+                            ]
 
         self.debug_print(f"Registers to split for channel: {affected_regs}")
 
         # Number of registers that we're going to lose to the channel
         n_reg_split = len(affected_regs)
+
         if n_reg_split == 0:
             return False # Nothing to split
 
+        # Perform the split
+        # First check that if this reduces the number of registers below the requirements
+        # of the dag, that we attempt to allocate more registers to make up the difference    
+        # if that fails then halt
+        # This requires a multi-reg alloc, with rollback
         allocated_segments = []
         while ((self.reg_allocated - n_reg_split < self.reg_quota)
                and (segment := next(self.get_free_segments(),  None)) is not None):
