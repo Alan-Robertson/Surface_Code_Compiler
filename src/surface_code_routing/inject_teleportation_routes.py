@@ -81,6 +81,7 @@ class TeleportInjector():
             # Teleported around these patches
             for patch in operation.intersection:
                 addresses.remove(patch)
+            self.router.space_time_volume += operation.space_time_volume() 
         return
 
     def debug_print(self, *msg):
@@ -108,6 +109,8 @@ class TeleportInjector():
 
 
 class TeleportOperation():
+    # TODO: Expose this an an operation and cost it 
+    TELEPORT_PREP_COST = 1
     def __init__(self, endpoints, intersection, cycle, curr_cycle, verbose=False):
         self.cycle = cycle
         self.curr_cycle = curr_cycle
@@ -118,16 +121,26 @@ class TeleportOperation():
         # Flag for merging teleportation operations
         self.merged = False
         self.verbose = verbose
+        self._volume = None 
 
     def schedule(self, scheduler):
         # TODO: Wrap this into something more modular and extensible
         # Can schedule
         if scheduler == 'ALAP':
-            self.cycle = self.curr_cycle - 1
+            self.cycle = self.curr_cycle - self.TELEPORT_PREP_COST
         elif scheduler == 'ASAP':
             self.cycle = self.cycle 
         else:
             raise Exception(f"Unknown Scheduler {self.scheduler}")
+
+    def space_time_volume(self):
+        '''
+        Space time volume of the teleport operation
+        '''
+        if self._volume is None: 
+            self._volume = self.TELEPORT_PREP_COST * len(self.intersection) 
+            self._volume += (self.curr_cycle - self.cycle - 1) * len(self.endpoints)  
+        return self._volume
 
     def merge(self, other):
         if self.curr_cycle != other.curr_cycle:
@@ -275,4 +288,3 @@ class TeleportSwitch():
         teleport_operation = TeleportOperation(teleportation_endpoints, self.intersection, earliest_teleportation_cycle - 1, curr_cycle)
 
         return True, teleport_operation            
-            

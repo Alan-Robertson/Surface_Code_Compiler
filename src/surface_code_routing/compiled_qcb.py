@@ -157,7 +157,13 @@ class CompiledQCB:
             Space_time_volume of QCB
         '''
         if self.router is not None:
-            return self.router.space_time_volume
+            extern_volumes = sum(
+                map(
+                    lambda x: x.space_time_volume(),
+                    self.dag.externs.values()
+                )
+            )
+            return self.router.space_time_volume + extern_volumes
         return self.height * self.width * self.n_cycles 
 
     def instruction(self, args, targs):
