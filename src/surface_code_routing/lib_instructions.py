@@ -15,6 +15,15 @@ from surface_code_routing.instructions import INIT, RESET, CNOT, T_SLICE, Hadama
 
 @cache
 def T_Factory(*externs, height=5, width=7, t_gate=local_Tdag, **compiler_arguments):
+
+        if 'router_kwargs' in compiler_arguments:
+            if 'teleport' not in compiler_arguments:
+                compiler_arguments['teleport'] = False
+        else:
+            router_kwargs = {'teleport': False}
+            compiler_arguments['router_kwargs'] = router_kwargs 
+
+
         dag = DAG(Symbol('T_Factory', (), 'factory_out'))
         dag.add_gate(INIT(*['q_{i}'.format(i=i) for i in range(4)]))
         dag.add_gate(INIT(*['a_{i}'.format(i=i) for i in range(11)]))

@@ -17,5 +17,5 @@ def qft(n_qubits, width, height, precision=10, gates=None, t_factory=None, **com
         dag.add_gate(Hadamard(f'q_{i}')) 
         for j in range(i + 1, n_qubits):
             dag.add_gate(instruction_cache[j + 1](f'q_{j}', f'q_{i}'))
-    return compile_qcb(dag, width, height, t_factory, **compiler_args) 
+    return compile_qcb(width, height, dag, t_factory, **compiler_args) 
 

@@ -18,9 +18,13 @@ def adder(height, width, n_bits, *externs, **compiler_arguments):
     return compile_qcb(dag, height, width, *externs, **compiler_arguments)
 
 
+def multiply(height, width, n_bits, adder_qcb, toffoli=None, *externs, **compiler_arguments):
+   
+    if toffoli is None:
+        toffoli_instruction = Toffoli
+    else:
+        toffoli_instruction = lambda a, b, c: toffoli.instruction(args=(a, b, c), targs=(a, b, c))
 
-def multiply(height, width, n_bits, adder_qcb, *externs, **compiler_arguments):
-    
     def adder(reg_a, reg_b):
         dag = adder_qcb.instruction(args = reg_a + reg_b, targs=reg_a + reg_b)
         return dag
@@ -39,16 +43,13 @@ def multiply(height, width, n_bits, adder_qcb, *externs, **compiler_arguments):
         
         # CPY
         for j in range(n_bits):
-            dag.add_gate(Toffoli(f'a_{i}', f'b_{j}', f'cpy_{j}'))
+            dag.add_gate(toffoli_instruction(f'a_{i}', f'b_{j}', f'cpy_{j}'))
 
         # Shift and ADD
         dag.add_gate(adder(['cpy_{}'.format(j) for j in range(n_bits)], ['targ_{}'.format(j) for j in range(i, n_bits + i)]))
 
         # CPY
         for j in range(n_bits):
-            dag.add_gate(Toffoli(f'a_{i}', f'b_{j}', f'cpy_{j}'))
+            dag.add_gate(toffoli_instruction(f'a_{i}', f'b_{j}', f'cpy_{j}'))
 
-    return compile_qcb(dag, height, width, adder_qcb,  *externs, **compiler_arguments)
-
-
-    
+    return compile_qcb(height, width, dag, adder_qcb,  *externs, **compiler_arguments)
