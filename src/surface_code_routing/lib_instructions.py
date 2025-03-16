@@ -14,7 +14,7 @@ from surface_code_routing.compiled_qcb import CompiledQCB, compile_qcb
 from surface_code_routing.instructions import INIT, RESET, CNOT, T_SLICE, Hadamard, Phase, local_Tdag, PREP, MEAS, X
 
 @cache
-def T_Factory(*externs, height=5, width=7, t_gate=local_Tdag, **compiler_arguments):
+def T_Factory(*externs, height=5, width=6, t_gate=local_Tdag, **compiler_arguments):
 
         if 'router_kwargs' in compiler_arguments:
             if 'teleport' not in compiler_arguments:

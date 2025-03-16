@@ -116,9 +116,6 @@ def qram_fanout_fanout_gadget(address_size, line_width, height, width, MCSWAP, g
             lambda x: 'anc_{i}'.format(i=x), target_ancillae
             ))))
 
-
     if compile:
         return compile_qcb(dag, height, width, MCSWAP, **compiler_args) 
     return dag
-
-

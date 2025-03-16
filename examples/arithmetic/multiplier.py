@@ -52,4 +52,4 @@ def multiply(height, width, n_bits, adder_qcb, toffoli=None, *externs, **compile
         for j in range(n_bits):
             dag.add_gate(toffoli_instruction(f'a_{i}', f'b_{j}', f'cpy_{j}'))
 
-    return compile_qcb(height, width, dag, adder_qcb,  *externs, **compiler_arguments)
+    return compile_qcb(dag, height, width, adder_qcb,  *externs, **compiler_arguments)

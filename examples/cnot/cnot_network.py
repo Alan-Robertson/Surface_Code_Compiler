@@ -8,7 +8,6 @@ from surface_code_routing.lib_instructions import T_Factory, Toffoli
 from surface_code_routing.compiled_qcb import compile_qcb
 
 
-
 def cnot_network(n_qubits, height, width, n_rounds = 1, teleport=True):
     dag = DAG(f'CNOTS_{n_qubits}')
     qubit_ordering = list(range(n_qubits))

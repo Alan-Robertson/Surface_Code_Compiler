@@ -36,7 +36,7 @@ def toff_network_dag(n_qubits, height, width, *externs, n_rounds = 1, t_factory=
 
     return compile_qcb(dag, height, width, t_factory, *externs, router_kwargs={'teleport':teleport}) 
 
-def toff_network_extern(n_qubits, height, width, toffoli_extern=None, n_rounds=1): 
+def toff_network_extern(n_qubits, height, width, toffoli_extern=None, n_rounds=1, teleport=True): 
     if toffoli_extern is None:
         toffoli_extern = toffoli(14, 21)
     dag = DAG(f'CNOTS_{n_qubits}')
@@ -50,9 +50,9 @@ def toff_network_extern(n_qubits, height, width, toffoli_extern=None, n_rounds=1
 
     for gate_round in gate_orderings:
         for i, j, k in zip(gate_round[::3], gate_round[1::3], gate_round[2::3]):
-            dag.add_gate(toffoli_extern((f'q_{i}', f"q_{j}"), (f"q_{k}",)))
+            dag.add_gate(toffoli_extern((f'q_{i}', f"q_{j}", f"q_{k}"), (f'q_{i}', f"q_{j}", f"q_{k}")))
 
-    return compile_qcb(dag, height, width, toffoli_extern, router_kwargs={'teleport':False}) 
+    return compile_qcb(dag, height, width, toffoli_extern, router_kwargs={'teleport':teleport}) 
 
 import random
 def ToffoliBuffered(ctrl_a, ctrl_b, targ, T=T):
@@ -80,5 +80,3 @@ def ToffoliBuffered(ctrl_a, ctrl_b, targ, T=T):
     dag.add_gate(T(ctrl_b))
     dag.add_gate(CNOT(ctrl_a, ctrl_b))
     return dag
-
-
