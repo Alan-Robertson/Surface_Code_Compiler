@@ -368,7 +368,7 @@ class DAG(DAGNode):
 
         return prox, lookup
 
-    def compile(self, n_channels, *externs, extern_minimise=lambda extern: extern.n_cycles(), debug=False):
+    def compile(self, n_channels, *externs, extern_minimise=lambda extern: extern.n_cycles(), debug=False,exact_alloc=True):
 
         # Clear any previous extern allocation
         self.externs.clear_scope()
@@ -378,7 +378,8 @@ class DAG(DAGNode):
         assert(n_channels > 0)
 
         # Check that all externs are mapped
-        assert(all(any(map(lambda i: i.satisfies(extern), externs)) for extern in self.externs.keys()))
+        if exact_alloc:
+            assert(all(any(map(lambda i: i.satisfies(extern), externs)) for extern in self.externs.keys()))
 
         # Map of extern binds
         extern_map = dict(zip(externs, map(ExternBind, externs)))

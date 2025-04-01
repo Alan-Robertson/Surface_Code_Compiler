@@ -4,6 +4,8 @@ from surface_code_routing.tree_slots import TreeSlots
 from surface_code_routing.tikz_utils import tikz_mapper
 from surface_code_routing.extern_patch_allocator_dynamic import ExternPatchAllocatorDynamic
 from surface_code_routing.extern_patch_allocator_static import ExternPatchAllocatorStatic 
+from surface_code_routing.extern_patch_allocator_sized import ExternPatchAllocatorSized
+
 from surface_code_routing.constants import COULD_NOT_ALLOCATE
 
 class QCBMapper():
@@ -24,12 +26,11 @@ class QCBMapper():
         self.construct_register_map()
 
         self.extern_allocation_method = extern_allocation_method
-        if extern_allocation_method == 'static':
-            self.extern_allocator = ExternPatchAllocatorStatic(self)
-        elif extern_allocation_method == 'dynamic':
-            self.extern_allocator = ExternPatchAllocatorDynamic(self)
-        else:
-            raise Exception(f"Unknown Allocator Method {extern_allocation}")
+        self.extern_allocator = {
+            'static': ExternPatchAllocatorStatic, 
+            'dynamic': ExternPatchAllocatorDynamic,
+            'sized': ExternPatchAllocatorSized
+        }.get(extern_allocation_method, None)(self) 
 
     def alloc_extern(self, symbol):
         return self.extern_allocator.alloc(symbol)
