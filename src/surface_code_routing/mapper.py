@@ -9,7 +9,7 @@ from surface_code_routing.extern_patch_allocator_sized import ExternPatchAllocat
 from surface_code_routing.constants import COULD_NOT_ALLOCATE
 
 class QCBMapper():
-    def __init__(self, dag, mapping_tree, extern_allocation_method='static'):
+    def __init__(self, dag, mapping_tree, extern_allocation_method='dynamic'):
         self.dag = dag
         self.mapping_tree = mapping_tree
         self.qcb = mapping_tree.graph.qcb

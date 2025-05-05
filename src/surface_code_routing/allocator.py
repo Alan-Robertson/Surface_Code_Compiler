@@ -325,10 +325,13 @@ class Allocator:
         curr_score = dag.compile(self.n_channels, *self.externs)[0]
 
         # Compare options
+
         options = [opt[0] for opt in options if opt[1] < curr_score]
 
         # Attempt to perform a placement based on the options
         for new_extern in options:
+
+
             if not new_extern and self.allocate_channel():
                 self.n_channels += 1
                 return True

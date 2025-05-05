@@ -13,6 +13,7 @@ class ExternPatchAllocatorStatic(ExternPatchAllocator):
         self.dag = self.mapper.dag
         self.verbose = verbose
 
+
         # Allocate segments appropriately
         for extern in self.mapper.dag.physical_externs: 
             if extern.symbol not in self.mapper.segment_maps:

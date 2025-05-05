@@ -20,6 +20,10 @@ class ExternPatchAllocatorSized():
 
         self.segment_map = ExternSegmentMapSized(self, self.allocatable)
 
+        # Unmap extern allocations
+        for extern in self.dag.externs:
+            self.dag.externs[extern] = None
+
         # Extract extern regions 
         for extern in self.allocatable: 
             leaf = self.mapper.mapping_tree.alloc(extern) 
@@ -126,6 +130,8 @@ class ExternSegmentMapSized():
             
             rollback = partial(self.free, symbol) 
             self.idle_segments.remove(segment)
+
+            self.allocator.dag.externs[symbol] = alloc_target
 
             return segment, rollback
 

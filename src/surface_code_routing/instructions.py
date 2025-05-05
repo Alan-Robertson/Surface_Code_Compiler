@@ -186,6 +186,13 @@ CZ_BASE = ZX_factory('CZ', n_cycles=2)
 def CZ(*targs):
    return CZ_BASE(targs, tuple()) 
 
+X_MULTI_BASE = ZX_factory('X*', n_cycles=2)
+def X_MULTI(*targs):
+    return X_MULTI_BASE(tuple(), targs)
+
+Z_MULTI_BASE = ZX_factory('Z*', n_cycles=2)
+def Z_MULTI(*targs):
+    return Z_MULTI_BASE(targs, tuple())
 
 # Two cycle operation proxy
 S_SLICE_BASE = ZX_factory('SROT', n_cycles=2)
@@ -203,6 +210,12 @@ def T_SLICE(ctrl, *targs):
 
 MEAS = non_local_factory('MEAS', n_cycles=1)
 PREP = in_place_factory_mult('PREP')
+
+# Idling gate
+Identity = in_place_factory('I', n_cycles=1)
+
+IDLE_SYMBOL = Symbol('_IDLE')
+IDLE = in_place_factory('_IDLE', n_cycles=1)
 
 HADAMARD_SYMBOL = Symbol('H')
 Hadamard = in_place_factory('H', n_cycles=1, rotation=True)

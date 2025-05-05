@@ -8,10 +8,8 @@ import sys
 
 from surface_code_routing import utils
 
-
 # This gets triggered by deep copy in some areas
 sys.setrecursionlimit(10000)
-
 
 class DAGNode():
     def __init__(self, symbol, *args, scope=None, externs=None, n_cycles=1, n_ancillae=0, rotation=False, ancillae_type=None):
@@ -194,7 +192,7 @@ class DAG(DAGNode):
             self.externs |= gate.externs
 
         if gate.unrollable():
-            self.unroll_gate(gate)
+            gate = self.unroll_gate(gate)
         else:
             self.gates.append(gate)
             self.update_dependencies(gate)
@@ -213,13 +211,17 @@ class DAG(DAGNode):
         return gate
 
     def unroll_gate(self, dag):
+        unrolled = []
         for gate in dag.gates:
             if isinstance(gate, DAG):
-                self.unroll_gate(gate)
+                unrolled += self.unroll_gate(gate)
             else:
                 self.gates.append(gate)
                 self.merge_scopes(gate)
                 self.update_dependencies(gate)
+                unrolled.append(gate)
+        return unrolled
+        
 
     def merge_scopes(self, gate):
         for element in gate.symbol.io:
@@ -232,9 +234,18 @@ class DAG(DAGNode):
 
     def update_dependencies(self, gate):
         for dep in gate.symbol.io:
-            predicate = self.last_layer[dep]
-            gate.back_edges[dep] = predicate
-            predicate.forward_edges[dep] = gate
+            # Used for complex factory logic
+            # Without this skip a linear DAG structure is enforced
+            # On the output of extern factories
+            # This linear dag structure can cause deadlocks
+            if (dep.is_extern() and dep.is_factory()): 
+                continue
+
+            else: # Linearity of dependencies
+                predicate = self.last_layer[dep]
+                gate.back_edges[dep] = predicate
+                predicate.forward_edges[dep] = gate
+
             # Breaks self-referencing gates
             if predicate is not gate:
                 predicate.antecedents.add(gate)
@@ -566,7 +577,7 @@ CHANNELS {active_non_local_gates} / {n_channels}
 
 from surface_code_routing.symbol import symbol_resolve, Symbol
 from surface_code_routing.scope import Scope
-from surface_code_routing.instructions import INIT, RESET_SYMBOL
+from surface_code_routing.instructions import INIT, RESET_SYMBOL, IDLE_SYMBOL
 from surface_code_routing.bind import DAGBind, ExternBind
 from surface_code_routing.tikz_utils import tikz_dag
 import copy

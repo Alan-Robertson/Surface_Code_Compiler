@@ -73,10 +73,10 @@ def tex(obj, *args, **kwargs):
 def dag_colour_map(node):
     if node.is_extern():
         return COLOUR_EXTERN
-    return colour_map[node.get_slot()]
+    return COLOUR_REG
 
 def tikz_sanitise(string):
-    return string.replace('_', '\\_')
+    return str(string).replace('_', '\\_')
 
 def tikz_argparse(*args, **kwargs):
     arg_str = ','.join(map(tikz_sanitise, map(str, args)))

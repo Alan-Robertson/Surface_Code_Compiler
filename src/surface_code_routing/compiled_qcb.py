@@ -4,7 +4,7 @@
 '''
 from surface_code_routing.symbol import symbol_resolve
 from surface_code_routing.scope import Scope
-from surface_code_routing.instructions import RESET, MOVE
+from surface_code_routing.instructions import RESET, MOVE, IDLE
 
 from surface_code_routing.dag import DAG
 from surface_code_routing.qcb import QCB, SCPatch
@@ -180,15 +180,53 @@ class CompiledQCB:
 
         dag = DAG(sym, scope=scope)
 
+        readin_gates = set()
         for arg, fn_arg in zip(args, self.predicate.ordered_io_in()):
-            dag.add_gate(self.readin_operation(arg, fn(fn_arg)))
+            readin_gates.add(dag.add_gate(self.readin_operation(arg, fn(fn_arg)))[0])
 
-        dag.add_node(fn, n_cycles=self.n_cycles())
+        # No readin
+        if len(args) == 0:
+            for targ in targs:
+                readin_gates.add(dag.add_gate(IDLE(targ))[0])
 
+        extern_gate = dag.add_node(fn, n_cycles=self.n_cycles())
+
+        # Extern initiation is predicated on all inputs
+        for gate in readin_gates:
+            gate.antecedents.add(extern_gate) 
+            extern_gate.predicates.add(gate)
+
+        readout_gates = set() 
         for targ, fn_arg in zip(targs, self.predicate.ordered_io_out()):
-            dag.add_gate(self.readout_operation(fn(fn_arg), targ))
+            readout_gates.add(dag.add_gate(self.readout_operation(fn(fn_arg), targ))[0])
 
-        dag.add_gate(RESET(fn))
+        # Unbind linearity of dependencies
+        # This is more DAG surgery than I would normally like
+        for gate in readout_gates:
+            gate.predicates = set(
+                filter(
+                    lambda x: x not in readout_gates,
+                    gate.predicates
+                )
+            )
+            gate.antecedents = set(
+                filter(
+                    lambda x: x not in readout_gates,
+                    gate.antecedents
+               )
+            )
+
+            gate.predicates.add(extern_gate)
+
+        extern_gate.antecedents |= readout_gates
+
+        reset_gate = dag.add_gate(RESET(fn))[0]
+        
+        for gate in readout_gates:
+            gate.antecedents.add(reset_gate)
+
+        reset_gate.predicates |= readout_gates
+
         return dag
 
     def __tikz__(self):

@@ -14,6 +14,10 @@ class ExternPatchAllocatorDynamic():
         self.dag = self.mapper.dag
         self.verbose = verbose
 
+        # Unmap extern allocations
+        for extern in self.dag.externs:
+            self.dag.externs[extern] = None
+
         # Allocate segments appropriately
         for extern in self.mapper.dag.physical_externs: 
             if extern.symbol.predicate not in self.mapper.segment_maps:
@@ -109,6 +113,7 @@ class ExternSegmentMapDynamic():
             
             rollback = partial(self.free, symbol) 
 
+            self.allocator.dag.externs[symbol] = self.extern  
             return segment, rollback
 
         if lock_state == symbol:

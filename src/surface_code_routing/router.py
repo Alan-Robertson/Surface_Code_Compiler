@@ -99,6 +99,7 @@ class QCBRouter:
                     if gate.get_symbol() == RESET_SYMBOL:
                         self.mapper.free(gate)
                         self.debug_print(f"\tReleasing Extern {gate}")
+
                     self.layers[-1].append(gate)
 
                 if len(recently_resolved) == 0:
@@ -112,14 +113,17 @@ class QCBRouter:
                 if gate.rotates():
                     self.rotate(gate, self.mapper[gate])
                 # Should only trigger when the final antecedent is resolved
+
                 for antecedent in gate.antecedents():
                     all_resolved = True
 
                     for predicate_factory in antecedent.predicate_factories:
                         # Yet to be allocated
                         if predicate_factory not in resolved and predicate_factory not in self.active_gates:
-                            self.debug_print(f"\tCaught Factory {predicate_factory} from edge {gate} -> {antecedent}")
-                            waiting.append(RouteBind(predicate_factory, None))
+                            if all(obj in resolved for obj in predicate_factory.predicates): 
+                                self.debug_print(f"\tCaught Factory {predicate_factory} from edge {gate} -> {antecedent}")
+                                waiting.append(RouteBind(predicate_factory, None))
+                            
                             all_resolved = False
                     if all_resolved is False:
                           continue
@@ -139,6 +143,45 @@ class QCBRouter:
 
                 # Barrier
                 # This involves some awful tree discovery, the workaround is more complex dependency resolution on
+                # Multi-target factory discovery
+                #if len(factory_predicates := [i for i in gate.predicates() if i.is_extern() and i.is_factory()]) > 0:
+                #    # Check if there's an existing barrier
+                #    if gate not in barrier:
+
+                #        # No existing barrier, construct one
+                #        gate_barrier = set() 
+                #        print("Constructing Barrier")
+                #        for obj in factory_predicates:
+
+                #            # If the factory only has a single antecedent then 
+                #            # it is this gate and no barrier is needed 
+                #            if len(obj.antecedents) == 1:
+                #                continue
+
+                #            # Otherwise, check antecedents
+                #            for ante in obj.antecedents:
+                #                ante = RouteBind(ante, None)
+                #                print(f"Ante: {ante}")
+                #                if ante != gate and ante not in resolved:
+                #                    gate_barrier.add(ante) 
+
+                #        barrier[gate] = gate_barrier
+
+                #    # Check state of the barrier entries 
+                #    else:
+                #        for ante in barrier[gate]:
+                #            if ante in resolved:
+                #                gate_barrier.remove(ante) 
+
+                #    print(f"Barrier State: {gate}: {barrier[gate]}")
+
+                #    # Check if barrier is cleared 
+                #    if len(barrier[gate]) > 0:
+                #        print(f"Not Cleared: {gate}: {barrier[gate]}")
+                #        # Barrier not cleared skip this gate
+                #        continue
+                #    
+
                 # Externs
                 # Here we're first going to discover the extern gate, then backtrack and find all non-extern dependencies, and see if they've been resolved.
                 if len(extern_ante := [i for i in gate.scope if i.is_extern() and not i.is_factory()]) > 0:
@@ -196,6 +239,9 @@ class QCBRouter:
 
                 # The mapper will also check if it can do an extern allocation
                 # The mapper is constrained that if the next call to the mapper is a lock on the same gate that those same addresses should be locked
+                self.debug_print(f"\tAttempting: {gate} {gate.obj.predicates}")
+
+
                 addresses = self.mapper[gate]
 
                 # Could not obtain addresses for an extern
