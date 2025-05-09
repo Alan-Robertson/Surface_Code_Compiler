@@ -83,15 +83,15 @@ def Toffoli(ctrl_a, ctrl_b, targ, T=T):
     dag.add_gate(CNOT(ctrl_a, ctrl_b))
     return dag
 
-def CSWAP(ctrl, targ_a, targ_b, T=T, Toffoli=Toffoli, **kwargs):
+def CSWAP(ctrl, targ_a, targ_b, Toffoli=Toffoli, **kwargs):
     ctrl, targ_a, targ_b = map(Symbol, (ctrl, targ_a, targ_b))
     sym = Symbol('CSWAP', {'ctrl'}, {'targ_a','targ_b'})
     scope = Scope({sym('ctrl'):ctrl, sym('targ_a'):targ_b, sym('targ_b'):targ_b})
     dag = DAG(sym, scope=scope)
 
-    dag.add_gate(Toffoli(ctrl, targ_a, targ_b, T=T))
-    dag.add_gate(Toffoli(ctrl, targ_b, targ_a, T=T))
-    dag.add_gate(Toffoli(ctrl, targ_a, targ_b, T=T))
+    dag.add_gate(Toffoli(ctrl, targ_a, targ_b))
+    dag.add_gate(Toffoli(ctrl, targ_b, targ_a))
+    dag.add_gate(Toffoli(ctrl, targ_a, targ_b))
     return dag
 
 def MAJ(a, b, c, Toffoli=Toffoli):

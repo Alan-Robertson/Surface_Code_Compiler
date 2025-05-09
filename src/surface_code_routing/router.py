@@ -88,6 +88,7 @@ class QCBRouter:
             self.debug_print(waiting, self.active_gates)
             self.layers.append(list())
 
+
             recently_resolved = list()
             if len(self.active_gates) > 0:
                 for gate in self.active_gates:
@@ -140,48 +141,6 @@ class QCBRouter:
             waiting_clear = list()
             # Initially active gates
             for gate in waiting:
-
-                # Barrier
-                # This involves some awful tree discovery, the workaround is more complex dependency resolution on
-                # Multi-target factory discovery
-                #if len(factory_predicates := [i for i in gate.predicates() if i.is_extern() and i.is_factory()]) > 0:
-                #    # Check if there's an existing barrier
-                #    if gate not in barrier:
-
-                #        # No existing barrier, construct one
-                #        gate_barrier = set() 
-                #        print("Constructing Barrier")
-                #        for obj in factory_predicates:
-
-                #            # If the factory only has a single antecedent then 
-                #            # it is this gate and no barrier is needed 
-                #            if len(obj.antecedents) == 1:
-                #                continue
-
-                #            # Otherwise, check antecedents
-                #            for ante in obj.antecedents:
-                #                ante = RouteBind(ante, None)
-                #                print(f"Ante: {ante}")
-                #                if ante != gate and ante not in resolved:
-                #                    gate_barrier.add(ante) 
-
-                #        barrier[gate] = gate_barrier
-
-                #    # Check state of the barrier entries 
-                #    else:
-                #        for ante in barrier[gate]:
-                #            if ante in resolved:
-                #                gate_barrier.remove(ante) 
-
-                #    print(f"Barrier State: {gate}: {barrier[gate]}")
-
-                #    # Check if barrier is cleared 
-                #    if len(barrier[gate]) > 0:
-                #        print(f"Not Cleared: {gate}: {barrier[gate]}")
-                #        # Barrier not cleared skip this gate
-                #        continue
-                #    
-
                 # Externs
                 # Here we're first going to discover the extern gate, then backtrack and find all non-extern dependencies, and see if they've been resolved.
                 if len(extern_ante := [i for i in gate.scope if i.is_extern() and not i.is_factory()]) > 0:
@@ -240,7 +199,6 @@ class QCBRouter:
                 # The mapper will also check if it can do an extern allocation
                 # The mapper is constrained that if the next call to the mapper is a lock on the same gate that those same addresses should be locked
                 self.debug_print(f"\tAttempting: {gate} {gate.obj.predicates}")
-
 
                 addresses = self.mapper[gate]
 

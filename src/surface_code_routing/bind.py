@@ -420,3 +420,10 @@ class RouteBind(Bind):
         Obj Wrapper
         """
         return self.obj.is_factory()
+
+    def bind_extern(self, extern):
+        """
+        Binds to an extern
+        """
+        self.n_cycles = extern.n_cycles
+

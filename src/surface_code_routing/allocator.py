@@ -326,7 +326,7 @@ class Allocator:
 
         # Compare options
 
-        options = [opt[0] for opt in options if opt[1] < curr_score]
+        options = [opt[0] for opt in options if opt[1] <= curr_score]
 
         # Attempt to perform a placement based on the options
         for new_extern in options:

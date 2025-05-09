@@ -103,6 +103,10 @@ class QCBMapper():
                     rollback()
                 return COULD_NOT_ALLOCATE
             coordinates.append(coordinate)
+
+        # Bind the extern
+        if dag_node.is_extern():
+            dag_node.bind_extern(self.dag.externs[symbol])
         return coordinates 
 
     def lock_externs(self, dag_node):
