@@ -88,11 +88,13 @@ class QCBRouter:
             self.debug_print(waiting, self.active_gates)
             self.layers.append(list())
 
-
+            fastforward = float('inf') 
+        
             recently_resolved = list()
             if len(self.active_gates) > 0:
                 for gate in self.active_gates:
-                    gate.cycle()
+                    update = gate.cycle()
+                    fastforward = min(fastforward, update)
                     if gate.resolved():
                         recently_resolved.append(gate)
 
@@ -105,8 +107,21 @@ class QCBRouter:
 
                 if len(recently_resolved) == 0:
                     # No gates resolved, state of the system does not change, fastforward
-                    self.space_time_volume += self.graph.space_time_volume()
+                    if fastforward > 3:
+                        fastforward -= 1
+                        self.space_time_volume += self.graph.space_time_volume() * fastforward 
+                        for gate in self.active_gates: 
+                            gate.cycle(step=fastforward)
+                        
+                        for _ in range(fastforward):
+                            # Copies of the last layer
+                            # This is required otherwise later teleported operations and other feed-back mechanisms will fail  
+                            self.layers.append([i for i in self.layers[-1]])
+ 
+                    else: # Trivial fast-forwarding
+                        self.space_time_volume += self.graph.space_time_volume()
                     continue
+
 
             self.active_gates = set(filter(lambda x: not x.resolved(), self.active_gates))
             for gate in recently_resolved:
@@ -234,13 +249,17 @@ class QCBRouter:
                     if gate.is_factory():
                         first_free_cycle = self.mapper.first_free_cycle(gate)
                         gate.cycles_completed = min(gate.n_cycles(), curr_layer - first_free_cycle - 1)
-                        for i in range(first_free_cycle, curr_layer + 1):
-                            self.layers[i].append(gate)
+                        alap = curr_layer - gate.cycles_completed - 1
+
+                        # Already scheduled on current layer
+                        if gate.cycles_completed > 0:
+                            for i in range(alap, curr_layer):
+                                self.layers[i].append(gate)
 
                     for patch in addresses:
                         # This patch will be locked for this duration
                         # Storing this information in advance helps with ALAP vs ASAP scheduling
-                        patch.last_used = curr_layer + gate.n_cycles()
+                        patch.last_used = curr_layer + gate.n_cycles() - gate.cycles_completed
                 # Route does not exist
                 else:
                     self.track_delay(COULD_NOT_ROUTE)

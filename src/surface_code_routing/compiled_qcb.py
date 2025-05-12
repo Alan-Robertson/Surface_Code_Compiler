@@ -34,18 +34,30 @@ def compile_qcb(dag, height, width,
     if verbose:
         print(f"Compiling {dag}")
         print("\tConstructing QCB...")
-    qcb = QCB(height, width, dag)
+
+    if qcb_kwargs is None:
+        qcb_kwargs = dict()
+    qcb = QCB(height, width, dag, **qcb_kwargs)
     dag.verbose=verbose
 
     if verbose:
         print("\tAllocating QCB...")
-    allocator = Allocator(qcb, *externs, tikz_build=True, verbose=verbose)
+
+    if allocator_kwargs is None:
+        allocator_kwargs = dict()
+    allocator = Allocator(qcb, *externs, tikz_build=True, verbose=verbose, **allocator_kwargs)
     qcb.allocator = allocator
 
     if verbose:
         print("\tConstructing Mapping")
-    graph = QCBGraph(qcb)
-    tree = QCBTree(graph)
+
+    if graph_kwargs is None:
+        graph_kwargs = dict()
+    graph = QCBGraph(qcb, **graph_kwargs)
+
+    if tree_kwargs is None:
+        tree_kwargs = dict()
+    tree = QCBTree(graph, **tree_kwargs)
 
     if mapper_kwargs is None:
         mapper_kwargs = {'extern_allocation_method':extern_allocation_method}

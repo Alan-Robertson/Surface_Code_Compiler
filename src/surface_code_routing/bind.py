@@ -113,12 +113,14 @@ class Bind:
         return id(self)
 
     # Cycle functions
-    def cycle(self) -> int:
+    def cycle(self, step: int = 1) -> int:
         """
         Increments the cycle count
         """
-        self.cycles_completed += 1
-        return self.cycles_completed
+        self.cycles_completed += step 
+        return self.n_cycles() - self.cycles_completed
+
+        return self.cycles_completed 
 
     def curr_cycle(self) -> int:
         """
@@ -256,11 +258,11 @@ class ExternBind(Bind):
         """
         self.obj.reset()
 
-    def cycle(self) -> int:
+    def cycle(self, *args, **kwargs) -> int:
         """
         Obj wrapper
         """
-        return self.obj.cycle()
+        return self.obj.cycle(*args, **kwargs)
 
     def curr_cycle(self) -> int:
         """
