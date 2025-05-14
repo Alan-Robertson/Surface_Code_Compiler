@@ -388,16 +388,21 @@ class DAG(DAGNode):
 
         # Check that all externs are mapped
         if exact_alloc:
-            assert(all(any(map(lambda i: i.satisfies(extern), externs)) for extern in self.externs.keys()))
+            assert(all(any(map(lambda i: i.satisfies(extern), self.physical_externs)) for extern in self.externs.keys()))
+
 
         # Map of physical externs to binds 
         # This tracks the state of the input externs
-        extern_map = dict(zip(externs, map(ExternBind, externs)))
+        extern_map = dict(zip(self.physical_externs, map(ExternBind, externs)))
+        # First free cycle for each extern object
+        externs_first_free_cycle = {extern: 0 for extern in extern_map.values()}
 
         # Performs a lookup from a gate to 
-        extern_gate_to_bind = lambda gate: extern_map[self.externs[gate.get_unary_symbol()]]
-        externs_first_free_cycle = {extern:0 for extern in extern_map.values()}
-
+        extern_gate_to_bind = (
+            lambda gate: extern_map[
+                self.externs[gate.get_unary_symbol()]
+            ]
+        )
 
         # Currently unallocated externs
         idle_externs = list(extern_map.values())
@@ -422,11 +427,10 @@ class DAG(DAGNode):
                      )
                 if binding is not None:
                     idle_externs.pop(index)
-                    self.externs[gate.symbol] = binding.get_obj()
-                    self.scope[gate.symbol] = binding.get_obj()
+                    self.externs[gate.get_unary_symbol()] = binding.get_obj()
+                    self.scope[gate.get_unary_symbol()] = binding.get_obj()
 
-                    bind = ExternBind(gate)
-                    bind.bind_extern(binding)
+                    bind = ExternDAGBind(gate, binding)
                     active.add(bind)
 
                 else:
@@ -442,34 +446,31 @@ class DAG(DAGNode):
         layers = []
 
         # This is a semaphore
-        queued_factories = set()
         active_non_local_gates = 0
+    
+        # Prevents multi-queueing of factories
+        queued_factories = set()
 
         # Keep running until all gates are resolved
         while len(active) > 0 or len(waiting) > 0:
             self.debug_print(f"Active: {active}\n Waiting: {waiting}\nIdle:{idle_externs}")
-           # print(f"Active: {active}\n Waiting: {waiting}\nIdle:{idle_externs}")
 
             layers.append([])
             n_cycles += 1
 
             # Update each active gate
             for gate in active:
-                gate.cycle()
                 layers[-1].append(gate)
+                gate.cycle()
 
-                # Update the underlying binding of each gate
-                if gate.is_extern():
-                    extern_gate_to_bind(gate).cycle()
-
+            # Non-extern gates resolve directly
             recently_resolved = list(filter(lambda x: x.resolved(), active))
-    
-            if len(recently_resolved) > 0: 
-                 print(f"Resolved: {[hex(id(i)) for i in recently_resolved]}")
+
+            # Active gate set reduces to the unresolved gates 
             active = set(filter(lambda x: not x.resolved(), active))
 
             # Fast forwarding
-            # No gates resolved, state does not change
+            # No gates resolved, state does not change, fast forward
             if len(recently_resolved) == 0 and len(active) > 0:
                 fast_forward = float('inf')  
                 for gate in active:
@@ -480,15 +481,21 @@ class DAG(DAGNode):
                     self.debug_print(active)
 
                     fast_forward -= 1
+
+                    # Fast-forward each gate
                     for gate in active:
-                        if gate.is_extern():
-                            extern_gate_to_bind(gate).cycle(step=fast_forward)
                         gate.cycle(step=fast_forward)
+
+                    # Update layers
                     for _ in range(fast_forward):  
                         layers.append(list(layers[-1]))
+
                     n_cycles += fast_forward
+
+                # Return to checking for completed gates 
                 continue
 
+            # Gates resolved in the previous cycle, update active gates and dependencies
             # For each gate we resolve check if there are any antecedents that can be added to the waiting list
             for gate in recently_resolved:
                 if gate.resolved():
@@ -502,45 +509,30 @@ class DAG(DAGNode):
                     for antecedent in gate.antecedents():
                         all_resolved = True
 
-                        # Resolve factories first
-                        # Each factory will appear in a single topmost unresolved predicate_factory
-                        for predicate_factory in antecedent.predicate_factories:
-                            # Yet to be allocated
-                            if self.externs[predicate_factory.get_unary_symbol()] is None and predicate_factory not in queued_factories:
-                                self.debug_print(f"\tCaught Factory {predicate_factory} from edge {gate} -> {antecedent}")
-                                waiting.append(ExternBind(predicate_factory))
-                                queued_factories.add(predicate_factory)
-                                all_resolved = False
-                        if all_resolved is False:
-                           continue
-
                         # Check the predicate of each antecedent
                         for predicate in antecedent.predicates:
-                            # Catches nodes that are externs
-                            # Ensure that the predicate has been mapped
-                            if predicate.is_extern() and self.externs[predicate.get_unary_symbol()] is not None:
-                                if not extern_gate_to_bind(predicate).resolved():
-                                    all_resolved = False
-                                    break
-
-                            elif DAGBind(predicate) not in resolved:
+                            if DAGBind(predicate) not in resolved:
                                 all_resolved = False
                                 break
+
                         if all_resolved:
                             if antecedent.is_extern():
-                                waiting.append(ExternBind(antecedent))
+                                targ = ExternBind(antecedent)
+                                waiting.append(targ)
+                                
                             else:
                                 waiting.append(DAGBind(antecedent))
 
                     # Unlock Externs For Reallocation
                     if gate.get_symbol() == RESET_SYMBOL:
                         self.debug_print(f"RESET {gate}")
-                        reset_extern = gate.get_unary_symbol()
-                        extern_bind = extern_map[self.externs[reset_extern]]
+
+                        extern_bind = extern_gate_to_bind(gate)
                         extern_bind.reset()
+
+
                         idle_externs.append(extern_bind)
                         externs_first_free_cycle[extern_bind] = len(layers)
-                        print("Freed", hex(id(extern_bind)))
 
             # Sort the waiting list based on the current slack
             waiting.sort()
@@ -559,11 +551,11 @@ class DAG(DAGNode):
 
                         extern = idle_externs.pop(index)
 
-                        print("Binding Extern", hex(id(gate)), hex(id(extern)), len(idle_externs), n_cycles)
-                        self.externs[gate.get_symbol()] = binding.get_obj()
-                        self.scope[gate.get_symbol()] = binding.get_obj()
-                        gate.bind_extern(binding)
-
+                        self.externs[gate.get_unary_symbol()] = binding.get_obj()
+                        self.scope[gate.get_unary_symbol()] = binding.get_obj()
+                        gate = gate.bind_physical_extern(binding)
+                        
+                        # Pre-warming factories
                         if gate.is_factory():
                             last_free_cycle = externs_first_free_cycle[extern]
                             previous_cycles = min(binding.n_cycles(), len(layers) - last_free_cycle)
@@ -572,9 +564,6 @@ class DAG(DAGNode):
                             for layer in layers[last_free_cycle:]:
                                 layer.append(gate)
                         active.add(gate)
-                        print(f"Added gate: {hex(id(gate))}")
-                        print(f"Active: {[hex(id(gate)) for gate in active]}")
-
 
                 else:
                     # Gate is purely local, add it
@@ -596,10 +585,10 @@ class DAG(DAGNode):
 
             # Dodgy fix for a bug
             # Somehow externs are escaping from the idle extern list :/
-            if len(active) == 0:
-                print("FIX")
-                idle_externs = list(extern_map.values())
-                idle_externs.sort(key=extern_minimise)
+            #if len(active) == 0:
+            #    print("FIX")
+            #    idle_externs = list(extern_map.values())
+            #    idle_externs.sort(key=extern_minimise)
 
             self.debug_print(f"""
  ####
@@ -622,6 +611,6 @@ CHANNELS {active_non_local_gates} / {n_channels}
 from surface_code_routing.symbol import symbol_resolve, Symbol
 from surface_code_routing.scope import Scope
 from surface_code_routing.instructions import INIT, RESET_SYMBOL, IDLE_SYMBOL, INIT_SYM
-from surface_code_routing.bind import DAGBind, ExternBind
+from surface_code_routing.bind import DAGBind, ExternBind, ExternDAGBind
 from surface_code_routing.tikz_utils import tikz_dag
 import copy

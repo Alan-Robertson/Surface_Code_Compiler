@@ -50,7 +50,7 @@ class Bind:
 
     def __repr__(self) -> str:
         return f"{repr(self.obj)} \
-{hex(id(self.obj.symbol))}: \
+{hex(id(self.obj.get_symbol()))}: \
 {self.curr_cycle()} {self.n_cycles()}"
 
     # Wrapper functions
@@ -128,6 +128,12 @@ class Bind:
         """
         return self.cycles_completed
 
+    def resolve(self):
+        """
+        Forces resolution of the gate
+        """
+        self.cycles_completed = self.n_cycles()
+
     def resolved(self) -> bool:
         """
         Has the operation resolved
@@ -191,6 +197,7 @@ class AddrBind:
         return self.obj.__repr__()
 
 
+
 class ExternBind(Bind):
     """
     ExternBind
@@ -221,6 +228,13 @@ class ExternBind(Bind):
         Binds to an extern
         """
         self.n_cycles = extern.n_cycles
+
+    def bind_physical_extern(self, extern):
+        """
+            Binds to an extern
+            Re-exposes the underlying gate object 
+        """
+        return ExternDAGBind(self.obj.obj, extern) 
 
     def n_cycles(self) -> int:
         """
@@ -371,6 +385,57 @@ class DAGBind(Bind):
         """
         return False
 
+
+class ExternDAGBind(ExternBind):
+    '''
+        Hybrid bind object linking a DAG
+        node with an extern bind
+    '''
+    def __init__(self, obj, extern):
+        self.obj = obj
+        self.extern = extern
+        self.cycles_completed = 0
+   
+    def is_extern(self) -> bool: 
+        return True
+
+    def is_factory(self) -> bool:
+        '''
+            Handoff to extern
+        '''
+        return self.extern.is_factory()
+
+    def cycle(self, step=1):
+        '''
+            Update the internal cycle and the 
+            cycle of the physical externs
+        '''
+        self.cycles_completed += step
+        return self.extern.cycle(step=step)
+
+    def set_cycles_completed(self, cycles):
+        '''
+            ExternBind like setter 
+        '''
+        self.cycles_completed = cycles
+
+    def resolved(self):
+        return self.cycles_completed >= self.n_cycles()
+
+    def __hash__(self):
+        return id(self.obj)
+
+    def __repr__(self):
+        return self.obj.__repr__()
+
+    def get_extern(self):
+        return self.extern
+
+    def antecedents(self):
+        return self.obj.antecedents
+
+    def curr_cycle(self):
+        return self.cycles_completed
 
 class RouteBind(Bind):
     """
