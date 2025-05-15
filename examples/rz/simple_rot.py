@@ -7,7 +7,6 @@ from surface_code_routing.compiled_qcb import compile_qcb
 
 import sys
 
-
 def arbitrary_rot(p, q, width, height, precision=10, verbose=False):
     dag = DAG(f'rot_{width}_{height}')
     dag.add_gate(Z_theta(p, q, precision=precision)(f'q_0'))

@@ -10,7 +10,7 @@ from surface_code_routing.lib_instructions import Toffoli, T, T_Factory
 from surface_code_routing.compiled_qcb import compile_qcb
 
 GATE_MAP = {
-        qmpa.gates.X : X,
+    qmpa.gates.X : X,
     qmpa.gates.CNOT : CNOT,
     qmpa.gates.Toffoli : Toffoli,
 }
@@ -27,7 +27,7 @@ def circ_to_dag(qmpa_circ, dag_symbol, T=T, gate_map=GATE_MAP):
         dag.add_gate(INIT(f'reg_{i}'))
 
     for gate in qmpa_circ.circuit:
-        dag_gate = GATE_MAP.get(type(gate), None)
+        dag_gate = gate_map.get(type(gate), None)
         if dag_gate is None:
             continue
 

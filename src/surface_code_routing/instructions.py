@@ -99,10 +99,10 @@ def ZX_factory(fn, **kwargs):
         return dag
     return instruction
 
-
-INIT_SYMBOL = Symbol('INIT')
+INIT_SYM = "INIT"
+INIT_SYMBOL = Symbol(INIT_SYM)
 def INIT(*symbol_constructors):
-    sym = Symbol('INIT', symbol_constructors)
+    sym = Symbol(INIT_SYM, symbol_constructors)
     
     # Breaks recursive expansion
     scope = Scope({i:i for i in sym.io})
@@ -112,35 +112,21 @@ def INIT(*symbol_constructors):
     # Initialise each object independently
     # This will be unrolled when injected into the DAG
     for obj in sym.io:
-        dag.add_node(Symbol("INIT", obj), n_cycles=1)
+        dag.add_node(Symbol(INIT_SYM, obj), n_cycles=1)
     return dag
 
 
-INIT_SYMBOL = Symbol('INIT')
-def INIT(*symbol_constructors):
-    sym = Symbol('INIT', symbol_constructors)
-    
-    # Breaks recursive expansion
-    scope = Scope({i:i for i in sym.io})
-
-    dag = DAG(sym, scope=scope)
-
-    # Initialise each object independently
-    # This will be unrolled when injected into the DAG
-    for obj in sym.io:
-        dag.add_node(Symbol("INIT", obj), n_cycles=1)
-    return dag
-
-RESET_SYMBOL = Symbol('RESET')
+RESET_SYM = "RESET"
+RESET_SYMBOL = Symbol(RESET_SYM)
 def RESET(*symbol_constructors):
-    sym = Symbol('RESET', symbol_constructors)
+    sym = Symbol(RESET_SYM, symbol_constructors)
     scope = Scope({i:i for i in sym.io})
     dag = DAG(sym, scope=scope)
 
     # Reset each object independently
     # This will be unrolled when injected into the DAG
     for obj in sym.io:
-        dag.add_node(Symbol("RESET", obj), n_cycles=1)
+        dag.add_node(Symbol(RESET_SYM, obj), n_cycles=1)
     return dag
 
 def XYZ_PI_4(X, Y, Z):
@@ -186,6 +172,13 @@ CZ_BASE = ZX_factory('CZ', n_cycles=2)
 def CZ(*targs):
    return CZ_BASE(targs, tuple()) 
 
+X_MULTI_BASE = ZX_factory('X*', n_cycles=2)
+def X_MULTI(*targs):
+    return X_MULTI_BASE(tuple(), targs)
+
+Z_MULTI_BASE = ZX_factory('Z*', n_cycles=2)
+def Z_MULTI(*targs):
+    return Z_MULTI_BASE(targs, tuple())
 
 # Two cycle operation proxy
 S_SLICE_BASE = ZX_factory('SROT', n_cycles=2)
@@ -203,6 +196,12 @@ def T_SLICE(ctrl, *targs):
 
 MEAS = non_local_factory('MEAS', n_cycles=1)
 PREP = in_place_factory_mult('PREP')
+
+# Idling gate
+Identity = in_place_factory('I', n_cycles=1)
+
+IDLE_SYMBOL = Symbol('_IDLE')
+IDLE = in_place_factory('_IDLE', n_cycles=1)
 
 HADAMARD_SYMBOL = Symbol('H')
 Hadamard = in_place_factory('H', n_cycles=1, rotation=True)

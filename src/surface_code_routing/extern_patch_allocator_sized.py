@@ -7,39 +7,39 @@ from surface_code_routing.bind import AddrBind
 
 from functools import partial
 
-class ExternPatchAllocatorDynamic():
+class ExternPatchAllocatorSized():
    
     def __init__(self, mapper, verbose=False):
         self.mapper = mapper
         self.dag = self.mapper.dag
         self.verbose = verbose
 
+        extern_templates = {}
+
+        self.allocatable = {extern.symbol.predicate: extern for extern in self.mapper.dag.physical_externs}
+
+        self.segment_map = ExternSegmentMapSized(self, self.allocatable)
+
         # Unmap extern allocations
         for extern in self.dag.externs:
             self.dag.externs[extern] = None
 
-        # Allocate segments appropriately
-        for extern in self.mapper.dag.physical_externs: 
-            if extern.symbol.predicate not in self.mapper.segment_maps:
-                segment_map = ExternSegmentMapDynamic(extern, self, verbose=self.verbose) 
-
-                self.mapper.segment_maps[extern.symbol.predicate] = segment_map
-            else:
-                segment_map = self.mapper.segment_maps[extern.symbol.predicate]
-            
-            self.mapper.map[extern.symbol] = segment_map 
-            self.debug_print(f"Allocated {extern}")
-            leaf = self.mapper.mapping_tree.alloc(extern.symbol.predicate)
+        # Extract extern regions 
+        for extern in self.allocatable: 
+            leaf = self.mapper.mapping_tree.alloc(extern) 
             segment = leaf.get_segment()
-            self.debug_print(f"Len: {len(list(segment.range()))}")
-            segment_map.allocate_segment(segment)
+            self.segment_map.allocate_segment(segment)
+
+            self.mapper.segment_maps[extern] = self.segment_map
+
+        return
 
     def debug_print(self, *args, **kwargs):
         debug_print(*args, **kwargs, debug=self.verbose)
 
 
     def __getitem__(self, symbol):
-        return self.mapper.segment_maps[symbol.predicate][symbol]
+        return self.segment_map[symbol]
 
     def first_free_cycle(self, symbol):
         '''
@@ -51,7 +51,7 @@ class ExternPatchAllocatorDynamic():
         '''
             This takes the unary symbol from the gate and uses the predicate to generalise to the symbol's unique instance
         '''
-        return self.mapper.segment_maps[symbol.predicate].alloc(symbol)
+        return self.segment_map.alloc(symbol)
 
     def lock(self, symbol):
         return self.mapper.segment_maps[symbol.predicate].alloc(symbol)
@@ -60,25 +60,31 @@ class ExternPatchAllocatorDynamic():
         self.mapper.segment_maps[symbol.predicate].free(symbol)
 
 
-class ExternSegmentMapDynamic():
+class ExternSegmentMapSized():
     
     NO_SEGMENT_ALLOCATED = AddrBind("No Segment Allocated")
     '''
         This handles placement for aliased externs
     '''
-    def __init__(self, extern, static_allocator, verbose=True):
+    def __init__(self, allocator, allocatable: dict):
+
+
+        self.allocator = allocator
+        self.allocatable = allocatable
+
         self.segments = dict()
         self.locks = dict()
         self.__first_free_cycle = dict()
-        self.map = extern.io
-        self.extern = extern
-        self.allocator = static_allocator
-        self.idle_segments = list() 
-        self.verbose = verbose
-        self.is_factory = self.extern.is_factory
 
-    def debug_print(self, *args, **kwargs):
-        debug_print(*args, **kwargs, debug=self.verbose)
+        self.map = {} 
+        self.extern = {} 
+
+        self.idle_segments = list() 
+
+        self.is_factory = None 
+
+    def add_segment(self, extern): 
+        raise Exception
 
     def allocate_segment(self, segment):
         '''
@@ -88,7 +94,6 @@ class ExternSegmentMapDynamic():
             self.locks[segment] = None
             self.idle_segments.append(segment)
             self.__first_free_cycle[segment] = 0
-            self.debug_print(f"Added Lock: {segment}")
         else:
             raise Exception(f"Segment {segment} allocated in duplicate")
 
@@ -101,19 +106,33 @@ class ExternSegmentMapDynamic():
         '''
         segment = self.segments.get(symbol, self.NO_SEGMENT_ALLOCATED)
         if segment is self.NO_SEGMENT_ALLOCATED:
+
+            # No free segments
             if len(self.idle_segments) == 0:
                 return COULD_NOT_ALLOCATE, None
-            segment = self.idle_segments.pop(0)
+            
+            alloc_target = self.allocatable[symbol.predicate]
+
+            # Get a segment of the correct size
+            # This could be a sorted search... 
+            for seg in self.idle_segments:
+                if seg.height >= alloc_target.height and seg.width >= alloc_target.width: 
+                    segment = seg
+                    break
+            # Else on the for loop
+            else:
+                return COULD_NOT_ALLOCATE, None
 
         lock_state = self.locks[segment]
         if lock_state is None:
-            self.debug_print(f"\tLocked {segment} on {hex(id(symbol.predicate))}")
             self.locks[segment] = symbol
             self.segments[symbol] = segment
             
             rollback = partial(self.free, symbol) 
+            self.idle_segments.remove(segment)
 
-            self.allocator.dag.externs[symbol] = self.extern  
+            self.allocator.dag.externs[symbol] = alloc_target
+
             return segment, rollback
 
         if lock_state == symbol:
@@ -152,7 +171,6 @@ class ExternSegmentMapDynamic():
             return
         raise Exception(f"{symbol} has not been allocated and hence cannot be freed")
         
-
     def range(self):
         for segment in self.get_physical_segments():
             for coordinate in segment.range():

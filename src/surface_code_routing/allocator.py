@@ -37,11 +37,23 @@ class Allocator:
         qcb: QCB,  # qcb Object to allocate patches to
         *extern_templates,  # Template objects for externs
         optimise=True,  # Optimisation pass enabled
-        tikz_build=True,  # Incremental tikz build enabled
+        tikz_build=False,  # Incremental tikz build enabled
         verbose=False,  # Verbose debugging info
         opt_space=False,  # Space optimisation (not currently used)
         opt_route=True,  # Route optimisation (not currently used)
+        over_allocate=False # Early termination of optimisation
         ):
+        '''
+            :: qcb : QCB :: QCB object to allocate to
+            :: *extern_templates :: Template externs
+            :: optimise : bool :: Optimisation pass enabled / disabled  
+            :: tikz_build : bool :: Incremental tikz building 
+            :: verbose : bool :: Debug info
+            :: over_allocate : bool :: Terminate optimisation only on space constraints  
+
+            over_allocate is a useful setting for `faster' circuits where there's a chance 
+            of missing an extern speedup    
+        '''
 
         self.qcb = qcb
         self.qcb.allocator = self
@@ -52,6 +64,8 @@ class Allocator:
                                      reverse=True)
         self.height = qcb.height
         self.width = qcb.width
+
+        self.over_allocate = over_allocate
 
         if opt_space and opt_route:
             raise AllocatorError("Cannot optimise for both space and routes, these are mutually exclusive")
@@ -325,10 +339,15 @@ class Allocator:
         curr_score = dag.compile(self.n_channels, *self.externs)[0]
 
         # Compare options
-        options = [opt[0] for opt in options if opt[1] < curr_score]
+        if self.over_allocate:
+            options = [opt[0] for opt in options if opt[1] <= curr_score]
+        else:
+            options = [opt[0] for opt in options if opt[1] < curr_score]
 
         # Attempt to perform a placement based on the options
         for new_extern in options:
+
+
             if not new_extern and self.allocate_channel():
                 self.n_channels += 1
                 return True

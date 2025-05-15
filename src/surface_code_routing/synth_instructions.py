@@ -16,12 +16,13 @@ def initialise_synth(fn):
     return wrapper
 
 
-def Z_theta(p, q, precision=10, effort=25, seed=0):
+def Z_theta(p, q, precision=10, effort=25, seed=0, **gates):
     return SYNTH.z_theta_instruction(
             p, q, 
             precision=precision,
             effort=effort,
-            seed=seed)
+            seed=seed,
+            **gates)
 
 @initialise_synth
 def CPHASE_theta(p, q, precision=10, effort=25, seed=0, **gates):

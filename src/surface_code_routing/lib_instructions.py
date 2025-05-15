@@ -13,7 +13,6 @@ from surface_code_routing.compiled_qcb import CompiledQCB, compile_qcb
 
 from surface_code_routing.instructions import INIT, RESET, CNOT, T_SLICE, Hadamard, Phase, local_Tdag, PREP, MEAS, X
 
-@cache
 def T_Factory(*externs, height=5, width=6, t_gate=local_Tdag, **compiler_arguments):
 
         if 'router_kwargs' in compiler_arguments:
@@ -22,7 +21,6 @@ def T_Factory(*externs, height=5, width=6, t_gate=local_Tdag, **compiler_argumen
         else:
             router_kwargs = {'teleport': False}
             compiler_arguments['router_kwargs'] = router_kwargs 
-
 
         dag = DAG(Symbol('T_Factory', (), 'factory_out'))
         dag.add_gate(INIT(*['q_{i}'.format(i=i) for i in range(4)]))
@@ -49,8 +47,10 @@ def T_Factory(*externs, height=5, width=6, t_gate=local_Tdag, **compiler_argumen
 
         return compile_qcb(dag, height, width, *externs, **compiler_arguments)
 
-
-def T_gate(height=5, width=7, factory=None):
+def T_gate(factory=None, height=5, width=7):
+    if factory is not None:
+        height = factory.height
+        width = factory.width
     return partial(T, height=height, width=width, factory=factory)
 
 def T(targ, height=5, width=7, factory=None):
@@ -58,7 +58,6 @@ def T(targ, height=5, width=7, factory=None):
         factory = T_Factory(height=height, width=width)
     dag = factory.instruction((), (targ,))
     return dag
-
 
 def Toffoli(ctrl_a, ctrl_b, targ, T=T):
     ctrl_a, ctrl_b, targ = map(Symbol, (ctrl_a, ctrl_b, targ))
@@ -83,18 +82,16 @@ def Toffoli(ctrl_a, ctrl_b, targ, T=T):
     dag.add_gate(CNOT(ctrl_a, ctrl_b))
     return dag
 
-
-def CSWAP(ctrl, targ_a, targ_b, T=T, Toffoli=Toffoli, **kwargs):
+def CSWAP(ctrl, targ_a, targ_b, Toffoli=Toffoli, **kwargs):
     ctrl, targ_a, targ_b = map(Symbol, (ctrl, targ_a, targ_b))
     sym = Symbol('CSWAP', {'ctrl'}, {'targ_a','targ_b'})
     scope = Scope({sym('ctrl'):ctrl, sym('targ_a'):targ_b, sym('targ_b'):targ_b})
     dag = DAG(sym, scope=scope)
 
-    dag.add_gate(Toffoli(ctrl, targ_a, targ_b, T=T))
-    dag.add_gate(Toffoli(ctrl, targ_b, targ_a, T=T))
-    dag.add_gate(Toffoli(ctrl, targ_a, targ_b, T=T))
+    dag.add_gate(Toffoli(ctrl, targ_a, targ_b))
+    dag.add_gate(Toffoli(ctrl, targ_b, targ_a))
+    dag.add_gate(Toffoli(ctrl, targ_a, targ_b))
     return dag
-
 
 def MAJ(a, b, c, Toffoli=Toffoli):
     dag = DAG(Symbol('MAJ', ('a', 'b', 'c')))
@@ -110,4 +107,3 @@ def UMA(a, b, c, Toffoli=Toffoli):
     dag.add_gate(Toffoli('a', 'b', 'c'))
     dag.add_gate(X('b'))
     dag.add_gate(CNOT('c', 'a', 'b'))
-

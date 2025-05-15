@@ -1,7 +1,6 @@
 from surface_code_routing.dag import DAG
 from surface_code_routing.symbol import Symbol 
 from surface_code_routing.instructions import INIT, CNOT, MEAS, X, Hadamard, SWAP
-#from surface_code_routing.synth_instructions import CPHASE_theta
 from surface_code_routing.lib_instructions import T_Factory, CSWAP
 
 from surface_code_routing.compiled_qcb import compile_qcb

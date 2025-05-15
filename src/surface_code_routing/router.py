@@ -88,10 +88,13 @@ class QCBRouter:
             self.debug_print(waiting, self.active_gates)
             self.layers.append(list())
 
+            fastforward = float('inf') 
+        
             recently_resolved = list()
             if len(self.active_gates) > 0:
                 for gate in self.active_gates:
-                    gate.cycle()
+                    update = gate.cycle()
+                    fastforward = min(fastforward, update)
                     if gate.resolved():
                         recently_resolved.append(gate)
 
@@ -99,12 +102,26 @@ class QCBRouter:
                     if gate.get_symbol() == RESET_SYMBOL:
                         self.mapper.free(gate)
                         self.debug_print(f"\tReleasing Extern {gate}")
+
                     self.layers[-1].append(gate)
 
                 if len(recently_resolved) == 0:
                     # No gates resolved, state of the system does not change, fastforward
-                    self.space_time_volume += self.graph.space_time_volume()
+                    if fastforward > 3:
+                        fastforward -= 1
+                        self.space_time_volume += self.graph.space_time_volume() * fastforward 
+                        for gate in self.active_gates: 
+                            gate.cycle(step=fastforward)
+                        
+                        for _ in range(fastforward):
+                            # Copies of the last layer
+                            # This is required otherwise later teleported operations and other feed-back mechanisms will fail  
+                            self.layers.append([i for i in self.layers[-1]])
+ 
+                    else: # Trivial fast-forwarding
+                        self.space_time_volume += self.graph.space_time_volume()
                     continue
+
 
             self.active_gates = set(filter(lambda x: not x.resolved(), self.active_gates))
             for gate in recently_resolved:
@@ -112,14 +129,17 @@ class QCBRouter:
                 if gate.rotates():
                     self.rotate(gate, self.mapper[gate])
                 # Should only trigger when the final antecedent is resolved
+
                 for antecedent in gate.antecedents():
                     all_resolved = True
 
                     for predicate_factory in antecedent.predicate_factories:
                         # Yet to be allocated
                         if predicate_factory not in resolved and predicate_factory not in self.active_gates:
-                            self.debug_print(f"\tCaught Factory {predicate_factory} from edge {gate} -> {antecedent}")
-                            waiting.append(RouteBind(predicate_factory, None))
+                            if all(obj in resolved for obj in predicate_factory.predicates): 
+                                self.debug_print(f"\tCaught Factory {predicate_factory} from edge {gate} -> {antecedent}")
+                                waiting.append(RouteBind(predicate_factory, None))
+                            
                             all_resolved = False
                     if all_resolved is False:
                           continue
@@ -136,9 +156,6 @@ class QCBRouter:
             waiting_clear = list()
             # Initially active gates
             for gate in waiting:
-
-                # Barrier
-                # This involves some awful tree discovery, the workaround is more complex dependency resolution on
                 # Externs
                 # Here we're first going to discover the extern gate, then backtrack and find all non-extern dependencies, and see if they've been resolved.
                 if len(extern_ante := [i for i in gate.scope if i.is_extern() and not i.is_factory()]) > 0:
@@ -196,6 +213,8 @@ class QCBRouter:
 
                 # The mapper will also check if it can do an extern allocation
                 # The mapper is constrained that if the next call to the mapper is a lock on the same gate that those same addresses should be locked
+                self.debug_print(f"\tAttempting: {gate} {gate.obj.predicates}")
+
                 addresses = self.mapper[gate]
 
                 # Could not obtain addresses for an extern
@@ -230,13 +249,17 @@ class QCBRouter:
                     if gate.is_factory():
                         first_free_cycle = self.mapper.first_free_cycle(gate)
                         gate.cycles_completed = min(gate.n_cycles(), curr_layer - first_free_cycle - 1)
-                        for i in range(first_free_cycle, curr_layer + 1):
-                            self.layers[i].append(gate)
+                        alap = curr_layer - gate.cycles_completed - 1
+
+                        # Already scheduled on current layer
+                        if gate.cycles_completed > 0:
+                            for i in range(alap, curr_layer):
+                                self.layers[i].append(gate)
 
                     for patch in addresses:
                         # This patch will be locked for this duration
                         # Storing this information in advance helps with ALAP vs ASAP scheduling
-                        patch.last_used = curr_layer + gate.n_cycles()
+                        patch.last_used = curr_layer + gate.n_cycles() - gate.cycles_completed
                 # Route does not exist
                 else:
                     self.track_delay(COULD_NOT_ROUTE)
