@@ -19,8 +19,11 @@ if len(sys.argv) > 1:
 
 print("QCB Size, Register Size, Cycles, Volume")
 
-for qcb_size in [10, 12, 14, 16, 18, 20]:
+for qcb_size in [8, 16, 32]:
     for i in range(1, prec):
-        qcb = arbitrary_rot(i, prec, qcb_size, qcb_size)
-        print(qcb_size, i, qcb.n_cycles(), qcb.space_time_volume())
-
+        try:
+            qcb = arbitrary_rot(i, prec, qcb_size, qcb_size)
+            print(qcb_size, i, qcb.n_cycles(), qcb.space_time_volume())
+            print(qcb_size, i, qcb.n_cycles(), qcb.space_time_volume(), file=open('simple_rot_out', 'w+'))
+        except:
+            pass

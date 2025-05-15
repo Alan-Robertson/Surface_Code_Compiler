@@ -6,7 +6,6 @@ from surface_code_routing.lib_instructions import T_Factory
 from surface_code_routing.compiled_qcb import compile_qcb
 
 
-
 def qft(n_qubits, height, width, precision=10, gates=None, t_factory=None, **compiler_args):
     if gates is None:
         gates = {}
@@ -21,11 +20,12 @@ def qft(n_qubits, height, width, precision=10, gates=None, t_factory=None, **com
     return compile_qcb(dag, height, width, t_factory, **compiler_args) 
 
 print("QCB Size, Register Size, Cycles, Volume")
-
 for qcb_size in [10, 12, 16, 24, 32]:
-    for i in range(6, 33):
+    for i in range(3, 11):
         #try:
-        qcb = qft(i, qcb_size, qcb_size, T_Factory())
+        qcb = qft(i, qcb_size, qcb_size, precision=10, t_factory=T_Factory())
         print(qcb_size, i, qcb.n_cycles(), qcb.space_time_volume())
+        print(qcb_size, i, qcb.n_cycles(), qcb.space_time_volume(), file=open('qft_out', 'a'))
+
         #except:
         #    pass
