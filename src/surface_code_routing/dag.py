@@ -583,13 +583,6 @@ class DAG(DAGNode):
             # Update the waiting list
             waiting = list(filter(lambda x: x not in active, waiting))
 
-            # Dodgy fix for a bug
-            # Somehow externs are escaping from the idle extern list :/
-            #if len(active) == 0:
-            #    print("FIX")
-            #    idle_externs = list(extern_map.values())
-            #    idle_externs.sort(key=extern_minimise)
-
             self.debug_print(f"""
  ####
 CYCLE {n_cycles}
