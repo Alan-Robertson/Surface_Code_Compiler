@@ -24,3 +24,9 @@ class ExternPatchAllocator(ABC):
         '''
            Lock an allocated patch given a dependent gate 
         '''
+
+    @abstractmethod
+    def flush(self):
+        '''
+            Unlocks all externs
+        '''

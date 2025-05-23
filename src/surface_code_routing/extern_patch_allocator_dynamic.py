@@ -61,6 +61,10 @@ class ExternPatchAllocatorDynamic():
 
     def free(self, symbol):
         self.mapper.segment_maps[symbol.predicate].free(symbol)
+    
+    def flush(self):
+        for i in self.extern_segments: 
+            i.flush()
 
 
 class ExternSegmentMapDynamic():
@@ -156,6 +160,15 @@ class ExternSegmentMapDynamic():
             return
         raise Exception(f"{symbol} has not been allocated and hence cannot be freed")
         
+    def flush(self):
+        '''
+            Unlocks all segments
+        '''
+        for segment in self.locks:
+            if segment not in self.idle_segments:
+                self.idle_segments.append(segment) 
+                self.__first_free_cycle[segment] = len(self.allocator.mapper.router.layers)
+            self.locks[segment] = None
 
     def range(self):
         for segment in self.get_physical_segments():

@@ -16,7 +16,7 @@ from surface_code_routing.symbol import ExternSymbol
 
 from surface_code_routing.utils import consume
 from surface_code_routing.tikz_utils import tikz_router
-from surface_code_routing.instructions import RESET_SYMBOL, ROTATION_SYMBOL, HADAMARD_SYMBOL, Rotation
+from surface_code_routing.instructions import RESET_SYMBOL, ROTATION_SYMBOL, HADAMARD_SYMBOL, Rotation, IDLE_SYMBOL
 
 from surface_code_routing.inject_teleportation_routes import TeleportInjector
 
@@ -128,7 +128,7 @@ class QCBRouter:
                     for predicate_factory in antecedent.predicate_factories:
                         # Yet to be allocated
                         if predicate_factory not in resolved and predicate_factory not in self.active_gates:
-                            if all(obj in resolved for obj in predicate_factory.predicates): 
+                            if all(obj in resolved for obj in predicate_factory.predicates):
                                 waiting.append(RouteBind(predicate_factory, None))
                             
                             all_resolved = False
@@ -145,20 +145,26 @@ class QCBRouter:
 
             waiting.sort()
             waiting_clear = list()
+
             # Initially active gates
             for gate in waiting:
                 # Externs
                 # Here we're first going to discover the extern gate, then backtrack and find all non-extern dependencies, and see if they've been resolved.
                 if len(extern_ante := [i for i in gate.scope if i.is_extern() and not i.is_factory()]) > 0:
+                    # Assume the barrier is resolved
                     barrier_resolved = True
+
                     for ext_symbol in extern_ante:
                         if not barrier_resolved:
                             continue
 
+                        # No barrier for this symbol, create one
                         if ext_symbol not in barrier:
                             barrier[ext_symbol] = tuple()
 
                             extern_gate = None
+                            # Search over extern gate keys
+                            # Should replace this with a symbol lookup
                             for i in self.dag.gates:
                                 if i.is_extern() and ext_symbol in i.scope:
                                     extern_gate = i
@@ -168,6 +174,8 @@ class QCBRouter:
 
                             non_extern_predicates = []
                             extern_predicates = [extern_gate]
+
+                            # BFS to find non-extern gates
                             while len(extern_predicates) > 0:
                                 next_extern_predicates = []
                                 for extern_pred in extern_predicates:
@@ -257,20 +265,23 @@ class QCBRouter:
             waiting = list(filter(lambda x: x not in self.active_gates and x not in resolved and x not in waiting_clear, waiting))
 
             # Not the most elegant approach, could reorder some things
+            # This should never be triggered, but exists as an exit condition
+            # if a deadlock occurs in the DAG  
             if len(self.layers[-1]) == 0:
-                # TODO Remove this later
                 quash_flag += 1
                 if quash_flag > 2:
                     self.debug_print("Layer Quashed")
-                    #self.mapper.flush()
-                    #self.graph.flush()
 
-                if quash_flag > 10:
+                elif quash_flag > 10:
                     raise Exception("Deadlock")
                 self.layers.pop()
             else:
                 self.space_time_volume += self.graph.space_time_volume()
                 quash_flag = 0
+
+        # Hard assertion - all gates should be resolved
+        # This limits the chance of an accidental early exit
+        assert (len(resolved) == len(self.dag.gates))
         return
 
     def probe_address(self, dag_node, address):

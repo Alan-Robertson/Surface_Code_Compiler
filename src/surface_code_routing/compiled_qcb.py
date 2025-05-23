@@ -192,14 +192,20 @@ class CompiledQCB:
 
         dag = DAG(sym, scope=scope)
 
+   
         readin_gates = set()
+        # Non-extern dependent buffer 
+        # Useful for resolving parallel DAG dependencies 
+        if len(args) == 0:
+            readin = targs
+        else:
+            readin = args
+
+        for targ in readin:
+            readin_gates.add(dag.add_gate(IDLE(targ))[0])
+
         for arg, fn_arg in zip(args, self.predicate.ordered_io_in()):
             readin_gates.add(dag.add_gate(self.readin_operation(arg, fn(fn_arg)))[0])
-
-        # No readin
-        if len(args) == 0:
-            for targ in targs:
-                readin_gates.add(dag.add_gate(IDLE(targ))[0])
 
         extern_gate = dag.add_node(fn, n_cycles=self.n_cycles(), is_factory = self.is_factory())
 
