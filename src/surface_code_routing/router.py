@@ -48,11 +48,6 @@ class QCBRouter:
         self.active_gates = set()
 
         self.anc: dict[Any, ANC] = {}
-
-        self.waiting: 'List[DAGNode]' = []
-        self.active: 'PriorityQueue[Tuple[int, Any, DAGNode]]' = PriorityQueue()
-        self.finished: 'List[DAGNode]' = []
-
         self.resolved: set[DAGNode] = set()
 
         if teleport:
@@ -85,7 +80,6 @@ class QCBRouter:
 
         while len(waiting) > 0 or len(self.active_gates) > 0:
             curr_layer = len(self.layers)
-            self.debug_print(waiting, self.active_gates)
             self.layers.append(list())
 
             fastforward = float('inf') 
@@ -101,8 +95,7 @@ class QCBRouter:
                     # Release an extern allocation
                     if gate.get_symbol() == RESET_SYMBOL:
                         self.mapper.free(gate)
-                        self.debug_print(f"\tReleasing Extern {gate}")
-
+                        
                     self.layers[-1].append(gate)
 
                 if len(recently_resolved) == 0:
@@ -112,7 +105,7 @@ class QCBRouter:
                         self.space_time_volume += self.graph.space_time_volume() * fastforward 
                         for gate in self.active_gates: 
                             gate.cycle(step=fastforward)
-                        
+
                         for _ in range(fastforward):
                             # Copies of the last layer
                             # This is required otherwise later teleported operations and other feed-back mechanisms will fail  
@@ -121,7 +114,6 @@ class QCBRouter:
                     else: # Trivial fast-forwarding
                         self.space_time_volume += self.graph.space_time_volume()
                     continue
-
 
             self.active_gates = set(filter(lambda x: not x.resolved(), self.active_gates))
             for gate in recently_resolved:
@@ -137,7 +129,6 @@ class QCBRouter:
                         # Yet to be allocated
                         if predicate_factory not in resolved and predicate_factory not in self.active_gates:
                             if all(obj in resolved for obj in predicate_factory.predicates): 
-                                self.debug_print(f"\tCaught Factory {predicate_factory} from edge {gate} -> {antecedent}")
                                 waiting.append(RouteBind(predicate_factory, None))
                             
                             all_resolved = False
@@ -213,14 +204,12 @@ class QCBRouter:
 
                 # The mapper will also check if it can do an extern allocation
                 # The mapper is constrained that if the next call to the mapper is a lock on the same gate that those same addresses should be locked
-                self.debug_print(f"\tAttempting: {gate} {gate.obj.predicates}")
 
                 addresses = self.mapper[gate]
 
                 # Could not obtain addresses for an extern
                 if addresses is COULD_NOT_ALLOCATE:
                     self.track_delay(gate.get_symbol())
-                    self.debug_print(f"\tFailed to allocate extern for {gate}")
                     continue
 
                 # Check that all addresses are free
@@ -274,6 +263,8 @@ class QCBRouter:
                 if quash_flag > 2:
                     self.debug_print("Layer Quashed")
                     #self.mapper.flush()
+                    #self.graph.flush()
+
                 if quash_flag > 10:
                     raise Exception("Deadlock")
                 self.layers.pop()

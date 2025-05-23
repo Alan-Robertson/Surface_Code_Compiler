@@ -172,7 +172,7 @@ class CompiledQCB:
             extern_volumes = sum(
                 map(
                     lambda x: x.space_time_volume(),
-                    self.dag.externs.values()
+                   self.dag.externs.values()
                 )
             )
             return self.router.space_time_volume + extern_volumes
@@ -201,7 +201,7 @@ class CompiledQCB:
             for targ in targs:
                 readin_gates.add(dag.add_gate(IDLE(targ))[0])
 
-        extern_gate = dag.add_node(fn, n_cycles=self.n_cycles())
+        extern_gate = dag.add_node(fn, n_cycles=self.n_cycles(), is_factory = self.is_factory())
 
         # Extern initiation is predicated on all inputs
         for gate in readin_gates:

@@ -18,12 +18,15 @@ class ExternPatchAllocatorDynamic():
         for extern in self.dag.externs:
             self.dag.externs[extern] = None
 
+        self.extern_segments = [] 
+
         # Allocate segments appropriately
         for extern in self.mapper.dag.physical_externs: 
             if extern.symbol.predicate not in self.mapper.segment_maps:
                 segment_map = ExternSegmentMapDynamic(extern, self, verbose=self.verbose) 
 
                 self.mapper.segment_maps[extern.symbol.predicate] = segment_map
+                self.extern_segments.append(segment_map)
             else:
                 segment_map = self.mapper.segment_maps[extern.symbol.predicate]
             
@@ -108,12 +111,13 @@ class ExternSegmentMapDynamic():
         lock_state = self.locks[segment]
         if lock_state is None:
             self.debug_print(f"\tLocked {segment} on {hex(id(symbol.predicate))}")
+
             self.locks[segment] = symbol
             self.segments[symbol] = segment
-            
-            rollback = partial(self.free, symbol) 
 
-            self.allocator.dag.externs[symbol] = self.extern  
+            rollback = partial(self.free, symbol)
+
+            self.allocator.dag.externs[symbol] = self.extern
             return segment, rollback
 
         if lock_state == symbol:

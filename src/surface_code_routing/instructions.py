@@ -172,11 +172,11 @@ CZ_BASE = ZX_factory('CZ', n_cycles=2)
 def CZ(*targs):
    return CZ_BASE(targs, tuple()) 
 
-X_MULTI_BASE = ZX_factory('X*', n_cycles=2)
+X_MULTI_BASE = ZX_factory('X*', n_cycles=1)
 def X_MULTI(*targs):
     return X_MULTI_BASE(tuple(), targs)
 
-Z_MULTI_BASE = ZX_factory('Z*', n_cycles=2)
+Z_MULTI_BASE = ZX_factory('Z*', n_cycles=1)
 def Z_MULTI(*targs):
     return Z_MULTI_BASE(targs, tuple())
 

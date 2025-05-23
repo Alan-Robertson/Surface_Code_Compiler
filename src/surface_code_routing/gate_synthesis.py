@@ -1,5 +1,4 @@
 import subprocess
-from functools import lru_cache
 
 from surface_code_routing.dag import DAG
 from surface_code_routing.symbol import Symbol
@@ -31,7 +30,6 @@ class GateSynth:
         else:
             self.gate_dict = gate_dict
 
-    @lru_cache
     def z_theta_instruction(self, p, q, precision=10, effort=25, seed=0, **gates):
         '''
             Returns a series of gates that perform Z(PI * p / q) with some epsilon precision

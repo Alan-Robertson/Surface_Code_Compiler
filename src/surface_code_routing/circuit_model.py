@@ -346,6 +346,15 @@ class PatchGraph:
             elif self[tuple(idx)].probe(gate):
                 yield self[tuple(idx)]
 
+    def flush(self):
+        """
+            Force unlock all routes
+        """
+        for grp in self.graph:
+            for node in grp:
+                if node.state in PatchGraphNode.ANCILLAE_STATES:
+                    node.lock_state = PatchGraphNode.INITIAL_LOCK_STATE
+
     def route(
         self,
         start,  # Start node

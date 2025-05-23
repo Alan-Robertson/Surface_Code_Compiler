@@ -26,6 +26,9 @@ def Z_theta(p, q, precision=10, effort=25, seed=0, **gates):
 
 @initialise_synth
 def CPHASE_theta(p, q, precision=10, effort=25, seed=0, **gates):
+    '''
+    Modify the T gate by setting it as a kwarg
+    '''
     z_theta_2 = SYNTH.z_theta_instruction(p, q * 2, precision=precision, effort=effort, seed=seed, **gates)
     z_theta_2_dag = SYNTH.z_theta_instruction(-p, q * 2, precision=precision, effort=effort, seed=seed, **gates)
     def instruction(*args):
@@ -51,4 +54,3 @@ def CPHASE_theta(p, q, precision=10, effort=25, seed=0, **gates):
         return dag
 
     return instruction
-

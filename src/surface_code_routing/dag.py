@@ -12,7 +12,7 @@ from surface_code_routing import utils
 sys.setrecursionlimit(10000)
 
 class DAGNode():
-    def __init__(self, symbol, *args, scope=None, externs=None, n_cycles=1, n_ancillae=0, rotation=False, ancillae_type=None):
+    def __init__(self, symbol, *args, scope=None, externs=None, n_cycles=1, n_ancillae=0, rotation=False, ancillae_type=None, is_factory=None):
         symbol = symbol_resolve(symbol)
         if externs is None:
             externs = dict()
@@ -38,7 +38,8 @@ class DAGNode():
 
         # To be injected if all other predicates are resolved
         self.predicate_factories = set()
-        self.__is_factory = None
+
+        self.__is_factory = is_factory 
 
         self.__n_cycles = n_cycles
         self.n_ancillae = n_ancillae
@@ -438,7 +439,6 @@ class DAG(DAGNode):
                     waiting.append(ExternBind(gate))
             else:
                 active.add(DAGBind(gate))
-        self.debug_print(f"Initial Gates: {active}\nWaiting: {waiting}")
 
         # Gates that have finished, how many cycles this took, what happened in each layer
         resolved = set()
@@ -453,7 +453,6 @@ class DAG(DAGNode):
 
         # Keep running until all gates are resolved
         while len(active) > 0 or len(waiting) > 0:
-            self.debug_print(f"Active: {active}\n Waiting: {waiting}\nIdle:{idle_externs}")
 
             layers.append([])
             n_cycles += 1
@@ -525,7 +524,6 @@ class DAG(DAGNode):
 
                     # Unlock Externs For Reallocation
                     if gate.get_symbol() == RESET_SYMBOL:
-                        self.debug_print(f"RESET {gate}")
 
                         extern_bind = extern_gate_to_bind(gate)
                         extern_bind.reset()
@@ -582,17 +580,6 @@ class DAG(DAGNode):
 
             # Update the waiting list
             waiting = list(filter(lambda x: x not in active, waiting))
-
-            self.debug_print(f"""
- ####
-CYCLE {n_cycles}
-ACTIVE {active}
-WAITING {waiting}
-IDLE {idle_externs}
-CHANNELS {active_non_local_gates} / {n_channels}
-{resolved}
-####
-                             """)
 
         self.compiled_layers = layers
         return n_cycles, layers

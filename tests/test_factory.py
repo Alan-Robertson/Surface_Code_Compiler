@@ -63,4 +63,4 @@ def T_Factory_DAG(*externs, t_gate=local_Tdag, **compiler_arguments):
 
 dag = T_Factory_DAG(t_factory_l1, t_gate=T_gate(t_factory_l1))
 #dag.verbose = True
-#print(dag.compile(1, *[t_factory_l1.instantiate() for _ in range(3)])[0])
+print(dag.compile(1, *[t_factory_l1.instantiate() for _ in range(2)])[0])
