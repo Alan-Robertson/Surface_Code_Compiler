@@ -147,6 +147,12 @@ class CompiledQCB:
         '''
         return self.symbol
 
+    def discriminator(self):
+        '''
+            Gets the discriminator of the QCB symbol
+        '''
+        return self.get_symbol().discriminator()
+
     def get_obj(self):
         return self
 
