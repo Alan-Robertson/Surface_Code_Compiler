@@ -144,8 +144,6 @@ class SegmentTest(unittest.TestCase):
                 allocator = Allocator(qcb_base, factory, *externs)
             except AllocatorError:
                 pass
-   
-
 
 if __name__ == '__main__':
     unittest.main()
