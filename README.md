@@ -3,6 +3,9 @@ A compiler for the surface code for benchmarking runtimes using Litinksy's "Game
 
 The compiler takes a width and height for the number of surface code elements and treats gates as a mutual exclusion over a subset of the elements. Routing is performed using a biased A* search while the construction of the surface code itself is a linear program that (up to the vaguaries of Python) should complete in Polynomial time in the size of the surface code, and in the number of gates.  
 
+## Citations ##
+For a technical write up of the code in this repo see [arxiv.org/abs/2506.04620v1](https://arxiv.org/abs/2506.04620v1). 
+
 ## Dependencies ##
 Python >=3.10
 Numpy
